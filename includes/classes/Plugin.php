@@ -8,7 +8,10 @@
 namespace TenUp\ChangelogToBlogPost;
 
 /**
- * Main plugin class.
+ * Plugin singleton — the single entry point for all feature classes.
+ *
+ * All feature classes are instantiated exclusively from init(). No feature
+ * class should instantiate another feature class directly.
  */
 class Plugin {
 
@@ -20,7 +23,7 @@ class Plugin {
 	private static Plugin $instance;
 
 	/**
-	 * Gets the singleton instance.
+	 * Gets the singleton instance, creating and setting it up on first call.
 	 *
 	 * @return Plugin
 	 */
@@ -34,7 +37,12 @@ class Plugin {
 	}
 
 	/**
-	 * Sets up plugin hooks.
+	 * Registers core WordPress hooks.
+	 *
+	 * Called once by get_instance(). Hooks i18n to 'init' and defers
+	 * feature class instantiation to 'init' via init().
+	 *
+	 * @return void
 	 */
 	protected function setup(): void {
 		add_action( 'init', [ $this, 'i18n' ] );
@@ -42,7 +50,9 @@ class Plugin {
 	}
 
 	/**
-	 * Loads the plugin text domain.
+	 * Loads the plugin text domain for internationalisation.
+	 *
+	 * @return void
 	 */
 	public function i18n(): void {
 		load_plugin_textdomain(
@@ -53,9 +63,18 @@ class Plugin {
 	}
 
 	/**
-	 * Initializes the plugin.
+	 * Instantiates all feature classes.
+	 *
+	 * This is the single place where feature objects are created. To add a
+	 * new feature, instantiate its class here and call ->setup() on it:
+	 *
+	 *   ( new \TenUp\ChangelogToBlogPost\Feature\MyFeature() )->setup();
+	 *
+	 * Feature classes must not instantiate other feature classes.
+	 *
+	 * @return void
 	 */
 	public function init(): void {
-		// Initialize plugin components here.
+		// Feature classes will be wired here as domains are executed.
 	}
 }
