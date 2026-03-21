@@ -52,5 +52,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-20
-Stopped at: Initialization complete
-Resume file: None
+Resumed: 2026-03-21
+Stopped at: EPC-04.1 (04-github-integration/1-api-client) complete
+Resume file: .spark/epics/04-github-integration-1-api-client/SUMMARY.md
+Active work: Ready to plan/execute EPC-04.2 (04-github-integration/2-release-monitoring)
