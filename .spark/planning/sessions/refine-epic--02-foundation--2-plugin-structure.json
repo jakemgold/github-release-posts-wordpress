@@ -1,0 +1,28 @@
+{
+  "type": "refine-epic",
+  "epic": "02-foundation/2-plugin-structure",
+  "epicPath": "requirements/02-foundation/2-plugin-structure",
+  "started": "2026-03-21T00:00:00Z",
+  "updated": "2026-03-21T00:00:00Z",
+  "status": "complete",
+  "options": { "research": "none", "researchFlag": false },
+  "plan": {
+    "prds": [
+      { "slug": "plugin-structure", "name": "Plugin Structure", "status": "complete", "file": "requirements/02-foundation/2-plugin-structure/plugin-structure.prd.md" }
+    ],
+    "current": null,
+    "currentIndex": 0
+  },
+  "context": {
+    "decisions": [
+      "2026-03-21: 1 PRD — Plugin singleton, lifecycle hooks, activation defaults, cron registration, uninstall cleanup",
+      "2026-03-21: No custom database tables — all storage is wp_options and post meta",
+      "2026-03-21: Activation uses add_option (not update_option) to preserve existing values on reactivation",
+      "2026-03-21: Uninstall retains generated posts — only removes plugin options, meta, and transients"
+    ],
+    "client_inputs": [],
+    "pending_questions": [],
+    "blocked_on": null
+  },
+  "resume_hint": "Single PRD complete"
+}

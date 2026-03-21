@@ -1,0 +1,36 @@
+{
+  "type": "refine-epic",
+  "epic": "05-ai-integration/2-prompt-management",
+  "epicPath": "requirements/05-ai-integration/2-prompt-management",
+  "started": "2026-03-20T00:00:00Z",
+  "updated": "2026-03-20T00:00:00Z",
+  "status": "complete",
+  "options": {
+    "research": "none",
+    "researchFlag": false
+  },
+  "plan": {
+    "prds": [
+      { "slug": "prompt-management", "name": "Prompt Management", "status": "in_progress" }
+    ],
+    "current": "prompt-management",
+    "currentIndex": 0
+  },
+  "context": {
+    "decisions": [
+      "2026-03-20: 1 PRD covering significance classifier, prompt templates, title generation, and filter hooks",
+      "2026-03-20: Title format = [Plugin Name] [Version] — [AI-generated subtitle]; AI owns the subtitle with significance-aware guidance, plugin prepends name+version programmatically",
+      "2026-03-20: Significance signals are AI-generated guidance: patch=brief/functional, minor=highlight 1-2 improvements, major=lead with headline feature, security=always lead with 'Security update'",
+      "2026-03-20: Post audience = general site owners primary; developer content included but clearly sectioned (e.g. 'For developers, changes included...')",
+      "2026-03-20: Post length = fluid based on content; single paragraph for tiny updates, up to ~7 paragraphs max",
+      "2026-03-20: Images = v1 includes release body images + draft mode placeholder blocks; linked ticket/PR images deferred to v2",
+      "2026-03-20: Download link priority = custom URL (per-repo) → WordPress.org slug (per-repo, if provided) → GitHub release URL",
+      "2026-03-20: Non-semver tags = default to minor significance + log a debug note",
+      "2026-03-20: Security fix = always treated as at least minor significance regardless of semver patch level"
+    ],
+    "client_inputs": [],
+    "pending_questions": [],
+    "blocked_on": null
+  },
+  "resume_hint": "Writing single PRD: Prompt Management"
+}

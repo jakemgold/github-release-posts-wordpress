@@ -1,0 +1,28 @@
+{
+  "type": "refine-epic",
+  "epic": "01-devops/1-local-setup",
+  "epicPath": "requirements/01-devops/1-local-setup",
+  "started": "2026-03-21T00:00:00Z",
+  "updated": "2026-03-21T00:00:00Z",
+  "status": "complete",
+  "options": { "research": "none", "researchFlag": false },
+  "plan": {
+    "prds": [
+      { "slug": "local-setup", "name": "Local Setup", "status": "complete", "file": "requirements/01-devops/1-local-setup/local-setup.prd.md" }
+    ],
+    "current": null,
+    "currentIndex": 0
+  },
+  "context": {
+    "decisions": [
+      "2026-03-21: 1 PRD — Local by Flywheel, plugin placement, dependencies, test runners, README docs",
+      "2026-03-21: Local by Flywheel is the standard — no other environments documented",
+      "2026-03-21: WP_DEBUG + WP_DEBUG_LOG must be enabled locally",
+      "2026-03-21: No CI/CD — deferred for v1"
+    ],
+    "client_inputs": [],
+    "pending_questions": [],
+    "blocked_on": null
+  },
+  "resume_hint": "Single PRD complete"
+}

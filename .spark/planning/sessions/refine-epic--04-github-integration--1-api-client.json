@@ -1,0 +1,28 @@
+{
+  "type": "refine-epic",
+  "epic": "04-github-integration/1-api-client",
+  "epicPath": "requirements/04-github-integration/1-api-client",
+  "started": "2026-03-20T00:00:00Z",
+  "updated": "2026-03-20T00:00:00Z",
+  "status": "complete",
+  "options": {
+    "research": "none",
+    "researchFlag": false
+  },
+  "plan": {
+    "prds": [
+      { "slug": "github-api-client", "name": "GitHub API Client", "status": "in_progress" }
+    ],
+    "current": "github-api-client",
+    "currentIndex": 0
+  },
+  "context": {
+    "decisions": [
+      "2026-03-20: Single PRD — GitHub API Client — covers full client behavior including value object"
+    ],
+    "client_inputs": [],
+    "pending_questions": [],
+    "blocked_on": null
+  },
+  "resume_hint": "Gathering requirements for GitHub API Client PRD"
+}

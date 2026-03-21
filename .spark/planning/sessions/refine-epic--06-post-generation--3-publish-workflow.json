@@ -1,0 +1,28 @@
+{
+  "type": "refine-epic",
+  "epic": "06-post-generation/3-publish-workflow",
+  "epicPath": "requirements/06-post-generation/3-publish-workflow",
+  "started": "2026-03-21T00:00:00Z",
+  "updated": "2026-03-21T00:00:00Z",
+  "status": "complete",
+  "options": { "research": "none", "researchFlag": false },
+  "plan": {
+    "prds": [
+      { "slug": "publish-workflow", "name": "Publish Workflow", "status": "complete", "file": "requirements/06-post-generation/3-publish-workflow/publish-workflow.prd.md" }
+    ],
+    "current": null,
+    "currentIndex": 0
+  },
+  "context": {
+    "decisions": [
+      "2026-03-21: 1 PRD — post status from settings, admin notice summary, filter hook",
+      "2026-03-21: Post date = current time only, no backdating to release date",
+      "2026-03-21: Admin notice is dismissible and does not stack unboundedly across runs",
+      "2026-03-21: Onboarding preview drafts bypass this layer (always draft at creation)"
+    ],
+    "client_inputs": [],
+    "pending_questions": [],
+    "blocked_on": null
+  },
+  "resume_hint": "Single PRD complete"
+}

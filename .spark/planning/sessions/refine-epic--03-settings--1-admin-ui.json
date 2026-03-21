@@ -1,0 +1,31 @@
+{
+  "type": "refine-epic",
+  "epic": "03-settings/1-admin-ui",
+  "epicPath": "requirements/03-settings/1-admin-ui",
+  "started": "2026-03-20T00:00:00Z",
+  "updated": "2026-03-20T00:00:00Z",
+  "status": "complete",
+  "options": {
+    "research": "none",
+    "researchFlag": false
+  },
+  "plan": {
+    "prds": [
+      { "slug": "admin-page", "name": "Admin Page", "status": "complete", "file": "requirements/03-settings/1-admin-ui/admin-page.prd.md" }
+    ],
+    "current": null,
+    "currentIndex": 0
+  },
+  "context": {
+    "decisions": [
+      "2026-03-20: 1 PRD — full admin page shell (menu, tabs, assets, nonce, AJAX)",
+      "2026-03-20: Page lives under Tools menu (not Settings, not top-level)",
+      "2026-03-20: Tabbed layout — Repositories tab and Settings tab",
+      "2026-03-20: JS enhances but does not gate core functionality (progressive enhancement)"
+    ],
+    "client_inputs": [],
+    "pending_questions": [],
+    "blocked_on": null
+  },
+  "resume_hint": "Single PRD complete"
+}

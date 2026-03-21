@@ -1,0 +1,35 @@
+{
+  "type": "refine-epic",
+  "epic": "05-ai-integration/1-service-connectors",
+  "epicPath": "requirements/05-ai-integration/1-service-connectors",
+  "started": "2026-03-20T00:00:00Z",
+  "updated": "2026-03-20T00:00:00Z",
+  "status": "complete",
+  "options": {
+    "research": "none",
+    "researchFlag": false
+  },
+  "plan": {
+    "prds": [
+      { "slug": "ai-provider-interface", "name": "AI Provider Interface", "status": "in_progress" },
+      { "slug": "ai-provider-implementations", "name": "AI Provider Implementations", "status": "pending" }
+    ],
+    "current": "ai-provider-interface",
+    "currentIndex": 0
+  },
+  "context": {
+    "decisions": [
+      "2026-03-20: 2 PRDs — interface/factory/cache first, then concrete connectors",
+      "2026-03-20: Tier 1 providers = OpenAI, Anthropic, Gemini (direct API keys)",
+      "2026-03-20: Tier 2 = ClassifAI integration (if active), WordPress AI API stub",
+      "2026-03-20: Model selection = hardcoded sensible defaults per provider, updated with plugin releases, filterable + custom model field for power users",
+      "2026-03-20: Free tier = not built-in; Groq etc. available via registration hook",
+      "2026-03-20: Failure fallback v1 = skip + retry on next cron, persistent admin notice after 3 consecutive failures for same release",
+      "2026-03-20: Registration hook = changelog_to_blog_post_register_providers for community-added providers"
+    ],
+    "client_inputs": [],
+    "pending_questions": [],
+    "blocked_on": null
+  },
+  "resume_hint": "Writing PRD 1 of 2: AI Provider Interface"
+}
