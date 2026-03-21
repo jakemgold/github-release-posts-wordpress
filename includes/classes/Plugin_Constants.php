@@ -84,6 +84,22 @@ class Plugin_Constants {
 	const OPTION_NOTIFICATIONS_ENABLED = 'changelog_to_blog_post_notifications_enabled';
 
 	// -------------------------------------------------------------------------
+	// Release monitoring option keys
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Prefix for per-repo release state options.
+	 * Full key: OPTION_REPO_STATE_PREFIX . md5( 'owner/repo' )
+	 */
+	const OPTION_REPO_STATE_PREFIX = 'ctbp_repo_state_';
+
+	/**
+	 * In-process queue of newly detected releases pending AI generation.
+	 * Stored as a serialised array; cleared after each cron run.
+	 */
+	const OPTION_RELEASE_QUEUE = 'ctbp_release_queue';
+
+	// -------------------------------------------------------------------------
 	// Transient keys
 	// -------------------------------------------------------------------------
 
@@ -162,6 +178,7 @@ class Plugin_Constants {
 			self::OPTION_NOTIFICATION_TRIGGER        => 'draft',
 			self::OPTION_NOTIFICATIONS_ENABLED       => true,
 			self::OPTION_GITHUB_PAT                  => '',
+			self::OPTION_RELEASE_QUEUE               => [],
 		];
 	}
 }
