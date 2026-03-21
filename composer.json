@@ -1,0 +1,41 @@
+{
+	"name": "10up/changelog-to-blog-post",
+	"description": "Convert changelog entries into WordPress blog posts.",
+	"type": "wordpress-plugin",
+	"license": "GPL-2.0-or-later",
+	"require": {
+		"php": ">=8.0"
+	},
+	"require-dev": {
+		"10up/wp_mock": "*",
+		"phpunit/phpunit": "^9.0",
+		"squizlabs/php_codesniffer": "^3.0",
+		"wp-coding-standards/wpcs": "^3.0",
+		"phpcsstandards/phpcsutils": "*",
+		"phpstan/phpstan": "^1.0",
+		"szepeviktor/phpstan-wordpress": "^1.0"
+	},
+	"autoload": {
+		"psr-4": {
+			"TenUp\\ChangelogToBlogPost\\": "includes/classes/"
+		}
+	},
+	"autoload-dev": {
+		"psr-4": {
+			"TenUp\\ChangelogToBlogPost\\Tests\\": "tests/php/"
+		}
+	},
+	"scripts": {
+		"test": "phpunit",
+		"phpcs": "phpcs",
+		"phpcbf": "phpcbf",
+		"phpstan": "phpstan analyse"
+	},
+	"config": {
+		"optimize-autoloader": true,
+		"sort-packages": true,
+		"allow-plugins": {
+			"dealerdirect/phpcodesniffer-composer-installer": true
+		}
+	}
+}

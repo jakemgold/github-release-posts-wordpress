@@ -1,0 +1,46 @@
+<?xml version="1.0"?>
+<ruleset name="Changelog to Blog Post">
+	<description>PHP_CodeSniffer ruleset for the Changelog to Blog Post plugin.</description>
+
+	<!-- Files to check -->
+	<file>changelog-to-blog-post.php</file>
+	<file>uninstall.php</file>
+	<file>includes/</file>
+
+	<!-- Exclusions -->
+	<exclude-pattern>*/vendor/*</exclude-pattern>
+	<exclude-pattern>*/node_modules/*</exclude-pattern>
+	<exclude-pattern>*/tests/*</exclude-pattern>
+
+	<!-- WordPress Coding Standards -->
+	<rule ref="WordPress-Core"/>
+	<rule ref="WordPress-Docs"/>
+	<rule ref="WordPress-Extra"/>
+
+	<!-- Enforce minimum PHP version -->
+	<config name="minimum_supported_wp_version" value="6.4"/>
+	<config name="testVersion" value="8.0-"/>
+
+	<!-- Set the correct text domain -->
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array">
+				<element value="changelog-to-blog-post"/>
+			</property>
+		</properties>
+	</rule>
+
+	<!-- Allow short array syntax -->
+	<rule ref="Generic.Arrays.DisallowLongArraySyntax"/>
+
+	<!-- Namespaced code — prefix check not needed -->
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+		<properties>
+			<property name="prefixes" type="array">
+				<element value="TenUp\ChangelogToBlogPost"/>
+				<element value="changelog_to_blog_post"/>
+				<element value="CHANGELOG_TO_BLOG_POST"/>
+			</property>
+		</properties>
+	</rule>
+</ruleset>
