@@ -24,12 +24,12 @@ class Release {
 	 * @param array[] $assets       Array of release asset objects from the API.
 	 */
 	public function __construct(
-		public readonly string $tag,
-		public readonly string $name,
-		public readonly string $body,
-		public readonly string $published_at,
-		public readonly string $html_url,
-		public readonly array $assets,
+		public string $tag,
+		public string $name,
+		public string $body,
+		public string $published_at,
+		public string $html_url,
+		public array $assets,
 	) {}
 
 	/**

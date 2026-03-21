@@ -28,7 +28,7 @@ class API_Client {
 	 * @param Global_Settings $settings Plugin settings service (provides PAT and version).
 	 */
 	public function __construct(
-		private readonly Global_Settings $settings,
+		private Global_Settings $settings,
 	) {}
 
 	/**
@@ -156,9 +156,9 @@ class API_Client {
 	 * a WP_Error so the caller can stop processing further repos (AC-010, AC-011).
 	 *
 	 * @param array|\WP_Error $response wp_remote_get() response.
-	 * @return true|\WP_Error True if within limit; WP_Error if exhausted.
+	 * @return bool|\WP_Error True if within limit; WP_Error if exhausted.
 	 */
-	private function handle_rate_limit( array|\WP_Error $response ): true|\WP_Error {
+	private function handle_rate_limit( array|\WP_Error $response ): bool|\WP_Error {
 		$remaining = wp_remote_retrieve_header( $response, 'x-ratelimit-remaining' );
 
 		if ( $remaining === '' ) {
