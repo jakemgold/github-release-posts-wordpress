@@ -60,7 +60,7 @@ class Admin_Page {
 	public function setup(): void {
 		add_action( 'admin_menu', [ $this, 'register_menu_page' ] );
 		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_assets' ] );
-		add_action( 'init', [ $this, 'register_ajax_actions' ] );
+		add_action( 'rest_api_init', [ $this, 'register_rest_routes' ] );
 	}
 
 	/**
@@ -108,9 +108,9 @@ class Admin_Page {
 			'changelog-to-blog-post-admin-js',
 			'ctbpAdmin',
 			[
-				'ajaxUrl' => admin_url( 'admin-ajax.php' ),
-				'nonce'   => wp_create_nonce( 'ctbp_admin_nonce' ),
-				'i18n'    => [
+				'restUrl'   => get_rest_url( null, 'ctbp/v1' ),
+				'restNonce' => wp_create_nonce( 'wp_rest' ),
+				'i18n'      => [
 					'unsavedChanges'    => __( 'You have unsaved changes. Are you sure you want to leave this tab?', 'changelog-to-blog-post' ),
 					'confirmRemove'     => __( 'Are you sure you want to remove this repository? This cannot be undone.', 'changelog-to-blog-post' ),
 					'validating'        => __( 'Validating…', 'changelog-to-blog-post' ),
@@ -130,15 +130,98 @@ class Admin_Page {
 	}
 
 	/**
-	 * Registers AJAX action handlers.
+	 * Registers REST API routes for plugin operations.
+	 *
+	 * Hooked to rest_api_init. All routes require the manage_options capability.
 	 *
 	 * @return void
 	 */
-	public function register_ajax_actions(): void {
-		add_action( 'wp_ajax_ctbp_generate_draft_now', [ $this, 'ajax_generate_draft_now' ] );
-		add_action( 'wp_ajax_ctbp_resolve_conflict', [ $this, 'ajax_resolve_conflict' ] );
-		add_action( 'wp_ajax_ctbp_test_ai_connection', [ $this, 'ajax_test_ai_connection' ] );
-		add_action( 'wp_ajax_ctbp_validate_wporg_slug', [ $this, 'ajax_validate_wporg_slug' ] );
+	public function register_rest_routes(): void {
+		register_rest_route(
+			'ctbp/v1',
+			'/releases/generate-draft',
+			[
+				'methods'             => \WP_REST_Server::CREATABLE,
+				'callback'            => [ $this, 'rest_generate_draft' ],
+				'permission_callback' => [ $this, 'rest_permission_check' ],
+				'args'                => [
+					'repo' => [
+						'required'          => true,
+						'type'              => 'string',
+						'sanitize_callback' => 'sanitize_text_field',
+					],
+				],
+			]
+		);
+
+		register_rest_route(
+			'ctbp/v1',
+			'/releases/resolve-conflict',
+			[
+				'methods'             => \WP_REST_Server::CREATABLE,
+				'callback'            => [ $this, 'rest_resolve_conflict' ],
+				'permission_callback' => [ $this, 'rest_permission_check' ],
+				'args'                => [
+					'repo'       => [
+						'required'          => true,
+						'type'              => 'string',
+						'sanitize_callback' => 'sanitize_text_field',
+					],
+					'resolution' => [
+						'required' => true,
+						'type'     => 'string',
+						'enum'     => [ 'replace', 'alongside' ],
+					],
+					'post_id'    => [
+						'type'    => 'integer',
+						'default' => 0,
+					],
+				],
+			]
+		);
+
+		register_rest_route(
+			'ctbp/v1',
+			'/ai/test-connection',
+			[
+				'methods'             => \WP_REST_Server::READABLE,
+				'callback'            => [ $this, 'rest_test_ai_connection' ],
+				'permission_callback' => [ $this, 'rest_permission_check' ],
+			]
+		);
+
+		register_rest_route(
+			'ctbp/v1',
+			'/wporg/validate',
+			[
+				'methods'             => \WP_REST_Server::READABLE,
+				'callback'            => [ $this, 'rest_validate_wporg_slug' ],
+				'permission_callback' => [ $this, 'rest_permission_check' ],
+				'args'                => [
+					'slug' => [
+						'required'          => true,
+						'type'              => 'string',
+						'sanitize_callback' => 'sanitize_text_field',
+					],
+				],
+			]
+		);
+	}
+
+	/**
+	 * Permission callback shared by all plugin REST routes.
+	 *
+	 * @return bool|\WP_Error
+	 */
+	public function rest_permission_check(): bool|\WP_Error {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return new \WP_Error(
+				'ctbp_forbidden',
+				__( 'You do not have permission to perform this action.', 'changelog-to-blog-post' ),
+				[ 'status' => 403 ]
+			);
+		}
+		return true;
 	}
 
 	/**
@@ -293,7 +376,6 @@ class Admin_Page {
 		$api_keys = [
 			'openai'    => wp_unslash( $_POST['ctbp_api_key_openai'] ?? '' ),
 			'anthropic' => wp_unslash( $_POST['ctbp_api_key_anthropic'] ?? '' ),
-			'gemini'    => wp_unslash( $_POST['ctbp_api_key_gemini'] ?? '' ),
 		];
 		$this->global_settings->save_api_keys( $api_keys );
 
@@ -334,42 +416,32 @@ class Admin_Page {
 	}
 
 	/**
-	 * AJAX handler: generates a draft post for the latest release of a repository.
+	 * REST handler: generates a draft post for the latest release of a repository.
 	 *
 	 * Returns conflict data when a post already exists for the tag (BR-003),
-	 * otherwise fires ctbp_process_release and returns the result.
+	 * otherwise fires ctbp_process_release and returns the created post.
 	 *
-	 * @return void
+	 * @param \WP_REST_Request $request
+	 * @return \WP_REST_Response|\WP_Error
 	 */
-	public function ajax_generate_draft_now(): void {
-		check_ajax_referer( 'ctbp_admin_nonce', 'nonce' );
-
-		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_send_json_error( [ 'message' => __( 'Insufficient permissions.', 'changelog-to-blog-post' ) ], 403 );
-		}
-
-		$identifier = sanitize_text_field( wp_unslash( $_POST['repo'] ?? '' ) );
-
-		if ( $identifier === '' ) {
-			wp_send_json_error( [ 'message' => __( 'Missing repository identifier.', 'changelog-to-blog-post' ) ] );
-		}
-
+	public function rest_generate_draft( \WP_REST_Request $request ): \WP_REST_Response|\WP_Error {
+		$identifier = $request->get_param( 'repo' );
 		$api_client = new API_Client( $this->global_settings );
 		$release    = $api_client->fetch_latest_release( $identifier );
 
 		if ( is_wp_error( $release ) ) {
-			wp_send_json_error( [ 'message' => $release->get_error_message() ] );
+			return new \WP_Error( $release->get_error_code(), $release->get_error_message(), [ 'status' => 400 ] );
 		}
 
 		if ( $release === null ) {
-			wp_send_json_error( [ 'message' => __( 'No releases found for this repository.', 'changelog-to-blog-post' ) ] );
+			return new \WP_Error( 'ctbp_no_release', __( 'No releases found for this repository.', 'changelog-to-blog-post' ), [ 'status' => 404 ] );
 		}
 
-		// Check for existing post — offer conflict resolution (BR-003, AC-020, AC-021).
+		// Check for existing post — offer conflict resolution (BR-003).
 		$existing = Release_Monitor::find_post( $identifier, $release->tag );
 
 		if ( $existing instanceof \WP_Post ) {
-			wp_send_json_success(
+			return new \WP_REST_Response(
 				[
 					'conflict' => true,
 					'post'     => [
@@ -378,7 +450,8 @@ class Admin_Page {
 						'status'   => $existing->post_status,
 						'edit_url' => get_edit_post_link( $existing->ID, 'raw' ),
 					],
-				]
+				],
+				200
 			);
 		}
 
@@ -400,7 +473,7 @@ class Admin_Page {
 		$post = Release_Monitor::find_post( $identifier, $release->tag );
 
 		if ( $post instanceof \WP_Post ) {
-			wp_send_json_success(
+			return new \WP_REST_Response(
 				[
 					'conflict' => false,
 					'post'     => [
@@ -409,51 +482,44 @@ class Admin_Page {
 						'status'   => $post->post_status,
 						'edit_url' => get_edit_post_link( $post->ID, 'raw' ),
 					],
-				]
+				],
+				201
 			);
 		}
 
-		// DOM-05/06 not yet implemented — no post was created.
-		wp_send_json_error( [ 'message' => __( 'Draft could not be generated. Configure an AI provider in the Settings tab and try again.', 'changelog-to-blog-post' ) ] );
+		return new \WP_Error(
+			'ctbp_generation_failed',
+			__( 'Draft could not be generated. Configure an AI provider in the Settings tab and try again.', 'changelog-to-blog-post' ),
+			[ 'status' => 422 ]
+		);
 	}
 
 	/**
-	 * AJAX handler: resolves a duplicate-post conflict for "Generate draft now".
+	 * REST handler: resolves a duplicate-post conflict for "Generate draft now".
 	 *
-	 * Accepts action=replace (deletes existing post, then re-fires generation)
-	 * or action=alongside (fires generation without deleting the existing post).
-	 * cancel is handled client-side and never reaches this handler.
+	 * Accepts resolution=replace (deletes existing post, then re-fires generation)
+	 * or resolution=alongside (fires generation without deleting the existing post).
 	 *
-	 * @return void
+	 * @param \WP_REST_Request $request
+	 * @return \WP_REST_Response|\WP_Error
 	 */
-	public function ajax_resolve_conflict(): void {
-		check_ajax_referer( 'ctbp_admin_nonce', 'nonce' );
-
-		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_send_json_error( [ 'message' => __( 'Insufficient permissions.', 'changelog-to-blog-post' ) ], 403 );
-		}
-
-		$identifier     = sanitize_text_field( wp_unslash( $_POST['repo'] ?? '' ) );
-		$resolution     = sanitize_key( wp_unslash( $_POST['resolution'] ?? '' ) );
-		$existing_post_id = absint( $_POST['post_id'] ?? 0 );
-
-		if ( $identifier === '' || ! in_array( $resolution, [ 'replace', 'alongside' ], true ) ) {
-			wp_send_json_error( [ 'message' => __( 'Invalid request.', 'changelog-to-blog-post' ) ] );
-		}
+	public function rest_resolve_conflict( \WP_REST_Request $request ): \WP_REST_Response|\WP_Error {
+		$identifier       = $request->get_param( 'repo' );
+		$resolution       = $request->get_param( 'resolution' );
+		$existing_post_id = (int) $request->get_param( 'post_id' );
 
 		$api_client = new API_Client( $this->global_settings );
 		$release    = $api_client->fetch_latest_release( $identifier );
 
 		if ( is_wp_error( $release ) ) {
-			wp_send_json_error( [ 'message' => $release->get_error_message() ] );
+			return new \WP_Error( $release->get_error_code(), $release->get_error_message(), [ 'status' => 400 ] );
 		}
 
 		if ( $release === null ) {
-			wp_send_json_error( [ 'message' => __( 'No releases found for this repository.', 'changelog-to-blog-post' ) ] );
+			return new \WP_Error( 'ctbp_no_release', __( 'No releases found for this repository.', 'changelog-to-blog-post' ), [ 'status' => 404 ] );
 		}
 
 		if ( 'replace' === $resolution && $existing_post_id > 0 ) {
-			// Permanently delete the existing post before generating a new one (AC-022).
 			wp_delete_post( $existing_post_id, true );
 		}
 
@@ -472,7 +538,7 @@ class Admin_Page {
 		$post = Release_Monitor::find_post( $identifier, $release->tag );
 
 		if ( $post instanceof \WP_Post ) {
-			wp_send_json_success(
+			return new \WP_REST_Response(
 				[
 					'post' => [
 						'id'       => $post->ID,
@@ -480,66 +546,59 @@ class Admin_Page {
 						'status'   => $post->post_status,
 						'edit_url' => get_edit_post_link( $post->ID, 'raw' ),
 					],
-				]
+				],
+				201
 			);
 		}
 
-		wp_send_json_error( [ 'message' => __( 'Draft could not be generated. Configure an AI provider in the Settings tab and try again.', 'changelog-to-blog-post' ) ] );
+		return new \WP_Error(
+			'ctbp_generation_failed',
+			__( 'Draft could not be generated. Configure an AI provider in the Settings tab and try again.', 'changelog-to-blog-post' ),
+			[ 'status' => 422 ]
+		);
 	}
 
 	/**
-	 * AJAX handler: tests the active AI provider connection.
+	 * REST handler: tests the active AI provider connection.
 	 *
-	 * Returns JSON success with a confirmation message, or JSON error with
-	 * a diagnostic message the site owner can act on.
-	 *
-	 * @return void
+	 * @param \WP_REST_Request $request
+	 * @return \WP_REST_Response|\WP_Error
 	 */
-	public function ajax_test_ai_connection(): void {
-		check_ajax_referer( 'ctbp_admin_nonce', 'nonce' );
-
-		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_send_json_error( [ 'message' => __( 'Insufficient permissions.', 'changelog-to-blog-post' ) ], 403 );
-		}
-
+	public function rest_test_ai_connection( \WP_REST_Request $request ): \WP_REST_Response|\WP_Error {
 		$factory  = new \TenUp\ChangelogToBlogPost\AI\AI_Provider_Factory( $this->global_settings );
 		$provider = $factory->get_provider();
 
 		if ( is_wp_error( $provider ) ) {
-			wp_send_json_error( [ 'message' => $provider->get_error_message() ] );
+			return new \WP_Error( $provider->get_error_code(), $provider->get_error_message(), [ 'status' => 400 ] );
 		}
 
 		$result = $provider->test_connection();
 
 		if ( is_wp_error( $result ) ) {
-			wp_send_json_error( [ 'message' => $result->get_error_message() ] );
+			return new \WP_Error( $result->get_error_code(), $result->get_error_message(), [ 'status' => 400 ] );
 		}
 
-		wp_send_json_success( [
-			'message' => sprintf(
-				/* translators: %s: AI provider display label */
-				__( 'Connection to %s successful.', 'changelog-to-blog-post' ),
-				$provider->get_label()
-			),
-		] );
+		return new \WP_REST_Response(
+			[
+				'message' => sprintf(
+					/* translators: %s: AI provider display label */
+					__( 'Connection to %s successful.', 'changelog-to-blog-post' ),
+					$provider->get_label()
+				),
+			],
+			200
+		);
 	}
 
 	/**
-	 * AJAX handler: validates a WordPress.org plugin slug.
+	 * REST handler: validates a WordPress.org plugin slug.
 	 *
-	 * @return void
+	 * @param \WP_REST_Request $request
+	 * @return \WP_REST_Response
 	 */
-	public function ajax_validate_wporg_slug(): void {
-		check_ajax_referer( 'ctbp_admin_nonce', 'nonce' );
-
-		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_send_json_error( [ 'message' => __( 'Insufficient permissions.', 'changelog-to-blog-post' ) ], 403 );
-		}
-
-		$slug   = sanitize_text_field( wp_unslash( $_POST['slug'] ?? '' ) );
-		$result = $this->repo_settings->validate_wporg_slug( $slug );
-
-		wp_send_json_success( $result );
+	public function rest_validate_wporg_slug( \WP_REST_Request $request ): \WP_REST_Response {
+		$result = $this->repo_settings->validate_wporg_slug( $request->get_param( 'slug' ) );
+		return new \WP_REST_Response( $result, 200 );
 	}
 
 	/**
