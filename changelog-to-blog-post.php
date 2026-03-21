@@ -54,3 +54,6 @@ function changelog_to_blog_post() {
 }
 
 add_action( 'plugins_loaded', __NAMESPACE__ . '\changelog_to_blog_post' );
+
+register_activation_hook( __FILE__, [ 'TenUp\ChangelogToBlogPost\Activator', 'activate' ] );
+register_deactivation_hook( __FILE__, [ 'TenUp\ChangelogToBlogPost\Activator', 'deactivate' ] );
