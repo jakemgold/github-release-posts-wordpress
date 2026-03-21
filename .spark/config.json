@@ -139,8 +139,8 @@
     "epics_total": 12,
     "prds_total": 16,
     "prds_approved": 16,
-    "epics_active": 2,
-    "epics_complete": 0,
+    "epics_active": 0,
+    "epics_complete": 4,
     "features_validated": 0
   }
 }

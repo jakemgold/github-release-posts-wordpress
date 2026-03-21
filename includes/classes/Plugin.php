@@ -75,6 +75,6 @@ class Plugin {
 	 * @return void
 	 */
 	public function init(): void {
-		// Feature classes will be wired here as domains are executed.
+		( new \TenUp\ChangelogToBlogPost\Admin\Admin_Page() )->setup();
 	}
 }
