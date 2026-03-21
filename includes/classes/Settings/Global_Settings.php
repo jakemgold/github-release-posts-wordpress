@@ -25,14 +25,14 @@ class Global_Settings {
 	const MASKED_PLACEHOLDER = '••••••••';
 
 	/**
-	 * Supported AI provider identifiers.
+	 * Supported AI provider identifiers (v1).
+	 *
+	 * 'wp_ai_client' — WordPress AI Services plugin (recommended for non-technical users).
+	 * 'openai'       — Direct OpenAI API key.
+	 * 'anthropic'    — Direct Anthropic API key.
 	 */
-	const SUPPORTED_PROVIDERS = [ 'openai', 'anthropic', 'gemini', 'classifai', 'wordpress_ai' ];
+	const SUPPORTED_PROVIDERS = [ 'wp_ai_client', 'openai', 'anthropic' ];
 
-	/**
-	 * Valid check-frequency values (match WordPress cron schedule names).
-	 */
-	const VALID_FREQUENCIES = [ 'hourly', 'twicedaily', 'daily', 'weekly' ];
 
 	// -------------------------------------------------------------------------
 	// AI Provider
@@ -80,7 +80,7 @@ class Global_Settings {
 		}
 
 		$keys = [];
-		foreach ( [ 'openai', 'anthropic', 'gemini' ] as $provider ) {
+		foreach ( [ 'openai', 'anthropic' ] as $provider ) {
 			$keys[ $provider ] = isset( $encrypted[ $provider ] )
 				? $this->decrypt( (string) $encrypted[ $provider ] )
 				: '';
@@ -101,7 +101,7 @@ class Global_Settings {
 			$existing = [];
 		}
 
-		foreach ( [ 'openai', 'anthropic', 'gemini' ] as $provider ) {
+		foreach ( [ 'openai', 'anthropic' ] as $provider ) {
 			if ( ! isset( $keys[ $provider ] ) ) {
 				continue;
 			}
@@ -241,37 +241,64 @@ class Global_Settings {
 	}
 
 	// -------------------------------------------------------------------------
+	// Custom Model IDs
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Returns the per-provider custom model IDs set by the site owner.
+	 *
+	 * An empty string for a provider means "use the plugin default / filter value".
+	 *
+	 * @return array<string, string> Map of provider slug => custom model ID.
+	 */
+	public function get_custom_models(): array {
+		$stored = (array) get_option( Plugin_Constants::OPTION_AI_CUSTOM_MODELS, [] );
+		return [
+			'openai'    => (string) ( $stored['openai'] ?? '' ),
+			'anthropic' => (string) ( $stored['anthropic'] ?? '' ),
+		];
+	}
+
+	/**
+	 * Saves per-provider custom model IDs.
+	 *
+	 * Pass an empty string for a provider to revert to the plugin default.
+	 *
+	 * @param array<string, string> $models Map of provider slug => custom model ID.
+	 * @return bool Whether the option was updated.
+	 */
+	public function save_custom_models( array $models ): bool {
+		$existing = (array) get_option( Plugin_Constants::OPTION_AI_CUSTOM_MODELS, [] );
+
+		foreach ( [ 'openai', 'anthropic' ] as $provider ) {
+			if ( array_key_exists( $provider, $models ) ) {
+				$value = trim( (string) $models[ $provider ] );
+				if ( '' === $value ) {
+					unset( $existing[ $provider ] );
+				} else {
+					$existing[ $provider ] = $value;
+				}
+			}
+		}
+
+		return (bool) update_option( Plugin_Constants::OPTION_AI_CUSTOM_MODELS, $existing );
+	}
+
+	// -------------------------------------------------------------------------
 	// Check Frequency
 	// -------------------------------------------------------------------------
 
 	/**
-	 * Returns the current release-check cron frequency.
+	 * Returns the release-check cron frequency.
 	 *
-	 * @return string One of 'hourly', 'twicedaily', 'daily', 'weekly'.
+	 * Defaults to 'daily'. Developers can override via the `ctbp_check_frequency`
+	 * filter — return any valid WP-Cron schedule name (e.g. 'hourly', 'twicedaily',
+	 * 'daily', 'weekly').
+	 *
+	 * @return string WP-Cron schedule name.
 	 */
 	public function get_check_frequency(): string {
-		$freq = (string) get_option( Plugin_Constants::OPTION_CHECK_INTERVAL, 'daily' );
-		return in_array( $freq, self::VALID_FREQUENCIES, true ) ? $freq : 'daily';
-	}
-
-	/**
-	 * Saves the cron frequency and immediately reschedules the release-check event.
-	 *
-	 * @param string $frequency New frequency value.
-	 * @return bool Whether the save and reschedule succeeded.
-	 */
-	public function save_check_frequency( string $frequency ): bool {
-		if ( ! in_array( $frequency, self::VALID_FREQUENCIES, true ) ) {
-			return false;
-		}
-
-		update_option( Plugin_Constants::OPTION_CHECK_INTERVAL, $frequency );
-
-		// Reschedule: clear the existing event and register a new one with the updated interval.
-		wp_clear_scheduled_hook( Plugin_Constants::CRON_HOOK_RELEASE_CHECK );
-		wp_schedule_event( time(), $frequency, Plugin_Constants::CRON_HOOK_RELEASE_CHECK );
-
-		return true;
+		return (string) apply_filters( 'ctbp_check_frequency', 'daily' );
 	}
 
 	// -------------------------------------------------------------------------

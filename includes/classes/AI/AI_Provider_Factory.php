@@ -1,0 +1,126 @@
+<?php
+/**
+ * Resolves and returns the active AI provider connector.
+ *
+ * @package ChangelogToBlogPost\AI
+ */
+
+namespace TenUp\ChangelogToBlogPost\AI;
+
+use TenUp\ChangelogToBlogPost\AI\Connectors\Anthropic_Connector;
+use TenUp\ChangelogToBlogPost\AI\Connectors\OpenAI_Connector;
+use TenUp\ChangelogToBlogPost\AI\Connectors\WP_AI_Client_Connector;
+use TenUp\ChangelogToBlogPost\Settings\Global_Settings;
+
+/**
+ * Instantiates the correct AI provider connector based on plugin settings.
+ *
+ * Third-party developers can add custom providers via the
+ * `ctbp_register_ai_providers` filter.
+ */
+class AI_Provider_Factory {
+
+	/**
+	 * @param Global_Settings $settings Plugin settings service.
+	 */
+	public function __construct( private readonly Global_Settings $settings ) {}
+
+	/**
+	 * Returns the active provider connector, or WP_Error if none is usable.
+	 *
+	 * @return AIProviderInterface|\WP_Error
+	 */
+	public function get_provider(): AIProviderInterface|\WP_Error {
+		$slug = $this->settings->get_ai_provider();
+
+		if ( '' === $slug ) {
+			return new \WP_Error(
+				'ctbp_no_provider',
+				__( 'No AI provider is configured. Please select a provider in the plugin settings.', 'changelog-to-blog-post' )
+			);
+		}
+
+		$providers = $this->get_registered_providers();
+
+		if ( ! isset( $providers[ $slug ] ) ) {
+			return new \WP_Error(
+				'ctbp_unknown_provider',
+				sprintf(
+					/* translators: %s: provider slug */
+					__( 'AI provider "%s" is not registered. It may have been deactivated.', 'changelog-to-blog-post' ),
+					$slug
+				)
+			);
+		}
+
+		return $providers[ $slug ];
+	}
+
+	/**
+	 * Returns whether a usable provider is currently configured.
+	 *
+	 * @return bool
+	 */
+	public function is_configured(): bool {
+		return '' !== $this->settings->get_ai_provider();
+	}
+
+	/**
+	 * Returns all available providers as slug => label pairs for the settings UI.
+	 *
+	 * @return array<string, string> Map of provider slug => display label.
+	 */
+	public function get_available_providers(): array {
+		$labels = [];
+		foreach ( $this->get_registered_providers() as $slug => $provider ) {
+			$labels[ $slug ] = $provider->get_label();
+		}
+		return $labels;
+	}
+
+	/**
+	 * Builds the full map of registered providers (built-in + community).
+	 *
+	 * Fires the `ctbp_register_ai_providers` filter so third-party code can add
+	 * custom providers. Any registered value that does not implement
+	 * AIProviderInterface is rejected with an error_log warning.
+	 *
+	 * @return array<string, AIProviderInterface>
+	 */
+	private function get_registered_providers(): array {
+		$providers = [
+			'wp_ai_client' => new WP_AI_Client_Connector(),
+			'openai'       => new OpenAI_Connector( $this->settings ),
+			'anthropic'    => new Anthropic_Connector( $this->settings ),
+		];
+
+		/**
+		 * Filters the registered AI providers.
+		 *
+		 * Third-party developers can add custom providers by appending an
+		 * AIProviderInterface implementation keyed by the provider slug:
+		 *
+		 *     add_filter( 'ctbp_register_ai_providers', function( $providers ) {
+		 *         $providers['my_provider'] = new My_Provider_Connector();
+		 *         return $providers;
+		 *     } );
+		 *
+		 * @param array<string, AIProviderInterface> $providers Map of slug => connector.
+		 */
+		$providers = apply_filters( 'ctbp_register_ai_providers', $providers );
+
+		// Validate: reject anything that doesn't satisfy the interface.
+		foreach ( $providers as $slug => $provider ) {
+			if ( ! ( $provider instanceof AIProviderInterface ) ) {
+				// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+				error_log( sprintf(
+					'[CTBP] ctbp_register_ai_providers: provider "%s" does not implement AIProviderInterface and was removed.',
+					$slug
+				) );
+				unset( $providers[ $slug ] );
+			}
+		}
+
+		return $providers;
+	}
+}

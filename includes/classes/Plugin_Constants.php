@@ -53,6 +53,10 @@ class Plugin_Constants {
 
 	/**
 	 * WP-Cron check interval: 'hourly', 'twicedaily', 'daily', or 'weekly'.
+	 *
+	 * @deprecated Use the `ctbp_check_frequency` filter instead. This constant
+	 *             is retained for sites that may have stored a value in this option
+	 *             but is no longer written or read by the plugin.
 	 */
 	const OPTION_CHECK_INTERVAL = 'changelog_to_blog_post_check_interval';
 
@@ -128,6 +132,36 @@ class Plugin_Constants {
 	 */
 	const CRON_HOOK_RATE_LIMIT_RETRY = 'changelog_to_blog_post_rate_limit_retry';
 
+	/**
+	 * Unix timestamp of the most recent completed cron run start.
+	 * 0 means no run has ever occurred.
+	 */
+	const OPTION_LAST_RUN_AT = 'changelog_to_blog_post_last_run_at';
+
+	// -------------------------------------------------------------------------
+	// AI integration option/transient keys
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Per-provider custom model IDs set by the site owner.
+	 * Stored as a serialised array keyed by provider slug.
+	 */
+	const OPTION_AI_CUSTOM_MODELS = 'ctbp_ai_custom_models';
+
+	/**
+	 * Prefix for AI response cache transients.
+	 * Full key: TRANSIENT_AI_RESPONSE_PREFIX . md5( 'owner/repo' . tag )
+	 * TTL: 4 hours.
+	 */
+	const TRANSIENT_AI_RESPONSE_PREFIX = 'ctbp_ai_resp_';
+
+	/**
+	 * Consecutive AI generation failure counts per release.
+	 * Stored as a serialised array keyed by md5( identifier . tag ).
+	 * Reset to 0 on a successful generation.
+	 */
+	const OPTION_AI_FAILURE_COUNTS = 'ctbp_ai_failure_counts';
+
 	// -------------------------------------------------------------------------
 	// Post meta keys
 	// -------------------------------------------------------------------------
@@ -172,7 +206,7 @@ class Plugin_Constants {
 			self::OPTION_DEFAULT_POST_STATUS         => 'draft',
 			self::OPTION_DEFAULT_CATEGORY            => 0,
 			self::OPTION_DEFAULT_TAGS                => [],
-			self::OPTION_CHECK_INTERVAL              => 'daily',
+			self::OPTION_LAST_RUN_AT                 => 0,
 			self::OPTION_NOTIFICATION_EMAIL          => '',
 			self::OPTION_NOTIFICATION_EMAIL_SECONDARY => '',
 			self::OPTION_NOTIFICATION_TRIGGER        => 'draft',

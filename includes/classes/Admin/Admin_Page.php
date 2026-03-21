@@ -7,8 +7,14 @@
 
 namespace TenUp\ChangelogToBlogPost\Admin;
 
-use TenUp\ChangelogToBlogPost\Settings\Repository_Settings;
+use TenUp\ChangelogToBlogPost\GitHub\API_Client;
+use TenUp\ChangelogToBlogPost\GitHub\Onboarding_Handler;
+use TenUp\ChangelogToBlogPost\GitHub\Release_Monitor;
+use TenUp\ChangelogToBlogPost\GitHub\Release_Queue;
+use TenUp\ChangelogToBlogPost\GitHub\Release_State;
+use TenUp\ChangelogToBlogPost\Plugin_Constants;
 use TenUp\ChangelogToBlogPost\Settings\Global_Settings;
+use TenUp\ChangelogToBlogPost\Settings\Repository_Settings;
 
 /**
  * Registers the plugin settings page under the WordPress Tools menu,
@@ -105,12 +111,19 @@ class Admin_Page {
 				'ajaxUrl' => admin_url( 'admin-ajax.php' ),
 				'nonce'   => wp_create_nonce( 'ctbp_admin_nonce' ),
 				'i18n'    => [
-					'unsavedChanges'   => __( 'You have unsaved changes. Are you sure you want to leave this tab?', 'changelog-to-blog-post' ),
-					'confirmRemove'    => __( 'Are you sure you want to remove this repository? This cannot be undone.', 'changelog-to-blog-post' ),
-					'validating'       => __( 'Validating…', 'changelog-to-blog-post' ),
-					'slugValid'        => __( 'Plugin found on WordPress.org.', 'changelog-to-blog-post' ),
-					'slugNotFound'     => __( 'Plugin not found on WordPress.org. You can still save, but the WP.org download link will not be used.', 'changelog-to-blog-post' ),
-					'notImplemented'   => __( 'This feature is not yet available.', 'changelog-to-blog-post' ),
+					'unsavedChanges'    => __( 'You have unsaved changes. Are you sure you want to leave this tab?', 'changelog-to-blog-post' ),
+					'confirmRemove'     => __( 'Are you sure you want to remove this repository? This cannot be undone.', 'changelog-to-blog-post' ),
+					'validating'        => __( 'Validating…', 'changelog-to-blog-post' ),
+					'slugValid'         => __( 'Plugin found on WordPress.org.', 'changelog-to-blog-post' ),
+					'slugNotFound'      => __( 'Plugin not found on WordPress.org. You can still save, but the WP.org download link will not be used.', 'changelog-to-blog-post' ),
+					'notImplemented'    => __( 'This feature is not yet available.', 'changelog-to-blog-post' ),
+					'generating'        => __( 'Generating…', 'changelog-to-blog-post' ),
+					'draftCreated'      => __( 'Draft created.', 'changelog-to-blog-post' ),
+					'viewDraft'         => __( 'View draft', 'changelog-to-blog-post' ),
+					'conflictReplace'   => __( 'Replace existing', 'changelog-to-blog-post' ),
+					'conflictAlongside' => __( 'Add alongside', 'changelog-to-blog-post' ),
+					'conflictCancel'    => __( 'Cancel', 'changelog-to-blog-post' ),
+					'replaceWarning'    => __( 'This will permanently delete the existing post and generate a new draft. This cannot be undone.', 'changelog-to-blog-post' ),
 				],
 			]
 		);
@@ -123,6 +136,7 @@ class Admin_Page {
 	 */
 	public function register_ajax_actions(): void {
 		add_action( 'wp_ajax_ctbp_generate_draft_now', [ $this, 'ajax_generate_draft_now' ] );
+		add_action( 'wp_ajax_ctbp_resolve_conflict', [ $this, 'ajax_resolve_conflict' ] );
 		add_action( 'wp_ajax_ctbp_test_ai_connection', [ $this, 'ajax_test_ai_connection' ] );
 		add_action( 'wp_ajax_ctbp_validate_wporg_slug', [ $this, 'ajax_validate_wporg_slug' ] );
 	}
@@ -175,7 +189,10 @@ class Admin_Page {
 
 		// Handle "Remove" action.
 		if ( ! empty( $_POST['ctbp_remove_repo'] ) ) {
-			$this->repo_settings->remove_repository( sanitize_text_field( wp_unslash( $_POST['ctbp_remove_repo'] ) ) );
+			$identifier = sanitize_text_field( wp_unslash( $_POST['ctbp_remove_repo'] ) );
+			$this->repo_settings->remove_repository( $identifier );
+			// Clear per-repo state so a re-add starts clean (AC-003, AC-004).
+			( new Release_State() )->clear_state( $identifier );
 			wp_safe_redirect(
 				add_query_arg(
 					[ 'tab' => 'repositories', 'saved' => '1' ],
@@ -197,6 +214,24 @@ class Admin_Page {
 					add_query_arg( 'tab', 'repositories', $this->get_page_url() )
 				);
 				exit;
+			}
+
+			// Trigger onboarding preview draft (US-003).
+			$added_identifier = '';
+			foreach ( array_reverse( $result['repos'] ) as $repo ) {
+				if ( isset( $repo['identifier'] ) ) {
+					$added_identifier = $repo['identifier'];
+					break;
+				}
+			}
+
+			if ( $added_identifier !== '' ) {
+				$onboarding = ( new Onboarding_Handler(
+					new API_Client( $this->global_settings ),
+					new Release_State()
+				) )->trigger( $added_identifier );
+
+				$this->set_admin_notice( $onboarding['type'], $onboarding['message'], $onboarding['post_url'] );
 			}
 
 			wp_safe_redirect(
@@ -244,6 +279,11 @@ class Admin_Page {
 			wp_die( esc_html__( 'Insufficient permissions.', 'changelog-to-blog-post' ) );
 		}
 
+		// GitHub PAT (encrypted before storage).
+		$this->global_settings->save_github_pat(
+			wp_unslash( $_POST['ctbp_github_pat'] ?? '' )
+		);
+
 		// AI provider.
 		$this->global_settings->save_ai_provider(
 			sanitize_key( wp_unslash( $_POST['ctbp_ai_provider'] ?? '' ) )
@@ -284,11 +324,6 @@ class Admin_Page {
 			exit;
 		}
 
-		// Check frequency.
-		$this->global_settings->save_check_frequency(
-			sanitize_key( wp_unslash( $_POST['ctbp_check_frequency'] ?? 'daily' ) )
-		);
-
 		wp_safe_redirect(
 			add_query_arg(
 				[ 'tab' => 'settings', 'saved' => '1' ],
@@ -299,8 +334,10 @@ class Admin_Page {
 	}
 
 	/**
-	 * AJAX handler: stub for "Generate draft now".
-	 * Implemented fully in DOM-06 (Post Generation).
+	 * AJAX handler: generates a draft post for the latest release of a repository.
+	 *
+	 * Returns conflict data when a post already exists for the tag (BR-003),
+	 * otherwise fires ctbp_process_release and returns the result.
 	 *
 	 * @return void
 	 */
@@ -311,12 +348,150 @@ class Admin_Page {
 			wp_send_json_error( [ 'message' => __( 'Insufficient permissions.', 'changelog-to-blog-post' ) ], 403 );
 		}
 
-		wp_send_json_error( [ 'message' => __( 'Not yet implemented.', 'changelog-to-blog-post' ) ] );
+		$identifier = sanitize_text_field( wp_unslash( $_POST['repo'] ?? '' ) );
+
+		if ( $identifier === '' ) {
+			wp_send_json_error( [ 'message' => __( 'Missing repository identifier.', 'changelog-to-blog-post' ) ] );
+		}
+
+		$api_client = new API_Client( $this->global_settings );
+		$release    = $api_client->fetch_latest_release( $identifier );
+
+		if ( is_wp_error( $release ) ) {
+			wp_send_json_error( [ 'message' => $release->get_error_message() ] );
+		}
+
+		if ( $release === null ) {
+			wp_send_json_error( [ 'message' => __( 'No releases found for this repository.', 'changelog-to-blog-post' ) ] );
+		}
+
+		// Check for existing post — offer conflict resolution (BR-003, AC-020, AC-021).
+		$existing = Release_Monitor::find_post( $identifier, $release->tag );
+
+		if ( $existing instanceof \WP_Post ) {
+			wp_send_json_success(
+				[
+					'conflict' => true,
+					'post'     => [
+						'id'       => $existing->ID,
+						'title'    => $existing->post_title,
+						'status'   => $existing->post_status,
+						'edit_url' => get_edit_post_link( $existing->ID, 'raw' ),
+					],
+				]
+			);
+		}
+
+		/**
+		 * Fires to trigger AI generation for a manual draft request.
+		 *
+		 * DOM-05/06 hooks here. force_draft ensures the post is always a draft
+		 * regardless of the global post-status setting (AC-011).
+		 *
+		 * @param array<string, mixed> $entry   Queue entry with release data.
+		 * @param array<string, mixed> $context Context flags: force_draft, manual.
+		 */
+		do_action(
+			'ctbp_process_release',
+			Release_Queue::from_release( $identifier, $release ),
+			[ 'force_draft' => true, 'manual' => true ]
+		);
+
+		$post = Release_Monitor::find_post( $identifier, $release->tag );
+
+		if ( $post instanceof \WP_Post ) {
+			wp_send_json_success(
+				[
+					'conflict' => false,
+					'post'     => [
+						'id'       => $post->ID,
+						'title'    => $post->post_title,
+						'status'   => $post->post_status,
+						'edit_url' => get_edit_post_link( $post->ID, 'raw' ),
+					],
+				]
+			);
+		}
+
+		// DOM-05/06 not yet implemented — no post was created.
+		wp_send_json_error( [ 'message' => __( 'Draft could not be generated. Configure an AI provider in the Settings tab and try again.', 'changelog-to-blog-post' ) ] );
 	}
 
 	/**
-	 * AJAX handler: stub for "Test AI connection".
-	 * Implemented fully in DOM-05 (AI Integration).
+	 * AJAX handler: resolves a duplicate-post conflict for "Generate draft now".
+	 *
+	 * Accepts action=replace (deletes existing post, then re-fires generation)
+	 * or action=alongside (fires generation without deleting the existing post).
+	 * cancel is handled client-side and never reaches this handler.
+	 *
+	 * @return void
+	 */
+	public function ajax_resolve_conflict(): void {
+		check_ajax_referer( 'ctbp_admin_nonce', 'nonce' );
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( [ 'message' => __( 'Insufficient permissions.', 'changelog-to-blog-post' ) ], 403 );
+		}
+
+		$identifier     = sanitize_text_field( wp_unslash( $_POST['repo'] ?? '' ) );
+		$resolution     = sanitize_key( wp_unslash( $_POST['resolution'] ?? '' ) );
+		$existing_post_id = absint( $_POST['post_id'] ?? 0 );
+
+		if ( $identifier === '' || ! in_array( $resolution, [ 'replace', 'alongside' ], true ) ) {
+			wp_send_json_error( [ 'message' => __( 'Invalid request.', 'changelog-to-blog-post' ) ] );
+		}
+
+		$api_client = new API_Client( $this->global_settings );
+		$release    = $api_client->fetch_latest_release( $identifier );
+
+		if ( is_wp_error( $release ) ) {
+			wp_send_json_error( [ 'message' => $release->get_error_message() ] );
+		}
+
+		if ( $release === null ) {
+			wp_send_json_error( [ 'message' => __( 'No releases found for this repository.', 'changelog-to-blog-post' ) ] );
+		}
+
+		if ( 'replace' === $resolution && $existing_post_id > 0 ) {
+			// Permanently delete the existing post before generating a new one (AC-022).
+			wp_delete_post( $existing_post_id, true );
+		}
+
+		/**
+		 * Fires to trigger AI generation for a conflict-resolved manual draft.
+		 *
+		 * @param array<string, mixed> $entry   Queue entry with release data.
+		 * @param array<string, mixed> $context Context flags.
+		 */
+		do_action(
+			'ctbp_process_release',
+			Release_Queue::from_release( $identifier, $release ),
+			[ 'force_draft' => true, 'manual' => true ]
+		);
+
+		$post = Release_Monitor::find_post( $identifier, $release->tag );
+
+		if ( $post instanceof \WP_Post ) {
+			wp_send_json_success(
+				[
+					'post' => [
+						'id'       => $post->ID,
+						'title'    => $post->post_title,
+						'status'   => $post->post_status,
+						'edit_url' => get_edit_post_link( $post->ID, 'raw' ),
+					],
+				]
+			);
+		}
+
+		wp_send_json_error( [ 'message' => __( 'Draft could not be generated. Configure an AI provider in the Settings tab and try again.', 'changelog-to-blog-post' ) ] );
+	}
+
+	/**
+	 * AJAX handler: tests the active AI provider connection.
+	 *
+	 * Returns JSON success with a confirmation message, or JSON error with
+	 * a diagnostic message the site owner can act on.
 	 *
 	 * @return void
 	 */
@@ -327,7 +502,26 @@ class Admin_Page {
 			wp_send_json_error( [ 'message' => __( 'Insufficient permissions.', 'changelog-to-blog-post' ) ], 403 );
 		}
 
-		wp_send_json_error( [ 'message' => __( 'Not yet implemented.', 'changelog-to-blog-post' ) ] );
+		$factory  = new \TenUp\ChangelogToBlogPost\AI\AI_Provider_Factory( $this->global_settings );
+		$provider = $factory->get_provider();
+
+		if ( is_wp_error( $provider ) ) {
+			wp_send_json_error( [ 'message' => $provider->get_error_message() ] );
+		}
+
+		$result = $provider->test_connection();
+
+		if ( is_wp_error( $result ) ) {
+			wp_send_json_error( [ 'message' => $result->get_error_message() ] );
+		}
+
+		wp_send_json_success( [
+			'message' => sprintf(
+				/* translators: %s: AI provider display label */
+				__( 'Connection to %s successful.', 'changelog-to-blog-post' ),
+				$provider->get_label()
+			),
+		] );
 	}
 
 	/**
@@ -366,5 +560,22 @@ class Admin_Page {
 	private function set_admin_error( string $message ): void {
 		$user_id = get_current_user_id();
 		set_transient( 'ctbp_admin_errors_' . $user_id, $message, 60 );
+	}
+
+	/**
+	 * Stores a typed admin notice in a short-lived transient so the template can display it.
+	 *
+	 * @param string      $type    Notice type: 'success', 'warning', or 'error'.
+	 * @param string      $message Notice message.
+	 * @param string|null $url     Optional URL for a "View" link appended to the notice.
+	 * @return void
+	 */
+	private function set_admin_notice( string $type, string $message, ?string $url = null ): void {
+		$user_id = get_current_user_id();
+		set_transient(
+			'ctbp_admin_notice_' . $user_id,
+			[ 'type' => $type, 'message' => $message, 'url' => $url ],
+			60
+		);
 	}
 }
