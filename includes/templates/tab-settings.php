@@ -16,11 +16,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 use TenUp\ChangelogToBlogPost\Settings\Global_Settings;
 use TenUp\ChangelogToBlogPost\Plugin_Constants;
 
-$global    = new Global_Settings();
-$provider  = $global->get_ai_provider();
-$defaults  = $global->get_post_defaults();
-$notif     = $global->get_notification_settings();
-$frequency = $global->get_check_frequency();
+$global      = new Global_Settings();
+$provider    = $global->get_ai_provider();
+$defaults    = $global->get_post_defaults();
+$notif       = $global->get_notification_settings();
+$frequency   = $global->get_check_frequency();
+$masked_pat  = $global->get_masked_github_pat();
 
 // Determine if a trigger/status mismatch warning should be shown.
 $trigger_is_published = in_array( $notif['trigger'] ?? '', [ 'publish', 'both' ], true );
@@ -30,6 +31,28 @@ $show_trigger_warning = $trigger_is_published && $status_is_draft;
 $key_based_providers  = [ 'openai', 'anthropic', 'gemini' ];
 $no_key_providers     = [ 'classifai', 'wordpress_ai' ];
 ?>
+
+<h2><?php echo esc_html__( 'GitHub', 'changelog-to-blog-post' ); ?></h2>
+<fieldset>
+	<legend class="screen-reader-text"><?php echo esc_html__( 'GitHub Settings', 'changelog-to-blog-post' ); ?></legend>
+
+	<p>
+		<label for="ctbp_github_pat"><?php echo esc_html__( 'Personal Access Token', 'changelog-to-blog-post' ); ?></label><br>
+		<input
+			type="password"
+			id="ctbp_github_pat"
+			name="ctbp_github_pat"
+			value="<?php echo esc_attr( $masked_pat ); ?>"
+			class="regular-text"
+			autocomplete="new-password"
+		>
+		<span class="description">
+			<?php echo esc_html__( 'Optional. Raises the GitHub API rate limit from 60 to 5,000 requests per hour. Leave unchanged to keep the existing token. Clear the field to remove it.', 'changelog-to-blog-post' ); ?>
+		</span>
+	</p>
+</fieldset>
+
+<hr>
 
 <h2><?php echo esc_html__( 'AI Provider', 'changelog-to-blog-post' ); ?></h2>
 <fieldset>

@@ -275,6 +275,55 @@ class Global_Settings {
 	}
 
 	// -------------------------------------------------------------------------
+	// GitHub Personal Access Token
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Returns the decrypted GitHub Personal Access Token, or empty string if not set.
+	 *
+	 * Never call this method from within the admin UI display path.
+	 *
+	 * @return string Plaintext PAT, or empty string.
+	 */
+	public function get_github_pat(): string {
+		$encrypted = (string) get_option( Plugin_Constants::OPTION_GITHUB_PAT, '' );
+		return $encrypted !== '' ? $this->decrypt( $encrypted ) : '';
+	}
+
+	/**
+	 * Saves (or clears) the GitHub PAT. Encrypts non-empty values at rest.
+	 *
+	 * Pass the masked placeholder to leave the existing value unchanged.
+	 * Pass an empty string to remove the stored PAT.
+	 *
+	 * @param string $pat Submitted value (plaintext, masked placeholder, or empty).
+	 * @return bool Whether the option was updated.
+	 */
+	public function save_github_pat( string $pat ): bool {
+		if ( $pat === self::MASKED_PLACEHOLDER ) {
+			return true; // No change.
+		}
+
+		if ( '' === $pat ) {
+			return (bool) update_option( Plugin_Constants::OPTION_GITHUB_PAT, '' );
+		}
+
+		return (bool) update_option( Plugin_Constants::OPTION_GITHUB_PAT, $this->encrypt( $pat ) );
+	}
+
+	/**
+	 * Returns the masked placeholder if a GitHub PAT is stored, empty string otherwise.
+	 *
+	 * Used to populate the admin UI field without exposing the actual token.
+	 *
+	 * @return string Masked placeholder or empty string.
+	 */
+	public function get_masked_github_pat(): string {
+		$stored = (string) get_option( Plugin_Constants::OPTION_GITHUB_PAT, '' );
+		return $stored !== '' ? self::MASKED_PLACEHOLDER : '';
+	}
+
+	// -------------------------------------------------------------------------
 	// Encryption helpers (libsodium)
 	// -------------------------------------------------------------------------
 

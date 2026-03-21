@@ -68,6 +68,12 @@ class Plugin_Constants {
 	const OPTION_NOTIFICATION_EMAIL_SECONDARY = 'changelog_to_blog_post_notification_email_secondary';
 
 	/**
+	 * GitHub Personal Access Token (encrypted at rest using libsodium).
+	 * When set, raises the GitHub API rate limit from 60 to 5,000 req/hr.
+	 */
+	const OPTION_GITHUB_PAT = 'changelog_to_blog_post_github_pat';
+
+	/**
 	 * Notification trigger: 'draft', 'publish', or 'both'.
 	 */
 	const OPTION_NOTIFICATION_TRIGGER = 'changelog_to_blog_post_notification_trigger';
@@ -76,6 +82,21 @@ class Plugin_Constants {
 	 * Whether email notifications are enabled (boolean).
 	 */
 	const OPTION_NOTIFICATIONS_ENABLED = 'changelog_to_blog_post_notifications_enabled';
+
+	// -------------------------------------------------------------------------
+	// Transient keys
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Prefix for per-repo release cache transients.
+	 * Full key: TRANSIENT_RELEASE_PREFIX . md5( 'owner/repo' )
+	 */
+	const TRANSIENT_RELEASE_PREFIX = 'ctbp_rel_';
+
+	/**
+	 * Stores the last-known GitHub API rate limit remaining count.
+	 */
+	const TRANSIENT_RATE_LIMIT_REMAINING = 'ctbp_rate_limit_remaining';
 
 	// -------------------------------------------------------------------------
 	// Cron hook names
@@ -140,6 +161,7 @@ class Plugin_Constants {
 			self::OPTION_NOTIFICATION_EMAIL_SECONDARY => '',
 			self::OPTION_NOTIFICATION_TRIGGER        => 'draft',
 			self::OPTION_NOTIFICATIONS_ENABLED       => true,
+			self::OPTION_GITHUB_PAT                  => '',
 		];
 	}
 }
