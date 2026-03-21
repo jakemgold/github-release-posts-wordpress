@@ -1,0 +1,16 @@
+{
+	"name": "changelog-to-blog-post",
+	"version": "1.0.0",
+	"description": "Convert changelog entries into WordPress blog posts.",
+	"scripts": {
+		"start": "10up-scripts start",
+		"build": "10up-scripts build",
+		"lint:js": "10up-scripts lint-js",
+		"lint:css": "10up-scripts lint-style",
+		"lint": "npm run lint:js && npm run lint:css",
+		"test": "10up-scripts test-unit-jest"
+	},
+	"devDependencies": {
+		"@10up/scripts": "^3.0.0"
+	}
+}
