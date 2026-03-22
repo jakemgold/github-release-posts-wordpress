@@ -60,7 +60,9 @@ class Admin_Page {
 	public function setup(): void {
 		add_action( 'admin_menu', [ $this, 'register_menu_page' ] );
 		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_assets' ] );
+		add_action( 'enqueue_block_editor_assets', [ $this, 'enqueue_editor_assets' ] );
 		add_action( 'rest_api_init', [ $this, 'register_rest_routes' ] );
+		add_action( 'init', [ $this, 'register_post_meta' ] );
 	}
 
 	/**
@@ -99,7 +101,7 @@ class Admin_Page {
 		wp_enqueue_script(
 			'changelog-to-blog-post-admin-js',
 			CHANGELOG_TO_BLOG_POST_URL . 'assets/js/admin/index.js',
-			[ 'jquery' ],
+			[],
 			CHANGELOG_TO_BLOG_POST_VERSION,
 			true
 		);
@@ -127,6 +129,49 @@ class Admin_Page {
 				],
 			]
 		);
+	}
+
+	/**
+	 * Enqueues the block editor script for release attribution.
+	 *
+	 * @return void
+	 */
+	public function enqueue_editor_assets(): void {
+		$asset_file = CHANGELOG_TO_BLOG_POST_PATH . 'assets/js/editor/index.min.asset.php';
+		$asset      = file_exists( $asset_file ) ? require $asset_file : [ 'dependencies' => [], 'version' => CHANGELOG_TO_BLOG_POST_VERSION ];
+
+		wp_enqueue_script(
+			'changelog-to-blog-post-editor',
+			CHANGELOG_TO_BLOG_POST_URL . 'assets/js/editor/index.min.js',
+			$asset['dependencies'],
+			$asset['version'] ?? CHANGELOG_TO_BLOG_POST_VERSION,
+			true
+		);
+	}
+
+	/**
+	 * Registers post meta keys for REST API visibility (block editor).
+	 *
+	 * @return void
+	 */
+	public function register_post_meta(): void {
+		$meta_keys = [
+			Plugin_Constants::META_SOURCE_REPO,
+			Plugin_Constants::META_RELEASE_TAG,
+			Plugin_Constants::META_RELEASE_URL,
+			Plugin_Constants::META_GENERATED_BY,
+		];
+
+		foreach ( $meta_keys as $key ) {
+			register_post_meta( 'post', $key, [
+				'show_in_rest'  => true,
+				'single'        => true,
+				'type'          => 'string',
+				'auth_callback' => function () {
+					return current_user_can( 'edit_posts' );
+				},
+			] );
+		}
 	}
 
 	/**
@@ -331,13 +376,14 @@ class Admin_Page {
 
 		foreach ( $posted_repos as $identifier => $config ) {
 			$identifier = sanitize_text_field( wp_unslash( (string) $identifier ) );
-			$sanitized  = [
+			$raw_repo_tags = sanitize_text_field( wp_unslash( $config['tags'] ?? '' ) );
+			$sanitized     = [
 				'display_name' => sanitize_text_field( wp_unslash( $config['display_name'] ?? '' ) ),
 				'wporg_slug'   => sanitize_text_field( wp_unslash( $config['wporg_slug'] ?? '' ) ),
 				'custom_url'   => esc_url_raw( wp_unslash( $config['custom_url'] ?? '' ) ),
 				'post_status'  => sanitize_key( $config['post_status'] ?? '' ),
 				'category'     => absint( $config['category'] ?? 0 ),
-				'tags'         => array_map( 'sanitize_text_field', array_map( 'wp_unslash', (array) ( $config['tags'] ?? [] ) ) ),
+				'tags'         => $this->resolve_tag_names_to_ids( $raw_repo_tags ),
 				'paused'       => ! empty( $config['paused'] ),
 			];
 			$this->repo_settings->update_repository( $identifier, $sanitized );
@@ -385,11 +431,14 @@ class Admin_Page {
 		);
 
 		// Post defaults.
+		$raw_tags = sanitize_text_field( wp_unslash( $_POST['ctbp_default_tags'] ?? '' ) );
+		$tag_ids  = $this->resolve_tag_names_to_ids( $raw_tags );
+
 		$this->global_settings->save_post_defaults(
 			[
 				'post_status' => sanitize_key( wp_unslash( $_POST['ctbp_default_post_status'] ?? 'draft' ) ),
 				'category'    => absint( $_POST['ctbp_default_category'] ?? 0 ),
-				'tags'        => array_map( 'sanitize_text_field', array_map( 'wp_unslash', (array) ( $_POST['ctbp_default_tags'] ?? [] ) ) ),
+				'tags'        => $tag_ids,
 			]
 		);
 
@@ -641,5 +690,60 @@ class Admin_Page {
 			[ 'type' => $type, 'message' => $message, 'url' => $url ],
 			60
 		);
+	}
+
+	/**
+	 * Converts a comma-separated string of tag names into an array of term IDs.
+	 *
+	 * Tags that don't exist are silently skipped — the site owner must create
+	 * them first via the standard WordPress tag management UI.
+	 *
+	 * @param string $raw Comma-separated tag names.
+	 * @return int[] Array of tag term IDs.
+	 */
+	private function resolve_tag_names_to_ids( string $raw ): array {
+		if ( '' === trim( $raw ) ) {
+			return [];
+		}
+
+		$names = array_map( 'trim', explode( ',', $raw ) );
+		$ids   = [];
+
+		foreach ( $names as $name ) {
+			if ( '' === $name ) {
+				continue;
+			}
+
+			$term = get_term_by( 'name', $name, 'post_tag' );
+			if ( $term && ! is_wp_error( $term ) ) {
+				$ids[] = (int) $term->term_id;
+			}
+		}
+
+		return $ids;
+	}
+
+	/**
+	 * Converts an array of tag term IDs into a comma-separated string of tag names.
+	 *
+	 * Used for displaying stored tag IDs back as human-readable names in the UI.
+	 *
+	 * @param int[] $ids Array of tag term IDs.
+	 * @return string Comma-separated tag names.
+	 */
+	public static function tag_ids_to_names( array $ids ): string {
+		if ( empty( $ids ) ) {
+			return '';
+		}
+
+		$names = [];
+		foreach ( $ids as $id ) {
+			$term = get_term( (int) $id, 'post_tag' );
+			if ( $term && ! is_wp_error( $term ) ) {
+				$names[] = $term->name;
+			}
+		}
+
+		return implode( ', ', $names );
 	}
 }

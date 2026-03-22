@@ -297,11 +297,27 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	 * @param {boolean}     [isErr] Whether this is an error (affects styling).
 	 */
 	function showGenerateResult( btn, message, url, isErr ) {
-		let resultEl = btn.nextElementSibling;
-		if ( ! resultEl || ! resultEl.classList.contains( 'ctbp-generate-result' ) ) {
+		// Hide any active spinner.
+		const spinner = btn.parentNode.querySelector( '.spinner' );
+		if ( spinner ) {
+			spinner.classList.remove( 'is-active' );
+			spinner.style.visibility = 'hidden';
+		}
+
+		// Find or create result element (skip past spinner if present).
+		let resultEl = null;
+		let sibling = btn.nextSibling;
+		while ( sibling ) {
+			if ( sibling.classList && sibling.classList.contains( 'ctbp-generate-result' ) ) {
+				resultEl = sibling;
+				break;
+			}
+			sibling = sibling.nextSibling;
+		}
+		if ( ! resultEl ) {
 			resultEl = document.createElement( 'span' );
 			resultEl.className = 'ctbp-generate-result';
-			btn.parentNode.insertBefore( resultEl, btn.nextSibling );
+			btn.parentNode.appendChild( resultEl );
 		}
 
 		resultEl.style.color = isErr ? '#d63638' : '#00a32a';
@@ -365,6 +381,16 @@ document.addEventListener( 'DOMContentLoaded', function () {
 
 			btn.disabled    = true;
 			btn.textContent = ctbpAdmin.i18n.generating;
+
+			// Show WordPress admin spinner.
+			let spinner = btn.nextElementSibling;
+			if ( ! spinner || ! spinner.classList.contains( 'spinner' ) ) {
+				spinner = document.createElement( 'span' );
+				spinner.className = 'spinner';
+				btn.parentNode.insertBefore( spinner, btn.nextSibling );
+			}
+			spinner.classList.add( 'is-active' );
+			spinner.style.visibility = 'visible';
 
 			window.ctbpFetch(
 				'POST',

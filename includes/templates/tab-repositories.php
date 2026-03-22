@@ -199,7 +199,7 @@ $at_limit      = count( $repos ) >= $max_repos;
 									type="text"
 									id="ctbp-tags-<?php echo esc_attr( $i ); ?>"
 									name="repos[<?php echo esc_attr( $identifier ); ?>][tags]"
-									value="<?php echo esc_attr( implode( ', ', $tags ) ); ?>"
+									value="<?php echo esc_attr( \TenUp\ChangelogToBlogPost\Admin\Admin_Page::tag_ids_to_names( $tags ) ); ?>"
 									class="regular-text"
 								>
 							</p>

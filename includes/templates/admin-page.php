@@ -70,6 +70,28 @@ if ( $admin_notice ) {
 		</div>
 	<?php endif; ?>
 
+	<?php
+	$onboarding_settings = new \TenUp\ChangelogToBlogPost\Settings\Global_Settings();
+	$onboarding_repos    = new \TenUp\ChangelogToBlogPost\Settings\Repository_Settings();
+	$has_provider        = ! empty( $onboarding_settings->get_ai_provider() );
+	$has_repos           = ! empty( $onboarding_repos->get_repositories() );
+
+	if ( ! $has_provider || ! $has_repos ) :
+	?>
+		<div class="notice notice-info">
+			<p>
+				<strong><?php echo esc_html__( 'Getting started:', 'changelog-to-blog-post' ); ?></strong>
+				<?php if ( ! $has_provider && ! $has_repos ) : ?>
+					<?php echo esc_html__( 'Configure your AI provider in the Settings tab, then add your first GitHub repository below.', 'changelog-to-blog-post' ); ?>
+				<?php elseif ( ! $has_provider ) : ?>
+					<?php echo esc_html__( 'Configure your AI provider in the Settings tab to start generating posts.', 'changelog-to-blog-post' ); ?>
+				<?php else : ?>
+					<?php echo esc_html__( 'Add your first GitHub repository below to start monitoring for releases.', 'changelog-to-blog-post' ); ?>
+				<?php endif; ?>
+			</p>
+		</div>
+	<?php endif; ?>
+
 	<nav>
 		<ul role="tablist" class="ctbp-tabs nav-tab-wrapper">
 			<li>

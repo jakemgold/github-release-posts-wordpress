@@ -11,6 +11,7 @@ use TenUp\ChangelogToBlogPost\AI\ReleaseData;
 use TenUp\ChangelogToBlogPost\AI\Release_Significance;
 use TenUp\ChangelogToBlogPost\Plugin_Constants;
 use TenUp\ChangelogToBlogPost\Settings\Global_Settings;
+use TenUp\ChangelogToBlogPost\Settings\Repository_Settings;
 
 /**
  * Hooks into ctbp_post_status_set, collects results during a cron run,
@@ -35,12 +36,14 @@ class Email_Notifier {
 	private bool $shutdown_registered = false;
 
 	/**
-	 * @param Global_Settings     $global_settings Global settings (notification prefs).
-	 * @param Release_Significance $significance   Significance classifier for email body.
+	 * @param Global_Settings      $global_settings Global settings (notification prefs).
+	 * @param Release_Significance $significance    Significance classifier for email body.
+	 * @param Repository_Settings  $repo_settings   Per-repo config (display name lookup).
 	 */
 	public function __construct(
 		private readonly Global_Settings $global_settings,
 		private readonly Release_Significance $significance,
+		private readonly Repository_Settings $repo_settings,
 	) {}
 
 	/**
@@ -76,11 +79,13 @@ class Email_Notifier {
 		}
 
 		$significance = $this->significance->classify( $data );
+		$display_name = $this->resolve_display_name( $data->identifier );
 
 		$this->entries[] = [
 			'post_id'      => $post_id,
 			'status'       => $status,
 			'identifier'   => $data->identifier,
+			'display_name' => $display_name,
 			'tag'          => $data->tag,
 			'html_url'     => $data->html_url,
 			'significance' => $significance,
@@ -240,7 +245,7 @@ class Email_Notifier {
 
 			$sig_label = ucfirst( $entry['significance'] );
 
-			$lines[] = sprintf( '• %s %s (%s) — %s', $entry['identifier'], $entry['tag'], $sig_label, $status_label );
+			$lines[] = sprintf( '• %s %s (%s) — %s', $entry['display_name'], $entry['tag'], $sig_label, $status_label );
 			$lines[] = sprintf( '  %s: %s', __( 'Edit', 'changelog-to-blog-post' ), $this->get_edit_url( $entry['post_id'] ) );
 
 			if ( 'publish' === $entry['status'] ) {
@@ -281,7 +286,7 @@ class Email_Notifier {
 
 			$html .= '<tr style="border-bottom: 1px solid #eee;">';
 			$html .= '<td style="padding: 12px 0;">';
-			$html .= '<strong>' . esc_html( $entry['identifier'] ) . ' ' . esc_html( $entry['tag'] ) . '</strong>';
+			$html .= '<strong>' . esc_html( $entry['display_name'] ) . ' ' . esc_html( $entry['tag'] ) . '</strong>';
 			$html .= ' <span style="color: #666;">(' . $sig_label . ')</span>';
 			$html .= ' — ' . $status_label;
 			$html .= '<br>';
@@ -311,6 +316,23 @@ class Email_Notifier {
 	 */
 	private function get_edit_url( int $post_id ): string {
 		return (string) get_edit_post_link( $post_id, 'raw' );
+	}
+
+	/**
+	 * Resolves the display name for a repository.
+	 *
+	 * @param string $identifier Repository identifier (owner/repo).
+	 * @return string Display name.
+	 */
+	private function resolve_display_name( string $identifier ): string {
+		$config = $this->repo_settings->get_repository( $identifier );
+
+		if ( ! empty( $config['display_name'] ) ) {
+			return (string) $config['display_name'];
+		}
+
+		$parts = explode( '/', $identifier );
+		return $this->repo_settings->derive_display_name( end( $parts ) );
 	}
 
 	/**

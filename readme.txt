@@ -18,33 +18,49 @@ Changelog to Blog Post monitors GitHub releases for any number of tracked plugin
 **Features:**
 
 * Monitor multiple GitHub repositories for new releases
-* AI-powered post generation (OpenAI, Anthropic, Google Gemini, ClassifAI)
-* Configurable publish/draft workflow
-* Per-repository post defaults (category, tags, status)
-* Email notifications on draft creation or publication
-* Significance classification (patch/minor/major/security)
-* WP-Cron scheduling with configurable intervals
-* WordPress.org plugin page link support
+* AI-powered post generation with three provider options:
+  * **WordPress AI Services** (recommended) — use your existing AI Services configuration
+  * **OpenAI** — direct API key connection
+  * **Anthropic** — direct API key connection
+* Significance-aware content — patch, minor, major, and security releases get tailored tone and structure
+* Configurable publish/draft workflow with per-repository overrides
+* Per-repository post defaults (category, tags, post status)
+* Custom prompt instructions to guide AI writing style, tone, and voice
+* Email notifications on draft creation, publication, or both
+* Source attribution in the block editor — see which GitHub release generated each post
+* Idempotency — the same release never creates duplicate posts
+* WordPress.org plugin page link support for download CTAs
+
+**For developers:**
+
+* Extensible via filter hooks at every stage of the pipeline
+* Register custom AI providers via the `ctbp_register_ai_providers` filter
+* Override significance classification, prompt content, post terms, and post status per-release
+* All prompt templates defined in code, versioned with the plugin
 
 == Installation ==
 
 1. Upload the plugin files to `/wp-content/plugins/changelog-to-blog-post/`, or install via the WordPress Plugins screen.
 2. Activate the plugin through the Plugins screen in WordPress.
-3. Go to **Tools → Changelog to Blog Post** to configure tracked repositories and AI provider.
+3. Go to **Tools → Changelog to Blog Post** to configure your AI provider and add repositories.
 
 == Frequently Asked Questions ==
 
 = Which AI providers are supported? =
 
-OpenAI, Anthropic (Claude), Google Gemini, and 10up ClassifAI are supported in v1. Additional providers can be registered via the `changelog_to_blog_post_register_providers` filter hook.
+WordPress AI Services (recommended for most users), OpenAI, and Anthropic are supported in v1. WordPress AI Services lets you configure your preferred AI provider once in Settings → AI Services and use it across all compatible plugins. Additional providers can be registered via the `ctbp_register_ai_providers` filter hook.
 
 = Do I need a GitHub API key? =
 
-No. The plugin uses the public GitHub API for public repositories. An optional Personal Access Token (PAT) can be configured to increase the API rate limit.
+No. The plugin uses the public GitHub API for public repositories. An optional Personal Access Token (PAT) can be configured to increase the API rate limit from 60 to 5,000 requests per hour.
 
 = How often does the plugin check for new releases? =
 
-You can configure the check interval in plugin settings: hourly, twice daily, daily, or weekly.
+By default, the plugin checks daily via WP-Cron. Developers can change this to hourly, twice daily, or weekly using the `ctbp_check_frequency` filter.
+
+= Can I customize the AI-generated content? =
+
+Yes, in two ways. Site owners can enter custom prompt instructions in the Settings tab to guide the AI's writing style, tone, and voice. Developers can use filter hooks (`ctbp_prompt`, `ctbp_prompt_title_guidance`, `ctbp_prompt_content_guidance`) for full control over the prompt sent to the AI.
 
 == Screenshots ==
 

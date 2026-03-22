@@ -130,7 +130,7 @@ $no_key_providers     = [ 'wp_ai_client' ];
 			placeholder="<?php echo esc_attr__( 'e.g. Write in a friendly, conversational tone. Our audience is non-technical WordPress site owners. Avoid jargon. See example post: https://example.com/blog/plugin-update', 'changelog-to-blog-post' ); ?>"
 		><?php echo esc_textarea( $custom_instructions ); ?></textarea>
 		<span class="description">
-			<?php echo esc_html__( 'Optional. Additional instructions sent to the AI when generating posts. Use this to guide the writing style, tone, voice, audience, or point to examples of posts you like.', 'changelog-to-blog-post' ); ?>
+			<?php echo esc_html__( 'Optional. Additional instructions sent to the AI when generating posts. Use this to guide the writing style, tone, voice, audience, or point to examples of posts you like. Best results with under 500 characters.', 'changelog-to-blog-post' ); ?>
 		</span>
 	</p>
 </fieldset>
@@ -178,7 +178,7 @@ $no_key_providers     = [ 'wp_ai_client' ];
 			type="text"
 			id="ctbp_default_tags"
 			name="ctbp_default_tags"
-			value="<?php echo esc_attr( implode( ', ', (array) ( $defaults['tags'] ?? [] ) ) ); ?>"
+			value="<?php echo esc_attr( \TenUp\ChangelogToBlogPost\Admin\Admin_Page::tag_ids_to_names( (array) ( $defaults['tags'] ?? [] ) ) ); ?>"
 			class="regular-text"
 		>
 	</p>
