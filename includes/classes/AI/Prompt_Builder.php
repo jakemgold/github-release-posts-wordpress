@@ -12,13 +12,12 @@ use TenUp\ChangelogToBlogPost\Settings\Repository_Settings;
 
 /**
  * Hooks into ctbp_generate_prompt and returns a fully constructed prompt
- * string tailored to the release's significance, audience, and per-repo
- * configuration.
+ * string tailored to the release content and per-repo configuration.
  *
- * All template strings are defined in this class. To update a template for
- * a new plugin release, edit the relevant constant or method below.
+ * The prompt uses an editorial hierarchy that lets the AI decide what's
+ * most newsworthy rather than forcing a single significance label.
  *
- * Prompt template version: 1.0 (introduced in plugin v1.0.0)
+ * Prompt template version: 2.0 (introduced in plugin v1.1.0)
  *
  * @see AI_Processor — fires ctbp_generate_prompt with ReleaseData as 2nd arg.
  */
@@ -58,6 +57,8 @@ class Prompt_Builder {
 		$display_name  = $config['display_name'] ?? $this->derive_display_name( $data->identifier );
 		$significance  = $this->significance->classify( $data );
 		$download_link = $this->resolve_download_link( $config, $data );
+		$project_link  = $this->resolve_project_link( $config, $data );
+		$changelog_url = $data->html_url;
 
 		/**
 		 * Filters the release body before it is included in the prompt.
@@ -69,10 +70,18 @@ class Prompt_Builder {
 		 */
 		$body = (string) apply_filters( 'ctbp_release_body', $data->body, $data );
 
+		// Truncate very large release bodies to avoid exceeding AI token limits.
+		// 50,000 chars ≈ 12,500 tokens, leaving room for prompt instructions.
+		$max_body_length = (int) apply_filters( 'ctbp_max_release_body_length', 50000 );
+		if ( strlen( $body ) > $max_body_length ) {
+			$body = substr( $body, 0, $max_body_length ) . "\n\n[Release notes truncated due to length.]";
+		}
+
 		$images = $this->extract_images( $body );
 
-		$title_guidance   = $this->build_title_guidance( $significance, $display_name, $data->tag );
-		$content_guidance = $this->build_content_guidance( $significance, $images, $download_link );
+		$audience_level   = $this->global_settings->get_audience_level();
+		$title_guidance   = $this->build_title_guidance( $display_name, $data->tag );
+		$content_guidance = $this->build_content_guidance( $images, $project_link, $changelog_url, $display_name, $audience_level );
 
 		/**
 		 * Filters the title guidance portion of the prompt.
@@ -121,31 +130,24 @@ class Prompt_Builder {
 	// -------------------------------------------------------------------------
 
 	/**
-	 * Builds per-significance instructions for the post title subtitle.
+	 * Builds instructions for the post title subtitle.
 	 *
 	 * The full title will be "{display_name} {tag} — {subtitle}" where the
-	 * subtitle is the one line the AI must write. Prepending is programmatic
-	 * so the AI is instructed not to include the plugin name or version (BR-002).
+	 * subtitle is the one line the AI must write. The AI decides what's most
+	 * compelling based on the changelog content.
 	 *
-	 * @param string $significance Classified significance.
 	 * @param string $display_name Plugin display name.
 	 * @param string $tag          Release tag.
 	 * @return string
 	 */
-	private function build_title_guidance( string $significance, string $display_name, string $tag ): string {
+	private function build_title_guidance( string $display_name, string $tag ): string {
 		$prefix = "{$display_name} {$tag} — ";
 
-		$guidance = match ( $significance ) {
-			'patch'    => "Write a brief, functional subtitle (e.g. \"Bug fixes and stability improvements\"). Keep it under 10 words. Do not mention specific bug names.",
-			'minor'    => "Highlight one or two notable improvements in plain language. Be specific but concise. Keep it under 12 words.",
-			'major'    => "Lead with the headline new capability or change in a compelling but plain-language way. Keep it under 12 words.",
-			'security' => "Begin the subtitle with \"Security update\" followed by a brief, non-alarming description of what was fixed. Keep it under 12 words.",
-			default    => "Write a clear, descriptive subtitle summarising the most important change. Keep it under 12 words.",
-		};
-
-		return "The post title will be automatically formatted as: \"{$prefix}[your subtitle here]\"\n" .
-			"Write ONLY the subtitle — do NOT include the plugin name or version number.\n" .
-			$guidance;
+		return <<<EOT
+The post title will be automatically formatted as: "{$prefix}[your subtitle here]"
+Write ONLY the subtitle — do NOT include the plugin name or version number.
+Lead with whatever is most compelling and newsworthy in the release. If there are new user-facing features, highlight those. If the release is purely bug fixes or a security patch with nothing else notable, say so plainly. Keep it under 12 words. Be specific — avoid generic subtitles like "various improvements and fixes".
+EOT;
 	}
 
 	// -------------------------------------------------------------------------
@@ -155,31 +157,54 @@ class Prompt_Builder {
 	/**
 	 * Builds the content structure and tone instructions.
 	 *
-	 * @param string   $significance  Classified significance.
-	 * @param string[] $images        Image URLs extracted from the release body.
-	 * @param string   $download_link Resolved download / changelog link.
+	 * Uses an editorial hierarchy that prioritises what matters most to readers
+	 * and adapts technical depth to the configured audience level.
+	 *
+	 * @param string[] $images         Image URLs extracted from the release body.
+	 * @param string   $download_link  Resolved download / changelog link (custom URL or WP.org or GitHub).
+	 * @param string   $changelog_url  GitHub release URL (always points to the full changelog).
+	 * @param string   $audience_level One of: 'general', 'mixed', 'developer', 'engineering'.
 	 * @return string
 	 */
-	private function build_content_guidance( string $significance, array $images, string $download_link ): string {
-		$tone = match ( $significance ) {
-			'patch'    => "This is a maintenance release. Keep the tone practical and reassuring. A single clear paragraph is often enough.",
-			'minor'    => "This release adds improvements. Write a short intro paragraph followed by a brief summary of what's new.",
-			'major'    => "This is a significant release. Open with an engaging summary of what's changed and why it matters to the reader.",
-			'security' => "This is a security release. Open with clear, calm language explaining that a security issue has been resolved. Avoid alarming language. Do not include technical exploit details.",
-			default    => "Write a clear summary of what changed in this release.",
-		};
+	private function build_content_guidance( array $images, string $download_link, string $changelog_url, string $display_name = '', string $audience_level = 'mixed' ): string {
+		$audience_instructions = $this->build_audience_instructions( $audience_level );
+
+		// Build link and CTA instructions.
+		$link_instructions = "LINKS:\n";
+		$link_instructions .= "- The first mention of the project name (\"{$display_name}\") in the body should be linked to: {$download_link}\n";
+
+		if ( $download_link !== $changelog_url ) {
+			$link_instructions .= <<<EOT
+- End with TWO closing calls to action:
+  1. A CTA to see the full release notes, linking to: {$changelog_url}
+     e.g. "See the full release notes on GitHub."
+  2. A CTA to learn more or download, linking to: {$download_link}
+     e.g. "Learn more and download {$display_name}."
+EOT;
+		} else {
+			$link_instructions .= <<<EOT
+- End with a closing call to action linking to the release notes: {$changelog_url}
+  e.g. "See the full release notes and download {$display_name} on GitHub."
+EOT;
+		}
 
 		$structure = <<<EOT
-CONTENT STRUCTURE:
-1. Opening paragraph: plain-language summary of the release for non-technical site owners (required).
-2. What's new: briefly summarise the main changes in plain language without developer jargon (required).
-3. Developer notes (optional): if the release body contains API changes, hooks, deprecations, or database changes, add a clearly labelled section titled "For developers:" or "Developer notes:" that covers those details. Omit this section entirely if no developer-relevant content is present.
-4. Call to action: include a natural, contextual sentence linking to the update or changelog using this URL: {$download_link}
-   Phrase it contextually, for example: "Download the update from WordPress.org" or "See the full release notes on GitHub".
+EDITORIAL PRIORITIES (most important first):
+1. New end-user features and capabilities — these are the headline story when present. What can people DO now that they couldn't before?
+2. Significant technical improvements, performance gains, or developer-facing changes — the second most important story.
+3. Bug fixes and security patches — note them clearly but don't lead with them unless the release contains nothing else. A release with new features AND a security fix should lead with the features and mention the security fix in context.
 
-TONE: {$tone}
+{$audience_instructions}
 
-LENGTH: Scale content to match the release substance. A security patch or single-fix release may be one paragraph. A feature-rich release may use up to approximately 7 paragraphs. Do not pad thin releases to reach a minimum length, and do not truncate rich ones.
+{$link_instructions}
+
+FORMATTING RULES FOR LISTS:
+- Keep bullet points to ONE sentence each. If a bullet needs more detail, use a <strong>bold label</strong> followed by a single explanatory sentence.
+- Example: <li><strong>Usage monitoring</strong> — Track AI feature usage across your site with a new dashboard widget.</li>
+- Do NOT use multi-sentence or multi-line bullet items. Do NOT nest bullets inside bullets.
+- Prefer short, scannable lists over long, dense ones.
+
+LENGTH: Scale content to match the release substance. A single-fix release may be one or two paragraphs. A feature-rich release may use up to approximately 7 paragraphs. Do not pad thin releases to reach a minimum length, and do not truncate rich ones.
 EOT;
 
 		$structure .= "\n\n" . $this->build_image_instructions( $images );
@@ -188,10 +213,71 @@ EOT;
 	}
 
 	/**
+	 * Builds audience-specific content structure and tone instructions.
+	 *
+	 * @param string $audience_level One of: 'general', 'mixed', 'developer', 'engineering'.
+	 * @return string
+	 */
+	private function build_audience_instructions( string $audience_level ): string {
+		return match ( $audience_level ) {
+			'general' => <<<'EOT'
+TARGET AUDIENCE: WordPress site owners and managers who are NOT developers.
+
+CONTENT STRUCTURE:
+1. Opening paragraph: a plain-language summary that leads with the most newsworthy change. Explain what changed in terms of what the user will experience (required).
+2. Feature highlights: describe new features in user-centric terms — what problem they solve and how to use them. Focus on outcomes, not implementation (required when applicable).
+3. Other changes: bug fixes, security patches, minor improvements — summarise briefly in plain language (include when applicable).
+4. Do NOT include a developer notes section. Omit all technical details such as hook names, API changes, function signatures, or code examples.
+
+TONE: Write as if explaining the update to a smart colleague who manages WordPress sites but does not write code. Be clear, practical, and conversational. Never use developer jargon — translate everything into user-facing impact.
+EOT,
+
+			'mixed' => <<<'EOT'
+TARGET AUDIENCE: A mixed readership of WordPress site owners AND developers.
+
+CONTENT STRUCTURE:
+1. Opening paragraph: a plain-language summary for non-technical readers that leads with the most newsworthy change (required).
+2. Feature highlights: describe new features in user-centric terms — what problem they solve and how to use them (required when applicable).
+3. Other changes: bug fixes, security patches, minor improvements — summarise briefly without over-emphasising (include when applicable).
+4. Developer notes (optional): if the release body contains API changes, hooks, deprecations, or database changes, add a clearly labelled section with an <h3> heading titled "Developer improvements" or "For developers" that covers those details. Omit this section entirely if no developer-relevant content is present.
+
+TONE: Write the main body at the level of a sophisticated WordPress site owner or manager. Be clear, conversational, and jargon-free in the main sections. Reserve technical language for the developer notes section only.
+EOT,
+
+			'developer' => <<<'EOT'
+TARGET AUDIENCE: WordPress developers and plugin builders.
+
+CONTENT STRUCTURE:
+1. Opening paragraph: a concise summary that leads with the most significant change — technical details are welcome here (required).
+2. Feature and improvement details: describe what changed and how it works. Include relevant technical context such as new hooks, changed behaviour, or performance characteristics (required when applicable).
+3. Other changes: bug fixes, security patches — include technical details of what was fixed and why (include when applicable).
+4. Breaking changes or migration notes: if present, call these out prominently with clear upgrade instructions.
+
+TONE: Write for an audience that is comfortable with WordPress development concepts — hooks, filters, REST API, custom post types, etc. Be direct and specific. You can reference function names, hooks, and technical concepts without explanation, but keep the writing clear and well-structured.
+EOT,
+
+			'engineering' => <<<'EOT'
+TARGET AUDIENCE: Engineering teams working with WordPress at scale.
+
+CONTENT STRUCTURE:
+1. Opening paragraph: a technical summary of the release, leading with the most architecturally significant change (required).
+2. Detailed changes: cover all notable changes with full technical depth — new hooks with signatures, API changes with before/after examples, database schema changes, performance implications, and deprecation paths (required).
+3. Bug fixes and security: include root cause context where available — what was broken, how it was fixed, and any edge cases to be aware of.
+4. Breaking changes: if present, provide specific migration steps with code examples.
+5. Infrastructure notes: dependency updates, minimum version changes, build system changes, or CI/CD implications.
+
+TONE: Write as a detailed technical changelog narrative. Assume the reader understands WordPress internals, PHP development patterns, and software architecture. Be precise and thorough. Code examples and hook signatures are encouraged where they add clarity.
+EOT,
+
+			default => $this->build_audience_instructions( 'mixed' ),
+		};
+	}
+
+	/**
 	 * Builds image handling instructions for the prompt.
 	 *
 	 * If real images are present, instructs the AI to include them contextually.
-	 * If no images exist, instructs the AI to suggest placeholder positions (AC-024–AC-026).
+	 * If no images exist, instructs the AI to suggest placeholder positions.
 	 *
 	 * @param string[] $images Extracted image URLs.
 	 * @return string
@@ -199,10 +285,10 @@ EOT;
 	private function build_image_instructions( array $images ): string {
 		if ( ! empty( $images ) ) {
 			$image_list = implode( "\n", array_map( static fn( $url ) => "- {$url}", $images ) );
-			return "IMAGES: The release body contains the following images. Include them contextually within the post using HTML <img> tags (not Markdown). Place them near the content they illustrate:\n{$image_list}";
+			return "IMAGES: The release body contains the following images. Reference them contextually in the post by including the EXACT original URL in an <img> tag (the plugin will automatically download and import them into WordPress). Place them near the content they illustrate. Use a <figure> wrapper with an appropriate <figcaption>:\n{$image_list}";
 		}
 
-		return "IMAGES: No images are present in the release body. At one or two contextually appropriate points in the post, include a placeholder in the format: [Image suggestion: brief description of what screenshot would be useful here]. These placeholders help the site owner know where to add screenshots before publishing. Do NOT include placeholders in a security-only release.";
+		return "IMAGES: No images are present in the release body. Do not include any image placeholders or suggestions.";
 	}
 
 	// -------------------------------------------------------------------------
@@ -231,10 +317,10 @@ EOT;
 		string $custom_instructions = '',
 	): string {
 		$significance_label = match ( $significance ) {
-			'patch'    => 'Patch release (maintenance / bug fixes)',
-			'minor'    => 'Minor release (new features or improvements)',
-			'major'    => 'Major release (significant new capability or breaking change)',
-			'security' => 'Security release (vulnerability or security hardening)',
+			'patch'    => 'Patch (maintenance / bug fixes)',
+			'minor'    => 'Minor (new features or improvements)',
+			'major'    => 'Major (significant new capability or breaking change)',
+			'security' => 'Contains security fix (but may also contain other changes — read the full changelog)',
 			default    => 'Release',
 		};
 
@@ -244,12 +330,14 @@ You are writing a blog post about a WordPress plugin update for the plugin's use
 RELEASE INFORMATION:
 Plugin: {$display_name}
 Version: {$tag}
-Significance: {$significance_label}
+Version hint: {$significance_label}
 
 Release body (raw changelog — may contain Markdown, developer jargon, or GitHub references):
 ---
 {$body}
 ---
+
+IMPORTANT: The "version hint" above is a rough classification based on version numbering. Do NOT rely on it as the sole indicator of what the release contains. Read the full changelog carefully and make your own editorial judgment about what is most newsworthy. A release flagged as "security" may also introduce major features; a "patch" release may contain important improvements. Let the actual content drive your coverage.
 
 TITLE INSTRUCTIONS:
 {$title_guidance}
@@ -261,7 +349,7 @@ RESPONSE FORMAT:
 - Line 2: Blank line.
 - Line 3 onwards: The post body formatted as HTML.
 
-Use HTML tags for formatting: <p>, <ul>, <li>, <ol>, <strong>, <em>.
+Use HTML tags for formatting: <p>, <ul>, <li>, <ol>, <strong>, <em>, <h2>, <h3>.
 Do NOT use Markdown. Do NOT include an <h1> or full post title in the body.
 Do NOT mention that this post was AI-generated.
 EOT;
@@ -290,22 +378,49 @@ EOT;
 	/**
 	 * Resolves the download / changelog link for a release.
 	 *
-	 * Priority: custom URL > WordPress.org > GitHub release URL (AC-019).
+	 * Uses the unified plugin_link field: if it looks like a URL, use it
+	 * directly; if it's a plain string, treat it as a WP.org slug.
+	 * Falls back to the GitHub release URL (AC-019).
 	 *
 	 * @param array<string, mixed> $config Repo configuration.
 	 * @param ReleaseData          $data   Release data.
 	 * @return string
 	 */
 	public function resolve_download_link( array $config, ReleaseData $data ): string {
-		if ( ! empty( $config['custom_url'] ) ) {
-			return (string) $config['custom_url'];
-		}
+		$link = $config['plugin_link'] ?? '';
 
-		if ( ! empty( $config['wporg_slug'] ) ) {
-			return 'https://wordpress.org/plugins/' . rawurlencode( (string) $config['wporg_slug'] ) . '/';
+		if ( ! empty( $link ) ) {
+			if ( Repository_Settings::is_url( $link ) ) {
+				return (string) $link;
+			}
+			// Plain string — treat as WP.org slug.
+			return 'https://wordpress.org/plugins/' . rawurlencode( (string) $link ) . '/';
 		}
 
 		return $data->html_url;
+	}
+
+	/**
+	 * Resolves the project homepage link for a release.
+	 *
+	 * Same as resolve_download_link but falls back to the GitHub repo
+	 * homepage (not the specific release URL) when no project link is set.
+	 *
+	 * @param array<string, mixed> $config Repo configuration.
+	 * @param ReleaseData          $data   Release data.
+	 * @return string
+	 */
+	public function resolve_project_link( array $config, ReleaseData $data ): string {
+		$link = $config['plugin_link'] ?? '';
+
+		if ( ! empty( $link ) ) {
+			if ( Repository_Settings::is_url( $link ) ) {
+				return (string) $link;
+			}
+			return 'https://wordpress.org/plugins/' . rawurlencode( (string) $link ) . '/';
+		}
+
+		return 'https://github.com/' . $data->identifier;
 	}
 
 	/**

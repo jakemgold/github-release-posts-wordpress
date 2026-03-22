@@ -51,7 +51,7 @@ readonly class GeneratedPost {
 
 		return new self(
 			title:         $title,
-			content:       wpautop( $body ),
+			content:       $body,
 			provider_slug: $provider_slug,
 		);
 	}

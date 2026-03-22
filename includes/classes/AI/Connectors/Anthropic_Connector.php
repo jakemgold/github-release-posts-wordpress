@@ -16,7 +16,7 @@ use TenUp\ChangelogToBlogPost\Settings\Global_Settings;
 /**
  * Calls the Anthropic Messages API directly using a site-owner-supplied API key.
  *
- * Default model: claude-sonnet-4-5-20251022. Override via the `ctbp_anthropic_model`
+ * Default model: claude-opus-4-6. Override via the `ctbp_anthropic_model`
  * filter or the custom model field in plugin settings.
  */
 class Anthropic_Connector implements AIProviderInterface {
@@ -24,7 +24,7 @@ class Anthropic_Connector implements AIProviderInterface {
 	/**
 	 * Default model ID — update this constant when releasing new plugin versions.
 	 */
-	const DEFAULT_MODEL = 'claude-sonnet-4-5-20251022';
+	const DEFAULT_MODEL = 'claude-opus-4-6';
 
 	/**
 	 * Anthropic Messages API endpoint.
@@ -112,7 +112,7 @@ class Anthropic_Connector implements AIProviderInterface {
 					'max_tokens' => 2048,
 					'messages'   => [ [ 'role' => 'user', 'content' => $prompt ] ],
 				] ),
-				'timeout' => 60,
+				'timeout' => 120,
 			]
 		);
 
@@ -122,7 +122,15 @@ class Anthropic_Connector implements AIProviderInterface {
 		}
 
 		$decoded = json_decode( wp_remote_retrieve_body( $response ), true );
-		$text    = $decoded['content'][0]['text'] ?? '';
+
+		if ( ! is_array( $decoded ) ) {
+			return new \WP_Error(
+				'ctbp_anthropic_invalid_json',
+				__( 'Anthropic returned an invalid response. Please try again.', 'changelog-to-blog-post' )
+			);
+		}
+
+		$text = $decoded['content'][0]['text'] ?? '';
 
 		if ( '' === $text ) {
 			return new \WP_Error(
@@ -190,6 +198,12 @@ class Anthropic_Connector implements AIProviderInterface {
 	 */
 	private function check_response_error( array|\WP_Error $response ): true|\WP_Error {
 		if ( is_wp_error( $response ) ) {
+			if ( str_contains( $response->get_error_message(), 'cURL error 28' ) ) {
+				return new \WP_Error(
+					'ctbp_anthropic_timeout',
+					__( 'The Anthropic API took too long to respond. This can happen with complex releases. Please try again.', 'changelog-to-blog-post' )
+				);
+			}
 			return $response;
 		}
 
@@ -210,6 +224,14 @@ class Anthropic_Connector implements AIProviderInterface {
 		}
 
 		if ( $code < 200 || $code >= 300 ) {
+			// Parse the API error body for a more specific message.
+			$body    = json_decode( wp_remote_retrieve_body( $response ), true );
+			$message = $body['error']['message'] ?? '';
+
+			if ( '' !== $message ) {
+				return new \WP_Error( 'ctbp_anthropic_api_error', $message );
+			}
+
 			return new \WP_Error(
 				'ctbp_anthropic_http_error',
 				sprintf(

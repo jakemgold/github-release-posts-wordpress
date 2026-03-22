@@ -24,7 +24,7 @@ class OpenAI_Connector implements AIProviderInterface {
 	/**
 	 * Default model ID — update this constant when releasing new plugin versions.
 	 */
-	const DEFAULT_MODEL = 'gpt-4o';
+	const DEFAULT_MODEL = 'o3';
 
 	/**
 	 * OpenAI Chat Completions endpoint.
@@ -108,7 +108,7 @@ class OpenAI_Connector implements AIProviderInterface {
 					'Content-Type'  => 'application/json',
 				],
 				'body'    => $body,
-				'timeout' => 60,
+				'timeout' => 120,
 			]
 		);
 
@@ -118,7 +118,17 @@ class OpenAI_Connector implements AIProviderInterface {
 		}
 
 		$decoded = json_decode( wp_remote_retrieve_body( $response ), true );
-		$text    = $decoded['choices'][0]['message']['content'] ?? '';
+
+		if ( ! is_array( $decoded ) ) {
+			return new \WP_Error(
+				'ctbp_openai_invalid_json',
+				__( 'OpenAI returned an invalid response. Please try again.', 'changelog-to-blog-post' )
+			);
+		}
+
+		$text = $decoded['choices'][0]['message']['content']
+			?? $decoded['output'][0]['content'][0]['text']
+			?? '';
 
 		if ( '' === $text ) {
 			return new \WP_Error(
@@ -172,6 +182,12 @@ class OpenAI_Connector implements AIProviderInterface {
 	 */
 	private function check_response_error( array|\WP_Error $response ): true|\WP_Error {
 		if ( is_wp_error( $response ) ) {
+			if ( str_contains( $response->get_error_message(), 'cURL error 28' ) ) {
+				return new \WP_Error(
+					'ctbp_openai_timeout',
+					__( 'The OpenAI API took too long to respond. This can happen with complex releases. Please try again.', 'changelog-to-blog-post' )
+				);
+			}
 			return $response;
 		}
 
@@ -192,6 +208,14 @@ class OpenAI_Connector implements AIProviderInterface {
 		}
 
 		if ( $code < 200 || $code >= 300 ) {
+			// Parse the API error body for a more specific message.
+			$body    = json_decode( wp_remote_retrieve_body( $response ), true );
+			$message = $body['error']['message'] ?? '';
+
+			if ( '' !== $message ) {
+				return new \WP_Error( 'ctbp_openai_api_error', $message );
+			}
+
 			return new \WP_Error(
 				'ctbp_openai_http_error',
 				sprintf(

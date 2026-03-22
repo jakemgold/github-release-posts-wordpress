@@ -4,10 +4,10 @@
  */
 
 import { registerPlugin } from '@wordpress/plugins';
-import { PluginPostStatusInfo } from '@wordpress/edit-post';
+import { PluginDocumentSettingPanel } from '@wordpress/editor';
 import { useEntityProp } from '@wordpress/core-data';
 import { useSelect, useDispatch } from '@wordpress/data';
-import { useState } from '@wordpress/element';
+import { useState, useEffect } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { Button, ExternalLink, TextareaControl, Spinner } from '@wordpress/components';
 import apiFetch from '@wordpress/api-fetch';
@@ -29,21 +29,32 @@ function ReleaseAttribution() {
 
 	const [ meta ] = useEntityProp( 'postType', postType, 'meta' );
 	const { editPost } = useDispatch( 'core/editor' );
+	const { toggleEditorPanelOpened, isEditorPanelOpened } = useDispatch( 'core/editor' );
 
 	const [ showFeedback, setShowFeedback ] = useState( false );
 	const [ feedback, setFeedback ] = useState( '' );
 	const [ isRegenerating, setIsRegenerating ] = useState( false );
 	const [ resultMessage, setResultMessage ] = useState( '' );
 
-	if ( ! meta ) {
-		return null;
-	}
+	const repo = meta ? ( meta._ctbp_source_repo || '' ) : '';
+	const tag = meta ? ( meta._ctbp_release_tag || '' ) : '';
+	const releaseUrl = meta ? ( meta._ctbp_release_url || '' ) : '';
+	const hasRelease = !! ( repo && releaseUrl );
 
-	const repo = meta._ctbp_source_repo || '';
-	const tag = meta._ctbp_release_tag || '';
-	const releaseUrl = meta._ctbp_release_url || '';
+	// Auto-expand the panel on first load for generated posts.
+	const panelName = 'ctbp-release-attribution/ctbp-release-attribution';
+	const isPanelOpen = useSelect(
+		( select ) => select( 'core/editor' ).isEditorPanelOpened( panelName ),
+		[]
+	);
 
-	if ( ! repo || ! releaseUrl ) {
+	useEffect( () => {
+		if ( hasRelease && ! isPanelOpen ) {
+			toggleEditorPanelOpened( panelName );
+		}
+	}, [ hasRelease ] ); // eslint-disable-line react-hooks/exhaustive-deps
+
+	if ( ! meta || ! hasRelease ) {
 		return null;
 	}
 
@@ -86,75 +97,74 @@ function ReleaseAttribution() {
 	}
 
 	return (
-		<PluginPostStatusInfo className="ctbp-release-attribution">
-			<div style={ { width: '100%' } }>
-				<p style={ { margin: '0 0 8px' } }>
-					{ __( 'Generated from', 'changelog-to-blog-post' ) }{ ' ' }
-					<ExternalLink href={ releaseUrl }>
-						{ __( 'GitHub plugin release', 'changelog-to-blog-post' ) }
-					</ExternalLink>
-					<span style={ { color: '#757575', marginLeft: '4px' } }>
-						({ repo } { tag })
-					</span>
-				</p>
+		<PluginDocumentSettingPanel
+			name="ctbp-release-attribution"
+			title={ __( 'GitHub Release', 'changelog-to-blog-post' ) }
+			className="ctbp-release-attribution"
+		>
+			<p style={ { margin: '0 0 8px' } }>
+				{ __( 'Generated from', 'changelog-to-blog-post' ) }{ ' ' }
+				<ExternalLink href={ releaseUrl }>
+					{ repo } { tag }
+				</ExternalLink>
+			</p>
 
-				{ ! showFeedback && (
-					<Button
-						variant="secondary"
-						size="small"
-						onClick={ () => setShowFeedback( true ) }
+			{ ! showFeedback && (
+				<Button
+					variant="secondary"
+					size="small"
+					onClick={ () => setShowFeedback( true ) }
+					disabled={ isRegenerating }
+				>
+					{ __( 'Regenerate', 'changelog-to-blog-post' ) }
+				</Button>
+			) }
+
+			{ showFeedback && (
+				<div style={ { marginTop: '8px' } }>
+					<TextareaControl
+						label={ __( 'Feedback (optional)', 'changelog-to-blog-post' ) }
+						help={ __( 'Tell the AI what to change, e.g. "make it shorter" or "emphasize the security fix".', 'changelog-to-blog-post' ) }
+						value={ feedback }
+						onChange={ setFeedback }
+						rows={ 3 }
 						disabled={ isRegenerating }
-					>
-						{ __( 'Regenerate', 'changelog-to-blog-post' ) }
-					</Button>
-				) }
-
-				{ showFeedback && (
-					<div style={ { marginTop: '8px' } }>
-						<TextareaControl
-							label={ __( 'Feedback (optional)', 'changelog-to-blog-post' ) }
-							help={ __( 'Tell the AI what to change, e.g. "make it shorter" or "emphasize the security fix".', 'changelog-to-blog-post' ) }
-							value={ feedback }
-							onChange={ setFeedback }
-							rows={ 3 }
+					/>
+					<div style={ { display: 'flex', gap: '8px', alignItems: 'center' } }>
+						<Button
+							variant="primary"
+							size="small"
+							onClick={ handleRegenerate }
 							disabled={ isRegenerating }
-						/>
-						<div style={ { display: 'flex', gap: '8px', alignItems: 'center' } }>
+						>
+							{ isRegenerating
+								? __( 'Regenerating…', 'changelog-to-blog-post' )
+								: __( 'Regenerate content', 'changelog-to-blog-post' )
+							}
+						</Button>
+						{ ! isRegenerating && (
 							<Button
-								variant="primary"
+								variant="tertiary"
 								size="small"
-								onClick={ handleRegenerate }
-								disabled={ isRegenerating }
+								onClick={ () => {
+									setShowFeedback( false );
+									setFeedback( '' );
+								} }
 							>
-								{ isRegenerating
-									? __( 'Regenerating…', 'changelog-to-blog-post' )
-									: __( 'Regenerate content', 'changelog-to-blog-post' )
-								}
+								{ __( 'Cancel', 'changelog-to-blog-post' ) }
 							</Button>
-							{ ! isRegenerating && (
-								<Button
-									variant="tertiary"
-									size="small"
-									onClick={ () => {
-										setShowFeedback( false );
-										setFeedback( '' );
-									} }
-								>
-									{ __( 'Cancel', 'changelog-to-blog-post' ) }
-								</Button>
-							) }
-							{ isRegenerating && <Spinner /> }
-						</div>
+						) }
+						{ isRegenerating && <Spinner /> }
 					</div>
-				) }
+				</div>
+			) }
 
-				{ resultMessage && (
-					<p style={ { marginTop: '8px', color: '#00a32a', fontSize: '13px' } }>
-						{ resultMessage }
-					</p>
-				) }
-			</div>
-		</PluginPostStatusInfo>
+			{ resultMessage && (
+				<p style={ { marginTop: '8px', color: '#00a32a', fontSize: '13px' } }>
+					{ resultMessage }
+				</p>
+			) }
+		</PluginDocumentSettingPanel>
 	);
 }
 

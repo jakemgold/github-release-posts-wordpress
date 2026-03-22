@@ -82,7 +82,15 @@ class WP_AI_Client_Connector implements AIProviderInterface {
 			return $response;
 		}
 
-		return $this->parse_response( (string) $response, $data );
+		$text = (string) $response;
+		if ( '' === trim( $text ) ) {
+			return new \WP_Error(
+				'ctbp_wp_ai_client_empty_response',
+				__( 'WordPress AI Services returned an empty response. Please try again.', 'changelog-to-blog-post' )
+			);
+		}
+
+		return $this->parse_response( $text, $data );
 	}
 
 	/**

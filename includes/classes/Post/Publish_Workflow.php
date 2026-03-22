@@ -10,7 +10,7 @@ namespace TenUp\ChangelogToBlogPost\Post;
 use TenUp\ChangelogToBlogPost\AI\GeneratedPost;
 use TenUp\ChangelogToBlogPost\AI\ReleaseData;
 use TenUp\ChangelogToBlogPost\Plugin_Constants;
-use TenUp\ChangelogToBlogPost\Settings\Global_Settings;
+
 use TenUp\ChangelogToBlogPost\Settings\Repository_Settings;
 
 /**
@@ -31,7 +31,6 @@ class Publish_Workflow {
 	 */
 	public function __construct(
 		private readonly Repository_Settings $repo_settings,
-		private readonly Global_Settings $global_settings,
 	) {}
 
 	/**
@@ -82,7 +81,11 @@ class Publish_Workflow {
 
 		wp_update_post( $update_args );
 
-		$this->record_result( $post_id, $status, $data );
+		// Only record results for cron-generated posts — manual generation
+		// gives immediate feedback via the REST response / JS UI.
+		if ( empty( $context['manual'] ) ) {
+			$this->record_result( $post_id, $status, $data );
+		}
 
 		/**
 		 * Fires after the final post status has been set.
@@ -113,15 +116,9 @@ class Publish_Workflow {
 			return 'draft';
 		}
 
-		// Per-repo override.
+		// Per-repo status (defaults to 'draft' on creation).
 		$config = $this->repo_settings->get_repository( $identifier );
-		if ( ! empty( $config['post_status'] ) ) {
-			return (string) $config['post_status'];
-		}
-
-		// Global default.
-		$defaults = $this->global_settings->get_post_defaults();
-		return ! empty( $defaults['post_status'] ) ? (string) $defaults['post_status'] : 'draft';
+		return ! empty( $config['post_status'] ) ? (string) $config['post_status'] : 'draft';
 	}
 
 	/**

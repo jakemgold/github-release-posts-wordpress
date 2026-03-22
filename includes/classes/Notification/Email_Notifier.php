@@ -58,7 +58,7 @@ class Email_Notifier {
 	/**
 	 * Collects a post result for the batched email.
 	 *
-	 * Skips manual triggers (AC-008) and disabled notifications (AC-011).
+	 * Skips manual triggers (AC-008) and no-recipient configurations.
 	 *
 	 * @param int         $post_id WordPress post ID.
 	 * @param string      $status  Final post status.
@@ -72,9 +72,9 @@ class Email_Notifier {
 			return;
 		}
 
-		// Skip if notifications are disabled (AC-011).
+		// Skip if no recipients are configured.
 		$notif = $this->global_settings->get_notification_settings();
-		if ( empty( $notif['enabled'] ) ) {
+		if ( empty( $notif['notify_site_owner'] ) && empty( $this->global_settings->get_additional_email_list() ) ) {
 			return;
 		}
 
@@ -101,25 +101,17 @@ class Email_Notifier {
 	/**
 	 * Sends the batched summary email at shutdown.
 	 *
-	 * Checks the notification trigger preference to decide whether to send.
+	 * Always sends for any generated post (draft or published).
 	 *
 	 * @return void
 	 */
 	public function send(): void {
 		if ( empty( $this->entries ) ) {
-			return; // Nothing to send (AC-002).
-		}
-
-		$notif   = $this->global_settings->get_notification_settings();
-		$trigger = $notif['trigger'] ?? 'draft';
-
-		// Filter entries based on trigger preference (AC-006).
-		$eligible = $this->filter_by_trigger( $this->entries, $trigger );
-		if ( empty( $eligible ) ) {
 			return;
 		}
 
-		$recipients = $this->resolve_recipients( $notif );
+		$eligible   = $this->entries;
+		$recipients = $this->resolve_recipients();
 		if ( empty( $recipients ) ) {
 			return;
 		}
@@ -177,46 +169,28 @@ class Email_Notifier {
 	}
 
 	/**
-	 * Filters entries based on the notification trigger preference.
-	 *
-	 * @param array  $entries All collected entries.
-	 * @param string $trigger 'draft', 'publish', or 'both'.
-	 * @return array Entries matching the trigger.
-	 */
-	private function filter_by_trigger( array $entries, string $trigger ): array {
-		if ( 'both' === $trigger ) {
-			return $entries; // Send for everything (AC-007).
-		}
-
-		return array_filter( $entries, function ( $entry ) use ( $trigger ) {
-			if ( 'publish' === $trigger ) {
-				return 'publish' === $entry['status'];
-			}
-			// 'draft' trigger — fires for drafts.
-			return 'publish' !== $entry['status'];
-		} );
-	}
-
-	/**
 	 * Resolves the list of recipient email addresses.
 	 *
-	 * @param array $notif Notification settings.
+	 * Combines the site admin email (if opted in) with any additional emails.
+	 *
 	 * @return string[] Recipient email addresses.
 	 */
-	private function resolve_recipients( array $notif ): array {
+	private function resolve_recipients(): array {
+		$notif      = $this->global_settings->get_notification_settings();
 		$recipients = [];
 
-		$primary = $notif['email'] ?? '';
-		if ( empty( $primary ) ) {
-			$primary = get_option( 'admin_email', '' );
-		}
-		if ( ! empty( $primary ) ) {
-			$recipients[] = $primary;
+		if ( ! empty( $notif['notify_site_owner'] ) ) {
+			$admin_email = get_option( 'admin_email', '' );
+			if ( ! empty( $admin_email ) ) {
+				$recipients[] = $admin_email;
+			}
 		}
 
-		$secondary = $notif['email_secondary'] ?? '';
-		if ( ! empty( $secondary ) ) {
-			$recipients[] = $secondary;
+		$additional = $this->global_settings->get_additional_email_list();
+		foreach ( $additional as $email ) {
+			if ( ! in_array( $email, $recipients, true ) ) {
+				$recipients[] = $email;
+			}
 		}
 
 		return $recipients;
