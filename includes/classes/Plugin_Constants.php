@@ -61,15 +61,16 @@ class Plugin_Constants {
 	const OPTION_CHECK_INTERVAL = 'ctbp_check_interval';
 
 	/**
-	 * Primary notification email address.
-	 * Empty string = fall back to WordPress admin email at use time.
+	 * Whether the site admin email (from Settings → General) receives
+	 * notifications when posts are generated (boolean).
 	 */
-	const OPTION_NOTIFICATION_EMAIL = 'ctbp_notification_email';
+	const OPTION_NOTIFY_SITE_OWNER = 'ctbp_notify_site_owner';
 
 	/**
-	 * Optional secondary notification email address.
+	 * Comma-separated list of additional email addresses to notify (up to 5).
+	 * Stored as a single string; parsed at send time.
 	 */
-	const OPTION_NOTIFICATION_EMAIL_SECONDARY = 'ctbp_notification_email_secondary';
+	const OPTION_ADDITIONAL_EMAILS = 'ctbp_additional_emails';
 
 	/**
 	 * GitHub Personal Access Token (encrypted at rest using libsodium).
@@ -78,12 +79,18 @@ class Plugin_Constants {
 	const OPTION_GITHUB_PAT = 'ctbp_github_pat';
 
 	/**
-	 * Notification trigger: 'draft', 'publish', or 'both'.
+	 * Post audience level: 'general', 'mixed', 'developer', or 'engineering'.
+	 * Controls how technical the AI-generated post content is.
+	 */
+	const OPTION_AUDIENCE_LEVEL = 'ctbp_audience_level';
+
+	/**
+	 * @deprecated Use OPTION_NOTIFY_SITE_OWNER and OPTION_ADDITIONAL_EMAILS instead.
 	 */
 	const OPTION_NOTIFICATION_TRIGGER = 'ctbp_notification_trigger';
 
 	/**
-	 * Whether email notifications are enabled (boolean).
+	 * @deprecated Use OPTION_NOTIFY_SITE_OWNER instead.
 	 */
 	const OPTION_NOTIFICATIONS_ENABLED = 'ctbp_notifications_enabled';
 
@@ -155,6 +162,11 @@ class Plugin_Constants {
 	const OPTION_CUSTOM_PROMPT_INSTRUCTIONS = 'ctbp_custom_prompt_instructions';
 
 	/**
+	 * Whether to append an AI disclosure statement to generated posts (boolean).
+	 */
+	const OPTION_AI_DISCLOSURE = 'ctbp_ai_disclosure';
+
+	/**
 	 * Transient storing AI failure notice data for admin display.
 	 * Set when consecutive failures reach the threshold.
 	 */
@@ -221,17 +233,13 @@ class Plugin_Constants {
 			self::OPTION_REPOSITORIES                => [],
 			self::OPTION_AI_PROVIDER                 => '',
 			self::OPTION_AI_API_KEYS                 => [],
-			self::OPTION_DEFAULT_POST_STATUS         => 'draft',
-			self::OPTION_DEFAULT_CATEGORY            => 0,
-			self::OPTION_DEFAULT_TAGS                => [],
 			self::OPTION_LAST_RUN_AT                 => 0,
-			self::OPTION_NOTIFICATION_EMAIL          => '',
-			self::OPTION_NOTIFICATION_EMAIL_SECONDARY => '',
-			self::OPTION_NOTIFICATION_TRIGGER        => 'draft',
-			self::OPTION_NOTIFICATIONS_ENABLED       => true,
+			self::OPTION_NOTIFY_SITE_OWNER           => true,
+			self::OPTION_ADDITIONAL_EMAILS           => '',
 			self::OPTION_GITHUB_PAT                  => '',
 			self::OPTION_RELEASE_QUEUE               => [],
 			self::OPTION_CUSTOM_PROMPT_INSTRUCTIONS  => '',
+			self::OPTION_AI_DISCLOSURE               => false,
 		];
 	}
 }

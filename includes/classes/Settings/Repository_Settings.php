@@ -18,6 +18,13 @@ use TenUp\ChangelogToBlogPost\Plugin_Constants;
 class Repository_Settings {
 
 	/**
+	 * In-memory cache of the repositories array.
+	 *
+	 * @var array|null
+	 */
+	private ?array $cache = null;
+
+	/**
 	 * Default maximum number of tracked repositories.
 	 * Can be raised via the `ctbp_max_repositories` filter.
 	 */
@@ -29,8 +36,19 @@ class Repository_Settings {
 	 * @return array<int, array<string, mixed>> Indexed array of repository configuration objects.
 	 */
 	public function get_repositories(): array {
+		if ( null !== $this->cache ) {
+			return $this->cache;
+		}
+
 		$repos = get_option( Plugin_Constants::OPTION_REPOSITORIES, [] );
-		return is_array( $repos ) ? $repos : [];
+		if ( ! is_array( $repos ) ) {
+			$this->cache = [];
+			return [];
+		}
+
+		// Migrate legacy wporg_slug/custom_url → plugin_link on read.
+		$this->cache = array_map( [ self::class, 'migrate_plugin_link' ], $repos );
+		return $this->cache;
 	}
 
 	/**
@@ -55,7 +73,8 @@ class Repository_Settings {
 	 * @return bool Whether the update succeeded.
 	 */
 	public function save_repositories( array $repos ): bool {
-		return (bool) update_option( Plugin_Constants::OPTION_REPOSITORIES, array_values( $repos ) );
+		$this->cache = null;
+		return (bool) update_option( Plugin_Constants::OPTION_REPOSITORIES, array_values( $repos ), false );
 	}
 
 	/**
@@ -162,11 +181,12 @@ class Repository_Settings {
 			'identifier'   => $identifier,
 			'display_name' => $display_name,
 			'paused'       => false,
-			'wporg_slug'   => '',
-			'custom_url'   => '',
-			'post_status'  => '',
-			'category'     => 0,
-			'tags'         => [],
+			'plugin_link'  => '',
+			'author'         => get_current_user_id(),
+			'post_status'    => (string) apply_filters( 'ctbp_default_post_status', 'draft' ),
+			'categories'     => (array) apply_filters( 'ctbp_default_categories', [] ),
+			'tags'           => (array) apply_filters( 'ctbp_default_tags', [] ),
+			'featured_image' => 0,
 		];
 
 		$this->save_repositories( $repos );
@@ -216,7 +236,7 @@ class Repository_Settings {
 		$repos = $this->get_repositories();
 		$found = false;
 
-		$allowed_fields = [ 'display_name', 'paused', 'wporg_slug', 'custom_url', 'post_status', 'category', 'tags' ];
+		$allowed_fields = [ 'display_name', 'paused', 'plugin_link', 'author', 'post_status', 'categories', 'tags', 'featured_image' ];
 
 		foreach ( $repos as &$repo ) {
 			if ( ( $repo['identifier'] ?? '' ) === $identifier ) {
@@ -239,24 +259,48 @@ class Repository_Settings {
 	}
 
 	/**
-	 * Validates a WordPress.org plugin slug by querying the plugins API.
+	 * Determines whether a plugin link value is a URL or a WP.org slug.
 	 *
-	 * This is a best-effort check — an invalid result shows a warning but
-	 * does not block saving (BR-004).
-	 *
-	 * @param string $slug The WordPress.org plugin slug to check.
-	 * @return array{valid: bool, warning: string|null} Validation result.
+	 * @param string $value The plugin link value.
+	 * @return bool True if the value looks like a URL.
 	 */
-	public function validate_wporg_slug( string $slug ): array {
-		if ( empty( $slug ) ) {
-			return [ 'valid' => false, 'warning' => __( 'Slug is empty.', 'changelog-to-blog-post' ) ];
+	public static function is_url( string $value ): bool {
+		return (bool) preg_match( '#^https?://#i', $value );
+	}
+
+	/**
+	 * Validates a plugin link value.
+	 *
+	 * If the value is a URL, checks basic format. If it looks like a
+	 * WP.org slug (plain string), queries the WP.org plugins API.
+	 *
+	 * @param string $value The plugin link value (URL or slug).
+	 * @return array{valid: bool, type: string, warning: string|null} Validation result.
+	 */
+	public function validate_plugin_link( string $value ): array {
+		if ( empty( $value ) ) {
+			return [ 'valid' => false, 'type' => '', 'warning' => null ];
 		}
 
-		$url      = 'https://api.wordpress.org/plugins/info/1.2/?action=plugin_information&request[slug]=' . rawurlencode( $slug );
+		// URL — client-side format check is sufficient, just verify it parses.
+		if ( self::is_url( $value ) ) {
+			$parsed = wp_parse_url( $value );
+			if ( ! empty( $parsed['host'] ) ) {
+				return [ 'valid' => true, 'type' => 'url', 'warning' => null ];
+			}
+			return [
+				'valid'   => false,
+				'type'    => 'url',
+				'warning' => __( 'URL does not appear to be valid.', 'changelog-to-blog-post' ),
+			];
+		}
+
+		// Slug — validate against WP.org API.
+		$url      = 'https://api.wordpress.org/plugins/info/1.2/?action=plugin_information&request[slug]=' . rawurlencode( $value );
 		$response = wp_remote_get( $url, [ 'timeout' => 10 ] );
 
 		if ( is_wp_error( $response ) ) {
-			return [ 'valid' => false, 'warning' => $response->get_error_message() ];
+			return [ 'valid' => false, 'type' => 'slug', 'warning' => $response->get_error_message() ];
 		}
 
 		$body = wp_remote_retrieve_body( $response );
@@ -265,10 +309,40 @@ class Repository_Settings {
 		if ( isset( $data['error'] ) || empty( $data ) ) {
 			return [
 				'valid'   => false,
-				'warning' => __( 'Plugin not found on WordPress.org. You can still save, but the WP.org download link will not be used.', 'changelog-to-blog-post' ),
+				'type'    => 'slug',
+				'warning' => __( 'Plugin not found on WordPress.org.', 'changelog-to-blog-post' ),
 			];
 		}
 
-		return [ 'valid' => true, 'warning' => null ];
+		return [ 'valid' => true, 'type' => 'slug', 'warning' => null ];
+	}
+
+	/**
+	 * Migrates legacy wporg_slug / custom_url fields to plugin_link.
+	 *
+	 * Called on get_repositories() to handle repos saved before the merge.
+	 * Priority: custom_url > wporg_slug.
+	 *
+	 * @param array $repo Repository config array.
+	 * @return array Updated config with plugin_link.
+	 */
+	public static function migrate_plugin_link( array $repo ): array {
+		if ( array_key_exists( 'plugin_link', $repo ) ) {
+			// Already migrated — clean up legacy keys if present.
+			unset( $repo['wporg_slug'], $repo['custom_url'] );
+			return $repo;
+		}
+
+		$plugin_link = '';
+		if ( ! empty( $repo['custom_url'] ) ) {
+			$plugin_link = $repo['custom_url'];
+		} elseif ( ! empty( $repo['wporg_slug'] ) ) {
+			$plugin_link = $repo['wporg_slug'];
+		}
+
+		$repo['plugin_link'] = $plugin_link;
+		unset( $repo['wporg_slug'], $repo['custom_url'] );
+
+		return $repo;
 	}
 }

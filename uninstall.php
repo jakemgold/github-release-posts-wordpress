@@ -28,6 +28,12 @@ foreach ( array_keys( Plugin_Constants::get_defaults() ) as $option_key ) {
 	delete_option( $option_key );
 }
 
+// Clean up legacy option keys from earlier plugin versions.
+delete_option( 'ctbp_notification_email' );
+delete_option( 'ctbp_notification_email_secondary' );
+delete_option( 'ctbp_notification_trigger' );
+delete_option( 'ctbp_notifications_enabled' );
+
 // -------------------------------------------------------------------------
 // 2. Delete all plugin post meta from every post.
 //    Posts themselves are retained — only meta is removed.

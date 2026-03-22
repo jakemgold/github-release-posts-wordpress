@@ -210,6 +210,8 @@ class API_Client {
 			return $response;
 		}
 
+		$this->handle_rate_limit( $response );
+
 		$code = (int) wp_remote_retrieve_response_code( $response );
 		if ( 200 !== $code ) {
 			return new \WP_Error( 'github_issue_fetch_failed', sprintf( 'GitHub API returned HTTP %d for #%d.', $code, $number ) );

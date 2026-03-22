@@ -52,7 +52,7 @@ class Activator {
 	 */
 	private static function write_default_options(): void {
 		foreach ( Plugin_Constants::get_defaults() as $key => $default ) {
-			add_option( $key, $default );
+			add_option( $key, $default, '', false );
 		}
 	}
 

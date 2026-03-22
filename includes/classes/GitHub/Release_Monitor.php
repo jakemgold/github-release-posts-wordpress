@@ -46,6 +46,18 @@ class Release_Monitor {
 	 * @return void
 	 */
 	public function run(): void {
+		// Block editor must be active — posts are generated as blocks.
+		if ( function_exists( 'use_block_editor_for_post_type' ) && ! use_block_editor_for_post_type( 'post' ) ) {
+			return;
+		}
+
+		// Prevent overlapping cron runs from processing the same releases.
+		$lock_key = 'ctbp_cron_lock';
+		if ( get_transient( $lock_key ) ) {
+			return;
+		}
+		set_transient( $lock_key, time(), 10 * MINUTE_IN_SECONDS );
+
 		// Record start time before processing so a partial run still updates the display (BR-004).
 		update_option( Plugin_Constants::OPTION_LAST_RUN_AT, time(), false );
 
@@ -96,6 +108,9 @@ class Release_Monitor {
 		}
 
 		$this->process_queue();
+
+		// Release the concurrency lock.
+		delete_transient( $lock_key );
 	}
 
 	/**

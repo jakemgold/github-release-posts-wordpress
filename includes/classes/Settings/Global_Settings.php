@@ -58,7 +58,7 @@ class Global_Settings {
 			return false;
 		}
 
-		return (bool) update_option( Plugin_Constants::OPTION_AI_PROVIDER, $provider );
+		return (bool) update_option( Plugin_Constants::OPTION_AI_PROVIDER, $provider, false );
 	}
 
 	// -------------------------------------------------------------------------
@@ -81,9 +81,22 @@ class Global_Settings {
 
 		$keys = [];
 		foreach ( [ 'openai', 'anthropic' ] as $provider ) {
-			$keys[ $provider ] = isset( $encrypted[ $provider ] )
-				? $this->decrypt( (string) $encrypted[ $provider ] )
-				: '';
+			if ( isset( $encrypted[ $provider ] ) && '' !== $encrypted[ $provider ] ) {
+				$decrypted = $this->decrypt( (string) $encrypted[ $provider ] );
+				if ( '' === $decrypted ) {
+					// Key exists but can't be decrypted (AUTH_KEY may have changed).
+					if ( defined( 'WP_DEBUG' ) && WP_DEBUG && defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
+						// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+						error_log( sprintf(
+							'[CTBP] Failed to decrypt API key for provider "%s". If you migrated this site, re-enter your API key in Settings.',
+							$provider
+						) );
+					}
+				}
+				$keys[ $provider ] = $decrypted;
+			} else {
+				$keys[ $provider ] = '';
+			}
 		}
 
 		return $keys;
@@ -121,7 +134,7 @@ class Global_Settings {
 			}
 		}
 
-		return (bool) update_option( Plugin_Constants::OPTION_AI_API_KEYS, $existing );
+		return (bool) update_option( Plugin_Constants::OPTION_AI_API_KEYS, $existing, false );
 	}
 
 	/**
@@ -144,38 +157,6 @@ class Global_Settings {
 	// Post Defaults
 	// -------------------------------------------------------------------------
 
-	/**
-	 * Returns the global post defaults.
-	 *
-	 * @return array{post_status: string, category: int, tags: string[]}
-	 */
-	public function get_post_defaults(): array {
-		return [
-			'post_status' => (string) get_option( Plugin_Constants::OPTION_DEFAULT_POST_STATUS, 'draft' ),
-			'category'    => (int) get_option( Plugin_Constants::OPTION_DEFAULT_CATEGORY, 0 ),
-			'tags'        => (array) get_option( Plugin_Constants::OPTION_DEFAULT_TAGS, [] ),
-		];
-	}
-
-	/**
-	 * Saves the global post defaults.
-	 *
-	 * @param array{post_status?: string, category?: int, tags?: string[]} $defaults
-	 * @return bool Whether all three options were saved successfully.
-	 */
-	public function save_post_defaults( array $defaults ): bool {
-		$allowed_statuses = [ 'draft', 'publish' ];
-		$status           = in_array( $defaults['post_status'] ?? '', $allowed_statuses, true )
-			? $defaults['post_status']
-			: 'draft';
-
-		$a = update_option( Plugin_Constants::OPTION_DEFAULT_POST_STATUS, $status );
-		$b = update_option( Plugin_Constants::OPTION_DEFAULT_CATEGORY, absint( $defaults['category'] ?? 0 ) );
-		$c = update_option( Plugin_Constants::OPTION_DEFAULT_TAGS, (array) ( $defaults['tags'] ?? [] ) );
-
-		return $a && $b && $c;
-	}
-
 	// -------------------------------------------------------------------------
 	// Notification Settings
 	// -------------------------------------------------------------------------
@@ -183,61 +164,41 @@ class Global_Settings {
 	/**
 	 * Returns the current notification settings.
 	 *
-	 * @return array{enabled: bool, email: string, email_secondary: string, trigger: string}
+	 * @return array{notify_site_owner: bool, additional_emails: string}
 	 */
 	public function get_notification_settings(): array {
 		return [
-			'enabled'         => (bool) get_option( Plugin_Constants::OPTION_NOTIFICATIONS_ENABLED, false ),
-			'email'           => (string) get_option( Plugin_Constants::OPTION_NOTIFICATION_EMAIL, '' ),
-			'email_secondary' => (string) get_option( Plugin_Constants::OPTION_NOTIFICATION_EMAIL_SECONDARY, '' ),
-			'trigger'         => (string) get_option( Plugin_Constants::OPTION_NOTIFICATION_TRIGGER, 'draft' ),
+			'notify_site_owner' => (bool) get_option( Plugin_Constants::OPTION_NOTIFY_SITE_OWNER, true ),
+			'additional_emails' => (string) get_option( Plugin_Constants::OPTION_ADDITIONAL_EMAILS, '' ),
 		];
 	}
 
 	/**
-	 * Saves notification settings.
+	 * Returns the parsed list of additional notification email addresses.
 	 *
-	 * Validates email addresses before saving. Returns an error array if invalid.
+	 * Splits the comma-delimited string, validates each address, and caps at 5.
 	 *
-	 * @param array{enabled?: bool, email?: string, email_secondary?: string, trigger?: string} $data
-	 * @return array{saved: bool, errors: string[]}
+	 * @return string[] Valid email addresses (max 5).
 	 */
-	public function save_notification_settings( array $data ): array {
-		$errors = [];
-
-		$email = $data['email'] ?? '';
-		if ( ! empty( $email ) && ! is_email( $email ) ) {
-			$errors[] = sprintf(
-				/* translators: %s: submitted email address */
-				__( '"%s" is not a valid email address.', 'changelog-to-blog-post' ),
-				$email
-			);
+	public function get_additional_email_list(): array {
+		$raw = (string) get_option( Plugin_Constants::OPTION_ADDITIONAL_EMAILS, '' );
+		if ( '' === trim( $raw ) ) {
+			return [];
 		}
 
-		$email_secondary = $data['email_secondary'] ?? '';
-		if ( ! empty( $email_secondary ) && ! is_email( $email_secondary ) ) {
-			$errors[] = sprintf(
-				/* translators: %s: submitted email address */
-				__( 'Secondary email "%s" is not a valid email address.', 'changelog-to-blog-post' ),
-				$email_secondary
-			);
+		$addresses = array_map( 'trim', explode( ',', $raw ) );
+		$valid     = [];
+
+		foreach ( $addresses as $addr ) {
+			if ( '' !== $addr && is_email( $addr ) ) {
+				$valid[] = $addr;
+			}
+			if ( count( $valid ) >= 5 ) {
+				break;
+			}
 		}
 
-		if ( ! empty( $errors ) ) {
-			return [ 'saved' => false, 'errors' => $errors ];
-		}
-
-		$allowed_triggers = [ 'draft', 'publish', 'both' ];
-		$trigger          = in_array( $data['trigger'] ?? '', $allowed_triggers, true )
-			? $data['trigger']
-			: 'draft';
-
-		update_option( Plugin_Constants::OPTION_NOTIFICATIONS_ENABLED, ! empty( $data['enabled'] ) );
-		update_option( Plugin_Constants::OPTION_NOTIFICATION_EMAIL, $email );
-		update_option( Plugin_Constants::OPTION_NOTIFICATION_EMAIL_SECONDARY, $email_secondary );
-		update_option( Plugin_Constants::OPTION_NOTIFICATION_TRIGGER, $trigger );
-
-		return [ 'saved' => true, 'errors' => [] ];
+		return $valid;
 	}
 
 	// -------------------------------------------------------------------------
@@ -281,7 +242,7 @@ class Global_Settings {
 			}
 		}
 
-		return (bool) update_option( Plugin_Constants::OPTION_AI_CUSTOM_MODELS, $existing );
+		return (bool) update_option( Plugin_Constants::OPTION_AI_CUSTOM_MODELS, $existing, false );
 	}
 
 	// -------------------------------------------------------------------------
@@ -301,13 +262,56 @@ class Global_Settings {
 	}
 
 	/**
+	 * Returns whether the AI disclosure statement should be appended to posts.
+	 *
+	 * @return bool
+	 */
+	public function is_ai_disclosure_enabled(): bool {
+		return (bool) get_option( Plugin_Constants::OPTION_AI_DISCLOSURE, false );
+	}
+
+	/**
 	 * Saves the site owner's custom prompt instructions.
 	 *
 	 * @param string $instructions Free-text instructions.
 	 * @return bool Whether the option was updated.
 	 */
 	public function save_custom_prompt_instructions( string $instructions ): bool {
-		return (bool) update_option( Plugin_Constants::OPTION_CUSTOM_PROMPT_INSTRUCTIONS, $instructions );
+		return (bool) update_option( Plugin_Constants::OPTION_CUSTOM_PROMPT_INSTRUCTIONS, $instructions, false );
+	}
+
+	// -------------------------------------------------------------------------
+	// Audience Level
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Supported audience level identifiers.
+	 *
+	 * @var string[]
+	 */
+	const SUPPORTED_AUDIENCE_LEVELS = [ 'general', 'mixed', 'developer', 'engineering' ];
+
+	/**
+	 * Returns the configured audience level for generated posts.
+	 *
+	 * @return string One of: 'general', 'mixed', 'developer', 'engineering'. Defaults to 'mixed'.
+	 */
+	public function get_audience_level(): string {
+		$level = (string) get_option( Plugin_Constants::OPTION_AUDIENCE_LEVEL, 'mixed' );
+		return in_array( $level, self::SUPPORTED_AUDIENCE_LEVELS, true ) ? $level : 'mixed';
+	}
+
+	/**
+	 * Saves the audience level setting.
+	 *
+	 * @param string $level One of the SUPPORTED_AUDIENCE_LEVELS values.
+	 * @return bool Whether the option was updated.
+	 */
+	public function save_audience_level( string $level ): bool {
+		if ( ! in_array( $level, self::SUPPORTED_AUDIENCE_LEVELS, true ) ) {
+			$level = 'mixed';
+		}
+		return (bool) update_option( Plugin_Constants::OPTION_AUDIENCE_LEVEL, $level, false );
 	}
 
 	// -------------------------------------------------------------------------
@@ -358,10 +362,10 @@ class Global_Settings {
 		}
 
 		if ( '' === $pat ) {
-			return (bool) update_option( Plugin_Constants::OPTION_GITHUB_PAT, '' );
+			return (bool) update_option( Plugin_Constants::OPTION_GITHUB_PAT, '', false );
 		}
 
-		return (bool) update_option( Plugin_Constants::OPTION_GITHUB_PAT, $this->encrypt( $pat ) );
+		return (bool) update_option( Plugin_Constants::OPTION_GITHUB_PAT, $this->encrypt( $pat ), false );
 	}
 
 	/**
@@ -443,9 +447,14 @@ class Global_Settings {
 	 * @throws \SodiumException If key derivation fails.
 	 */
 	private function derive_encryption_key(): string {
-		$auth_key = defined( 'AUTH_KEY' ) ? AUTH_KEY : 'default-insecure-key';
+		if ( ! defined( 'AUTH_KEY' ) || '' === AUTH_KEY || 'put your unique phrase here' === AUTH_KEY ) {
+			throw new \SodiumException(
+				'WordPress AUTH_KEY is not configured. API keys cannot be encrypted. Define a unique AUTH_KEY in wp-config.php.'
+			);
+		}
+
 		return substr(
-			sodium_crypto_generichash( $auth_key ),
+			sodium_crypto_generichash( AUTH_KEY ),
 			0,
 			SODIUM_CRYPTO_SECRETBOX_KEYBYTES
 		);

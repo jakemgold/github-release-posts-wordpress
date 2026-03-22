@@ -114,34 +114,40 @@ class Plugin {
 	 * @return void
 	 */
 	public function init(): void {
-		( new \TenUp\ChangelogToBlogPost\Admin\Admin_Page() )->setup();
+		// Admin page — always needed in admin for menu registration.
+		if ( is_admin() ) {
+			( new \TenUp\ChangelogToBlogPost\Admin\Admin_Page() )->setup();
+		}
+
+		// Shared instances — reused across the pipeline.
+		$global_settings = new Global_Settings();
+		$repo_settings   = new Repository_Settings();
+		$significance    = new Release_Significance();
+		$api_client      = new API_Client( $global_settings );
 
 		// Wire the release monitor to both cron hooks.
 		$monitor = new Release_Monitor(
-			new API_Client( new Global_Settings() ),
+			$api_client,
 			new Release_State(),
 			new Version_Comparator(),
 			new Release_Queue(),
-			new Repository_Settings()
+			$repo_settings
 		);
 
 		add_action( Plugin_Constants::CRON_HOOK_RELEASE_CHECK, [ $monitor, 'run' ] );
 		add_action( Plugin_Constants::CRON_HOOK_RATE_LIMIT_RETRY, [ $monitor, 'run' ] );
 
 		// AI generation — processes releases queued by the monitor.
-		$global_settings = new Global_Settings();
-		$repo_settings   = new Repository_Settings();
-		$api_client = new API_Client( $global_settings );
 		( new Release_Enricher( $api_client ) )->setup();
-		( new Prompt_Builder( $repo_settings, new Release_Significance(), $global_settings ) )->setup();
+		( new Prompt_Builder( $repo_settings, $significance, $global_settings ) )->setup();
 		( new AI_Processor( new AI_Provider_Factory( $global_settings ) ) )->setup();
 
 		// Post creation — creates WordPress posts from AI-generated content.
 		( new Post_Creator( $repo_settings ) )->setup();
-		( new Taxonomy_Assigner( $repo_settings, $global_settings ) )->setup();
-		( new Publish_Workflow( $repo_settings, $global_settings ) )->setup();
+		( new Taxonomy_Assigner( $repo_settings ) )->setup();
+		( new Publish_Workflow( $repo_settings ) )->setup();
 
 		// Email notifications — batched summary after cron runs.
-		( new Email_Notifier( $global_settings, new Release_Significance(), $repo_settings ) )->setup();
+		( new Email_Notifier( $global_settings, $significance, $repo_settings ) )->setup();
 	}
 }
