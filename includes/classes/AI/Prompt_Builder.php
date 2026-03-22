@@ -7,6 +7,7 @@
 
 namespace TenUp\ChangelogToBlogPost\AI;
 
+use TenUp\ChangelogToBlogPost\Settings\Global_Settings;
 use TenUp\ChangelogToBlogPost\Settings\Repository_Settings;
 
 /**
@@ -24,12 +25,14 @@ use TenUp\ChangelogToBlogPost\Settings\Repository_Settings;
 class Prompt_Builder {
 
 	/**
-	 * @param Repository_Settings $repo_settings Per-repo configuration service.
-	 * @param Release_Significance $significance  Release significance classifier.
+	 * @param Repository_Settings $repo_settings   Per-repo configuration service.
+	 * @param Release_Significance $significance   Release significance classifier.
+	 * @param Global_Settings      $global_settings Global settings (custom prompt instructions).
 	 */
 	public function __construct(
 		private readonly Repository_Settings $repo_settings,
 		private readonly Release_Significance $significance,
+		private readonly Global_Settings $global_settings,
 	) {}
 
 	/**
@@ -79,13 +82,16 @@ class Prompt_Builder {
 		 */
 		$content_guidance = (string) apply_filters( 'ctbp_prompt_content_guidance', $content_guidance, $significance, $data );
 
+		$custom_instructions = trim( $this->global_settings->get_custom_prompt_instructions() );
+
 		$prompt = $this->assemble_prompt(
-			display_name:    $display_name,
-			tag:             $data->tag,
-			significance:    $significance,
-			body:            $data->body,
-			title_guidance:  $title_guidance,
-			content_guidance: $content_guidance,
+			display_name:         $display_name,
+			tag:                  $data->tag,
+			significance:         $significance,
+			body:                 $data->body,
+			title_guidance:       $title_guidance,
+			content_guidance:     $content_guidance,
+			custom_instructions:  $custom_instructions,
 		);
 
 		/**
@@ -202,6 +208,7 @@ EOT;
 	 * @param string $body
 	 * @param string $title_guidance
 	 * @param string $content_guidance
+	 * @param string $custom_instructions
 	 * @return string
 	 */
 	private function assemble_prompt(
@@ -211,6 +218,7 @@ EOT;
 		string $body,
 		string $title_guidance,
 		string $content_guidance,
+		string $custom_instructions = '',
 	): string {
 		$significance_label = match ( $significance ) {
 			'patch'    => 'Patch release (maintenance / bug fixes)',
@@ -220,7 +228,7 @@ EOT;
 			default    => 'Release',
 		};
 
-		return <<<EOT
+		$prompt = <<<EOT
 You are writing a blog post about a WordPress plugin update for the plugin's users.
 
 RELEASE INFORMATION:
@@ -247,6 +255,12 @@ Use HTML tags for formatting: <p>, <ul>, <li>, <ol>, <strong>, <em>.
 Do NOT use Markdown. Do NOT include an <h1> or full post title in the body.
 Do NOT mention that this post was AI-generated.
 EOT;
+
+		if ( '' !== $custom_instructions ) {
+			$prompt .= "\n\nADDITIONAL INSTRUCTIONS FROM THE SITE OWNER:\n{$custom_instructions}";
+		}
+
+		return $prompt;
 	}
 
 	// -------------------------------------------------------------------------

@@ -16,12 +16,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 use TenUp\ChangelogToBlogPost\Settings\Global_Settings;
 use TenUp\ChangelogToBlogPost\Plugin_Constants;
 
-$global      = new Global_Settings();
-$provider    = $global->get_ai_provider();
-$defaults    = $global->get_post_defaults();
-$notif       = $global->get_notification_settings();
-$frequency   = $global->get_check_frequency();
-$masked_pat  = $global->get_masked_github_pat();
+$global               = new Global_Settings();
+$provider             = $global->get_ai_provider();
+$defaults             = $global->get_post_defaults();
+$notif                = $global->get_notification_settings();
+$masked_pat           = $global->get_masked_github_pat();
+$custom_instructions  = $global->get_custom_prompt_instructions();
 
 // Determine if a trigger/status mismatch warning should be shown.
 $trigger_is_published = in_array( $notif['trigger'] ?? '', [ 'publish', 'both' ], true );
@@ -127,6 +127,20 @@ $no_key_providers     = [ 'classifai', 'wordpress_ai' ];
 			<span id="ctbp-connection-result" aria-live="polite"></span>
 		</p>
 	<?php endif; ?>
+
+	<p>
+		<label for="ctbp_custom_prompt_instructions"><?php echo esc_html__( 'Custom Prompt Instructions', 'changelog-to-blog-post' ); ?></label><br>
+		<textarea
+			id="ctbp_custom_prompt_instructions"
+			name="ctbp_custom_prompt_instructions"
+			rows="5"
+			class="large-text"
+			placeholder="<?php echo esc_attr__( 'e.g. Write in a friendly, conversational tone. Our audience is non-technical WordPress site owners. Avoid jargon. See example post: https://example.com/blog/plugin-update', 'changelog-to-blog-post' ); ?>"
+		><?php echo esc_textarea( $custom_instructions ); ?></textarea>
+		<span class="description">
+			<?php echo esc_html__( 'Optional. Additional instructions sent to the AI when generating posts. Use this to guide the writing style, tone, voice, audience, or point to examples of posts you like.', 'changelog-to-blog-post' ); ?>
+		</span>
+	</p>
 </fieldset>
 
 <hr>
@@ -247,36 +261,51 @@ $no_key_providers     = [ 'classifai', 'wordpress_ai' ];
 
 <hr>
 
-<h2><?php echo esc_html__( 'Check Frequency', 'changelog-to-blog-post' ); ?></h2>
+<h2><?php echo esc_html__( 'Release Check Schedule', 'changelog-to-blog-post' ); ?></h2>
 <fieldset>
-	<legend class="screen-reader-text"><?php echo esc_html__( 'Release Check Frequency Settings', 'changelog-to-blog-post' ); ?></legend>
-
-	<p>
-		<label for="ctbp_check_frequency"><?php echo esc_html__( 'Check for new releases', 'changelog-to-blog-post' ); ?></label><br>
-		<select id="ctbp_check_frequency" name="ctbp_check_frequency">
-			<option value="hourly" <?php selected( $frequency, 'hourly' ); ?>><?php echo esc_html__( 'Hourly', 'changelog-to-blog-post' ); ?></option>
-			<option value="twicedaily" <?php selected( $frequency, 'twicedaily' ); ?>><?php echo esc_html__( 'Twice Daily', 'changelog-to-blog-post' ); ?></option>
-			<option value="daily" <?php selected( $frequency, 'daily' ); ?>><?php echo esc_html__( 'Daily', 'changelog-to-blog-post' ); ?></option>
-			<option value="weekly" <?php selected( $frequency, 'weekly' ); ?>><?php echo esc_html__( 'Weekly', 'changelog-to-blog-post' ); ?></option>
-		</select>
-	</p>
+	<legend class="screen-reader-text"><?php echo esc_html__( 'Release Check Schedule Status', 'changelog-to-blog-post' ); ?></legend>
 
 	<?php
-	$next_check = wp_next_scheduled( Plugin_Constants::CRON_HOOK_RELEASE_CHECK );
-	if ( $next_check ) :
-		?>
-		<p class="description">
+	$last_run_at = (int) get_option( Plugin_Constants::OPTION_LAST_RUN_AT, 0 );
+	$next_check  = wp_next_scheduled( Plugin_Constants::CRON_HOOK_RELEASE_CHECK );
+	$now         = time();
+	?>
+
+	<p class="description">
+		<?php if ( $last_run_at > 0 ) : ?>
+			<?php
+			printf(
+				/* translators: %s: human-readable time since last run */
+				esc_html__( 'Last run: %s ago.', 'changelog-to-blog-post' ),
+				esc_html( human_time_diff( $last_run_at, $now ) )
+			);
+			?>
+		<?php else : ?>
+			<?php echo esc_html__( 'Last run: No runs yet.', 'changelog-to-blog-post' ); ?>
+		<?php endif; ?>
+
+		<?php if ( $next_check ) : ?>
+			&nbsp;
 			<?php
 			printf(
 				/* translators: %s: human-readable time until next check */
-				esc_html__( 'Next check: %s', 'changelog-to-blog-post' ),
-				esc_html( human_time_diff( time(), $next_check ) . ' ' . __( 'from now', 'changelog-to-blog-post' ) )
+				esc_html__( 'Next run: in %s.', 'changelog-to-blog-post' ),
+				esc_html( human_time_diff( $now, $next_check ) )
 			);
 			?>
-		</p>
-	<?php else : ?>
-		<p class="description">
-			<?php echo esc_html__( 'Scheduled check not found. The check will be scheduled on next plugin activation.', 'changelog-to-blog-post' ); ?>
-		</p>
-	<?php endif; ?>
+		<?php else : ?>
+			&nbsp;
+			<?php echo esc_html__( 'Next run: not scheduled. If this persists, check your site\'s WP-Cron health or configure a real server cron to call wp-cron.php.', 'changelog-to-blog-post' ); ?>
+		<?php endif; ?>
+	</p>
+	<p class="description">
+		<?php
+		printf(
+			/* translators: %s: current frequency (e.g. "daily") */
+			esc_html__( 'Checks run %s by default. Developers can override this with the %s filter.', 'changelog-to-blog-post' ),
+			esc_html( (string) apply_filters( 'ctbp_check_frequency', 'daily' ) ),
+			'<code>ctbp_check_frequency</code>'
+		);
+		?>
+	</p>
 </fieldset>

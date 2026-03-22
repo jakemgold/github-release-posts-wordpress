@@ -379,6 +379,11 @@ class Admin_Page {
 		];
 		$this->global_settings->save_api_keys( $api_keys );
 
+		// Custom prompt instructions.
+		$this->global_settings->save_custom_prompt_instructions(
+			sanitize_textarea_field( wp_unslash( $_POST['ctbp_custom_prompt_instructions'] ?? '' ) )
+		);
+
 		// Post defaults.
 		$this->global_settings->save_post_defaults(
 			[

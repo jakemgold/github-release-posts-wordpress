@@ -52,8 +52,9 @@ wp_clear_scheduled_hook( Plugin_Constants::CRON_HOOK_RATE_LIMIT_RETRY );
 // -------------------------------------------------------------------------
 // 4. Delete plugin transients.
 //    Transients follow the naming conventions:
-//      changelog_to_blog_post_gh_{hash}   — GitHub API response cache
-//      changelog_to_blog_post_ai_{hash}   — AI response cache
+//      ctbp_rel_{hash}     — GitHub release cache
+//      ctbp_ai_resp_{hash} — AI response cache
+//      ctbp_rate_limit_*   — Rate limit tracking
 //    Delete by prefix using a direct database query since WordPress does
 //    not provide a wildcard delete API for transients.
 // -------------------------------------------------------------------------
@@ -62,7 +63,7 @@ global $wpdb;
 $wpdb->query( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 	$wpdb->prepare(
 		"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s",
-		'_transient_changelog_to_blog_post_%',
-		'_transient_timeout_changelog_to_blog_post_%'
+		'_transient_ctbp_%',
+		'_transient_timeout_ctbp_%'
 	)
 );

@@ -10,6 +10,7 @@ namespace TenUp\ChangelogToBlogPost\Tests\AI;
 use TenUp\ChangelogToBlogPost\AI\Prompt_Builder;
 use TenUp\ChangelogToBlogPost\AI\Release_Significance;
 use TenUp\ChangelogToBlogPost\AI\ReleaseData;
+use TenUp\ChangelogToBlogPost\Settings\Global_Settings;
 use TenUp\ChangelogToBlogPost\Settings\Repository_Settings;
 use WP_Mock\Tools\TestCase;
 
@@ -21,13 +22,16 @@ class Prompt_BuilderTest extends TestCase {
 	private Prompt_Builder $builder;
 	private Repository_Settings $repo_settings;
 	private Release_Significance $significance;
+	private Global_Settings $global_settings;
 
 	public function setUp(): void {
 		parent::setUp();
 
-		$this->repo_settings = \Mockery::mock( Repository_Settings::class );
-		$this->significance  = \Mockery::mock( Release_Significance::class );
-		$this->builder       = new Prompt_Builder( $this->repo_settings, $this->significance );
+		$this->repo_settings   = \Mockery::mock( Repository_Settings::class );
+		$this->significance    = \Mockery::mock( Release_Significance::class );
+		$this->global_settings = \Mockery::mock( Global_Settings::class );
+		$this->global_settings->shouldReceive( 'get_custom_prompt_instructions' )->andReturn( '' )->byDefault();
+		$this->builder = new Prompt_Builder( $this->repo_settings, $this->significance, $this->global_settings );
 	}
 
 	// -------------------------------------------------------------------------
@@ -209,6 +213,39 @@ class Prompt_BuilderTest extends TestCase {
 
 		$this->assertStringContainsString( 'Line 1: Your subtitle ONLY', $result );
 		$this->assertStringContainsString( 'Do NOT use Markdown', $result );
+	}
+
+	public function test_build_includes_custom_instructions_when_set(): void {
+		$data = $this->make_release_data();
+
+		$this->repo_settings->shouldReceive( 'get_repositories' )->andReturn( [] );
+		$this->significance->shouldReceive( 'classify' )->andReturn( 'minor' );
+		$this->global_settings->shouldReceive( 'get_custom_prompt_instructions' )
+			->andReturn( 'Write in a friendly, conversational tone. Our audience is non-technical.' );
+
+		\WP_Mock::onFilter( 'ctbp_prompt_title_guidance' )->reply( false );
+		\WP_Mock::onFilter( 'ctbp_prompt_content_guidance' )->reply( false );
+		\WP_Mock::onFilter( 'ctbp_prompt' )->reply( false );
+
+		$result = $this->builder->build( '', $data );
+
+		$this->assertStringContainsString( 'ADDITIONAL INSTRUCTIONS FROM THE SITE OWNER', $result );
+		$this->assertStringContainsString( 'friendly, conversational tone', $result );
+	}
+
+	public function test_build_omits_custom_instructions_when_empty(): void {
+		$data = $this->make_release_data();
+
+		$this->repo_settings->shouldReceive( 'get_repositories' )->andReturn( [] );
+		$this->significance->shouldReceive( 'classify' )->andReturn( 'minor' );
+
+		\WP_Mock::onFilter( 'ctbp_prompt_title_guidance' )->reply( false );
+		\WP_Mock::onFilter( 'ctbp_prompt_content_guidance' )->reply( false );
+		\WP_Mock::onFilter( 'ctbp_prompt' )->reply( false );
+
+		$result = $this->builder->build( '', $data );
+
+		$this->assertStringNotContainsString( 'ADDITIONAL INSTRUCTIONS', $result );
 	}
 
 	// -------------------------------------------------------------------------

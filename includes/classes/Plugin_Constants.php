@@ -23,33 +23,33 @@ class Plugin_Constants {
 	 * Tracked repositories list.
 	 * Stored as a serialised array of repo config arrays.
 	 */
-	const OPTION_REPOSITORIES = 'changelog_to_blog_post_repositories';
+	const OPTION_REPOSITORIES = 'ctbp_repositories';
 
 	/**
 	 * Active AI provider slug (e.g. 'openai', 'anthropic', 'gemini', 'classifai').
 	 */
-	const OPTION_AI_PROVIDER = 'changelog_to_blog_post_ai_provider';
+	const OPTION_AI_PROVIDER = 'ctbp_ai_provider';
 
 	/**
 	 * Encrypted API keys, keyed by provider slug.
 	 * Stored as a serialised array; each value is a libsodium-encrypted string.
 	 */
-	const OPTION_AI_API_KEYS = 'changelog_to_blog_post_ai_api_keys';
+	const OPTION_AI_API_KEYS = 'ctbp_ai_api_keys';
 
 	/**
 	 * Global default post status: 'draft' or 'publish'.
 	 */
-	const OPTION_DEFAULT_POST_STATUS = 'changelog_to_blog_post_default_post_status';
+	const OPTION_DEFAULT_POST_STATUS = 'ctbp_default_post_status';
 
 	/**
 	 * Global default category ID (integer).
 	 */
-	const OPTION_DEFAULT_CATEGORY = 'changelog_to_blog_post_default_category';
+	const OPTION_DEFAULT_CATEGORY = 'ctbp_default_category';
 
 	/**
 	 * Global default tag IDs (array of integers).
 	 */
-	const OPTION_DEFAULT_TAGS = 'changelog_to_blog_post_default_tags';
+	const OPTION_DEFAULT_TAGS = 'ctbp_default_tags';
 
 	/**
 	 * WP-Cron check interval: 'hourly', 'twicedaily', 'daily', or 'weekly'.
@@ -58,34 +58,34 @@ class Plugin_Constants {
 	 *             is retained for sites that may have stored a value in this option
 	 *             but is no longer written or read by the plugin.
 	 */
-	const OPTION_CHECK_INTERVAL = 'changelog_to_blog_post_check_interval';
+	const OPTION_CHECK_INTERVAL = 'ctbp_check_interval';
 
 	/**
 	 * Primary notification email address.
 	 * Empty string = fall back to WordPress admin email at use time.
 	 */
-	const OPTION_NOTIFICATION_EMAIL = 'changelog_to_blog_post_notification_email';
+	const OPTION_NOTIFICATION_EMAIL = 'ctbp_notification_email';
 
 	/**
 	 * Optional secondary notification email address.
 	 */
-	const OPTION_NOTIFICATION_EMAIL_SECONDARY = 'changelog_to_blog_post_notification_email_secondary';
+	const OPTION_NOTIFICATION_EMAIL_SECONDARY = 'ctbp_notification_email_secondary';
 
 	/**
 	 * GitHub Personal Access Token (encrypted at rest using libsodium).
 	 * When set, raises the GitHub API rate limit from 60 to 5,000 req/hr.
 	 */
-	const OPTION_GITHUB_PAT = 'changelog_to_blog_post_github_pat';
+	const OPTION_GITHUB_PAT = 'ctbp_github_pat';
 
 	/**
 	 * Notification trigger: 'draft', 'publish', or 'both'.
 	 */
-	const OPTION_NOTIFICATION_TRIGGER = 'changelog_to_blog_post_notification_trigger';
+	const OPTION_NOTIFICATION_TRIGGER = 'ctbp_notification_trigger';
 
 	/**
 	 * Whether email notifications are enabled (boolean).
 	 */
-	const OPTION_NOTIFICATIONS_ENABLED = 'changelog_to_blog_post_notifications_enabled';
+	const OPTION_NOTIFICATIONS_ENABLED = 'ctbp_notifications_enabled';
 
 	// -------------------------------------------------------------------------
 	// Release monitoring option keys
@@ -125,18 +125,18 @@ class Plugin_Constants {
 	/**
 	 * Hook name for the recurring release-check cron event.
 	 */
-	const CRON_HOOK_RELEASE_CHECK = 'changelog_to_blog_post_release_check';
+	const CRON_HOOK_RELEASE_CHECK = 'ctbp_release_check';
 
 	/**
 	 * Hook name for the one-time rate-limit retry cron event.
 	 */
-	const CRON_HOOK_RATE_LIMIT_RETRY = 'changelog_to_blog_post_rate_limit_retry';
+	const CRON_HOOK_RATE_LIMIT_RETRY = 'ctbp_rate_limit_retry';
 
 	/**
 	 * Unix timestamp of the most recent completed cron run start.
 	 * 0 means no run has ever occurred.
 	 */
-	const OPTION_LAST_RUN_AT = 'changelog_to_blog_post_last_run_at';
+	const OPTION_LAST_RUN_AT = 'ctbp_last_run_at';
 
 	// -------------------------------------------------------------------------
 	// AI integration option/transient keys
@@ -147,6 +147,12 @@ class Plugin_Constants {
 	 * Stored as a serialised array keyed by provider slug.
 	 */
 	const OPTION_AI_CUSTOM_MODELS = 'ctbp_ai_custom_models';
+
+	/**
+	 * Free-text custom prompt instructions entered by the site owner.
+	 * Appended to the AI prompt to influence voice, style, and tone.
+	 */
+	const OPTION_CUSTOM_PROMPT_INSTRUCTIONS = 'ctbp_custom_prompt_instructions';
 
 	/**
 	 * Prefix for AI response cache transients.
@@ -169,22 +175,22 @@ class Plugin_Constants {
 	/**
 	 * Source GitHub repository identifier (owner/repo).
 	 */
-	const META_SOURCE_REPO = '_changelog_source_repo';
+	const META_SOURCE_REPO = '_ctbp_source_repo';
 
 	/**
 	 * GitHub release tag string (e.g. 'v2.3.1').
 	 */
-	const META_RELEASE_TAG = '_changelog_release_tag';
+	const META_RELEASE_TAG = '_ctbp_release_tag';
 
 	/**
 	 * GitHub release page URL.
 	 */
-	const META_RELEASE_URL = '_changelog_release_url';
+	const META_RELEASE_URL = '_ctbp_release_url';
 
 	/**
 	 * AI provider slug used to generate the post content.
 	 */
-	const META_GENERATED_BY = '_changelog_generated_by';
+	const META_GENERATED_BY = '_ctbp_generated_by';
 
 	// -------------------------------------------------------------------------
 	// Defaults
@@ -213,6 +219,7 @@ class Plugin_Constants {
 			self::OPTION_NOTIFICATIONS_ENABLED       => true,
 			self::OPTION_GITHUB_PAT                  => '',
 			self::OPTION_RELEASE_QUEUE               => [],
+			self::OPTION_CUSTOM_PROMPT_INSTRUCTIONS  => '',
 		];
 	}
 }

@@ -126,7 +126,7 @@ class Plugin {
 		// AI generation — processes releases queued by the monitor.
 		$global_settings = new Global_Settings();
 		$repo_settings   = new Repository_Settings();
-		( new Prompt_Builder( $repo_settings, new Release_Significance() ) )->setup();
+		( new Prompt_Builder( $repo_settings, new Release_Significance(), $global_settings ) )->setup();
 		( new AI_Processor( new AI_Provider_Factory( $global_settings ) ) )->setup();
 	}
 }

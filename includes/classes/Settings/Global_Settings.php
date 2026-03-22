@@ -285,6 +285,32 @@ class Global_Settings {
 	}
 
 	// -------------------------------------------------------------------------
+	// Custom Prompt Instructions
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Returns the site owner's custom prompt instructions.
+	 *
+	 * These are free-text instructions appended to the AI prompt to influence
+	 * voice, style, tone, or provide examples for generated posts.
+	 *
+	 * @return string Custom instructions, or empty string if not set.
+	 */
+	public function get_custom_prompt_instructions(): string {
+		return (string) get_option( Plugin_Constants::OPTION_CUSTOM_PROMPT_INSTRUCTIONS, '' );
+	}
+
+	/**
+	 * Saves the site owner's custom prompt instructions.
+	 *
+	 * @param string $instructions Free-text instructions.
+	 * @return bool Whether the option was updated.
+	 */
+	public function save_custom_prompt_instructions( string $instructions ): bool {
+		return (bool) update_option( Plugin_Constants::OPTION_CUSTOM_PROMPT_INSTRUCTIONS, $instructions );
+	}
+
+	// -------------------------------------------------------------------------
 	// Check Frequency
 	// -------------------------------------------------------------------------
 
