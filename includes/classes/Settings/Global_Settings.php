@@ -108,7 +108,7 @@ class Global_Settings {
 
 			$value = (string) $keys[ $provider ];
 
-			if ( $value === self::MASKED_PLACEHOLDER ) {
+			if ( self::MASKED_PLACEHOLDER === $value ) {
 				// User left the masked placeholder — preserve the existing encrypted key.
 				continue;
 			}
@@ -340,7 +340,7 @@ class Global_Settings {
 	 */
 	public function get_github_pat(): string {
 		$encrypted = (string) get_option( Plugin_Constants::OPTION_GITHUB_PAT, '' );
-		return $encrypted !== '' ? $this->decrypt( $encrypted ) : '';
+		return '' !== $encrypted ? $this->decrypt( $encrypted ) : '';
 	}
 
 	/**
@@ -353,7 +353,7 @@ class Global_Settings {
 	 * @return bool Whether the option was updated.
 	 */
 	public function save_github_pat( string $pat ): bool {
-		if ( $pat === self::MASKED_PLACEHOLDER ) {
+		if ( self::MASKED_PLACEHOLDER === $pat ) {
 			return true; // No change.
 		}
 
@@ -373,7 +373,7 @@ class Global_Settings {
 	 */
 	public function get_masked_github_pat(): string {
 		$stored = (string) get_option( Plugin_Constants::OPTION_GITHUB_PAT, '' );
-		return $stored !== '' ? self::MASKED_PLACEHOLDER : '';
+		return '' !== $stored ? self::MASKED_PLACEHOLDER : '';
 	}
 
 	// -------------------------------------------------------------------------

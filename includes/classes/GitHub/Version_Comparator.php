@@ -30,12 +30,12 @@ class Version_Comparator {
 		$last_tag = $state['last_seen_tag'] ?? '';
 
 		// No last-seen tag means the repo is newly added — always treat as new (AC-008).
-		if ( $last_tag === '' ) {
+		if ( '' === $last_tag ) {
 			return true;
 		}
 
 		// Same tag — not new.
-		if ( $candidate->tag === $last_tag ) {
+		if ( $last_tag === $candidate->tag ) {
 			return false;
 		}
 
@@ -53,7 +53,7 @@ class Version_Comparator {
 		$candidate_date = $candidate->published_at;
 		$last_date      = $state['last_seen_published_at'] ?? '';
 
-		if ( $candidate_date === '' || $last_date === '' ) {
+		if ( '' === $candidate_date || '' === $last_date ) {
 			// Can't compare without dates — treat as new to avoid silently skipping.
 			return true;
 		}

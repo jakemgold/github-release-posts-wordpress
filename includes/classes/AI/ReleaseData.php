@@ -45,7 +45,7 @@ readonly class ReleaseData {
 			body:         (string) ( $entry['body'] ?? '' ),
 			html_url:     (string) ( $entry['html_url'] ?? '' ),
 			published_at: (string) ( $entry['published_at'] ?? '' ),
-			assets:       (array)  ( $entry['assets'] ?? [] ),
+			assets:       (array) ( $entry['assets'] ?? [] ),
 		);
 	}
 }

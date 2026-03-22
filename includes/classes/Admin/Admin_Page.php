@@ -87,7 +87,7 @@ class Admin_Page {
 	 * @return void
 	 */
 	public function enqueue_assets( string $hook_suffix ): void {
-		if ( $hook_suffix !== $this->page_hook ) {
+		if ( $this->page_hook !== $hook_suffix ) {
 			return;
 		}
 
@@ -375,7 +375,7 @@ class Admin_Page {
 				}
 			}
 
-			if ( $added_identifier !== '' ) {
+			if ( '' !== $added_identifier ) {
 				$onboarding = ( new Onboarding_Handler(
 					new API_Client( $this->global_settings ),
 					new Release_State()
@@ -430,9 +430,9 @@ class Admin_Page {
 			wp_die( esc_html__( 'Insufficient permissions.', 'changelog-to-blog-post' ) );
 		}
 
-		// GitHub PAT (encrypted before storage).
+		// GitHub PAT (encrypted before storage — not sanitized to preserve special characters).
 		$this->global_settings->save_github_pat(
-			wp_unslash( $_POST['ctbp_github_pat'] ?? '' )
+			wp_unslash( $_POST['ctbp_github_pat'] ?? '' ) // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 		);
 
 		// AI provider.
@@ -440,10 +440,10 @@ class Admin_Page {
 			sanitize_key( wp_unslash( $_POST['ctbp_ai_provider'] ?? '' ) )
 		);
 
-		// API keys (raw values — encrypted before storage).
+		// API keys (raw values — encrypted before storage, not sanitized to preserve special characters).
 		$api_keys = [
-			'openai'    => wp_unslash( $_POST['ctbp_api_key_openai'] ?? '' ),
-			'anthropic' => wp_unslash( $_POST['ctbp_api_key_anthropic'] ?? '' ),
+			'openai'    => wp_unslash( $_POST['ctbp_api_key_openai'] ?? '' ), // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+			'anthropic' => wp_unslash( $_POST['ctbp_api_key_anthropic'] ?? '' ), // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 		];
 		$this->global_settings->save_api_keys( $api_keys );
 
@@ -509,7 +509,7 @@ class Admin_Page {
 			return new \WP_Error( $release->get_error_code(), $release->get_error_message(), [ 'status' => 400 ] );
 		}
 
-		if ( $release === null ) {
+		if ( null === $release ) {
 			return new \WP_Error( 'ctbp_no_release', __( 'No releases found for this repository.', 'changelog-to-blog-post' ), [ 'status' => 404 ] );
 		}
 
@@ -591,7 +591,7 @@ class Admin_Page {
 			return new \WP_Error( $release->get_error_code(), $release->get_error_message(), [ 'status' => 400 ] );
 		}
 
-		if ( $release === null ) {
+		if ( null === $release ) {
 			return new \WP_Error( 'ctbp_no_release', __( 'No releases found for this repository.', 'changelog-to-blog-post' ), [ 'status' => 404 ] );
 		}
 

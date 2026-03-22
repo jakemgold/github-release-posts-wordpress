@@ -25,7 +25,7 @@ $custom_instructions  = $global->get_custom_prompt_instructions();
 
 // Determine if a trigger/status mismatch warning should be shown.
 $trigger_is_published = in_array( $notif['trigger'] ?? '', [ 'publish', 'both' ], true );
-$status_is_draft      = ( $defaults['post_status'] ?? 'draft' ) === 'draft';
+$status_is_draft      = 'draft' === ( $defaults['post_status'] ?? 'draft' );
 $show_trigger_warning = $trigger_is_published && $status_is_draft;
 
 $key_based_providers  = [ 'openai', 'anthropic' ];

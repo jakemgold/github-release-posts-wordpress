@@ -53,7 +53,7 @@ class Release_Monitor {
 
 		foreach ( $repos as $repo ) {
 			$identifier = $repo['identifier'] ?? '';
-			if ( $identifier === '' ) {
+			if ( '' === $identifier ) {
 				continue;
 			}
 
@@ -66,7 +66,7 @@ class Release_Monitor {
 			$release = $this->api_client->fetch_latest_release( $identifier );
 
 			if ( is_wp_error( $release ) ) {
-				if ( $release->get_error_code() === 'github_rate_limit_exhausted' ) {
+				if ( 'github_rate_limit_exhausted' === $release->get_error_code() ) {
 					// API_Client already scheduled the retry event. Stop the run.
 					$this->log( $identifier, 'rate limit exhausted — stopping run' );
 					break;
@@ -77,7 +77,7 @@ class Release_Monitor {
 				continue;
 			}
 
-			if ( $release === null ) {
+			if ( null === $release ) {
 				$this->log( $identifier, 'no releases found' );
 				$this->state->update_last_checked( $identifier );
 				continue;
@@ -115,7 +115,7 @@ class Release_Monitor {
 			$identifier = $entry['identifier'] ?? '';
 			$tag        = $entry['tag'] ?? '';
 
-			if ( $identifier === '' || $tag === '' ) {
+			if ( '' === $identifier || '' === $tag ) {
 				continue;
 			}
 

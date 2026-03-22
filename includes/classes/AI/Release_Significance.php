@@ -87,7 +87,7 @@ class Release_Significance {
 
 		$semver = $this->parse_semver( $data->tag );
 
-		if ( $semver === null ) {
+		if ( null === $semver ) {
 			// Unparseable tag — log and fall back to 'minor' (AC-005).
 			if ( defined( 'WP_DEBUG' ) && WP_DEBUG && defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
 				// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
@@ -101,11 +101,11 @@ class Release_Significance {
 
 		[ 'major' => $major, 'minor' => $minor, 'patch' => $patch ] = $semver;
 
-		if ( $minor === 0 && $patch === 0 ) {
+		if ( 0 === $minor && 0 === $patch ) {
 			return 'major';
 		}
 
-		if ( $patch === 0 ) {
+		if ( 0 === $patch ) {
 			return 'minor';
 		}
 

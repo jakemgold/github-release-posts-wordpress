@@ -47,7 +47,7 @@ class Onboarding_Handler {
 			);
 		}
 
-		if ( $release === null ) {
+		if ( null === $release ) {
 			return $this->failure_notice(
 				__( 'No releases found for this repository. A draft will be generated automatically after the first release is published.', 'changelog-to-blog-post' )
 			);

@@ -138,7 +138,7 @@ class API_Client {
 		];
 
 		$pat = $this->settings->get_github_pat();
-		if ( $pat !== '' ) {
+		if ( '' !== $pat ) {
 			$headers['Authorization'] = 'Bearer ' . $pat;
 		}
 
@@ -161,7 +161,7 @@ class API_Client {
 	private function handle_rate_limit( array|\WP_Error $response ): true|\WP_Error {
 		$remaining = wp_remote_retrieve_header( $response, 'x-ratelimit-remaining' );
 
-		if ( $remaining === '' ) {
+		if ( '' === $remaining ) {
 			return true; // Header absent — unauthenticated or header not sent.
 		}
 
