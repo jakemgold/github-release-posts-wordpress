@@ -190,6 +190,43 @@ class API_Client {
 	}
 
 	/**
+	 * Fetches a single issue or pull request by number.
+	 *
+	 * GitHub's Issues API returns both issues and PRs. No caching — these
+	 * are fetched during prompt enrichment only.
+	 *
+	 * @param string $identifier Repository identifier (owner/repo).
+	 * @param int    $number     Issue or PR number.
+	 * @return array{title: string, body: string}|\WP_Error Issue data or error.
+	 */
+	public function fetch_issue( string $identifier, int $number ): array|\WP_Error {
+		[ $owner, $repo ] = explode( '/', $identifier, 2 );
+		$url  = sprintf( '%s/repos/%s/%s/issues/%d', self::API_BASE, $owner, $repo, $number );
+		$args = $this->build_request_args();
+
+		$response = wp_remote_get( $url, $args );
+
+		if ( is_wp_error( $response ) ) {
+			return $response;
+		}
+
+		$code = (int) wp_remote_retrieve_response_code( $response );
+		if ( 200 !== $code ) {
+			return new \WP_Error( 'github_issue_fetch_failed', sprintf( 'GitHub API returned HTTP %d for #%d.', $code, $number ) );
+		}
+
+		$data = json_decode( wp_remote_retrieve_body( $response ), true );
+		if ( ! is_array( $data ) ) {
+			return new \WP_Error( 'github_issue_parse_error', 'Failed to parse issue response.' );
+		}
+
+		return [
+			'title' => (string) ( $data['title'] ?? '' ),
+			'body'  => (string) ( $data['body'] ?? '' ),
+		];
+	}
+
+	/**
 	 * Normalises a repository identifier to `owner/repo` format.
 	 *
 	 * Delegates to Repository_Settings for consistent normalisation logic (BR-002).

@@ -58,7 +58,18 @@ class Prompt_Builder {
 		$display_name  = $config['display_name'] ?? $this->derive_display_name( $data->identifier );
 		$significance  = $this->significance->classify( $data );
 		$download_link = $this->resolve_download_link( $config, $data );
-		$images        = $this->extract_images( $data->body );
+
+		/**
+		 * Filters the release body before it is included in the prompt.
+		 *
+		 * Used by Release_Enricher to append linked PR/issue context.
+		 *
+		 * @param string      $body Release body text.
+		 * @param ReleaseData $data Release data.
+		 */
+		$body = (string) apply_filters( 'ctbp_release_body', $data->body, $data );
+
+		$images = $this->extract_images( $body );
 
 		$title_guidance   = $this->build_title_guidance( $significance, $display_name, $data->tag );
 		$content_guidance = $this->build_content_guidance( $significance, $images, $download_link );
@@ -87,7 +98,7 @@ class Prompt_Builder {
 			display_name:         $display_name,
 			tag:                  $data->tag,
 			significance:         $significance,
-			body:                 $data->body,
+			body:                 $body,
 			title_guidance:       $title_guidance,
 			content_guidance:     $content_guidance,
 			custom_instructions:  $custom_instructions,
