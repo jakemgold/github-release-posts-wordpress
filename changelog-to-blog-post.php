@@ -1,10 +1,10 @@
 <?php
 /**
- * Plugin Name:       Changelog to Blog Post
+ * Plugin Name:       GitHub Release Posts
  * Plugin URI:        https://github.com/10up/changelog-to-blog-post
- * Description:       Convert changelog entries into WordPress blog posts.
+ * Description:       Automatically generate blog posts from GitHub releases using AI.
  * Version:           1.0.0
- * Requires at least: 6.4
+ * Requires at least: 6.9
  * Requires PHP:      8.2
  * Author:            10up
  * Author URI:        https://10up.com

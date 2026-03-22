@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - PHP namespace: `TenUp\ChangelogToBlogPost`
 - Text domain: `changelog-to-blog-post`
-- PHP minimum: 8.2 | WP minimum: 6.4 | WP tested up to: 6.9
+- PHP minimum: 8.2 | WP minimum: 6.9 | WP tested up to: 6.9
 
 ## Commands
 
