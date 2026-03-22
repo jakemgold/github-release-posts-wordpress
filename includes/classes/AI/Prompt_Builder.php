@@ -59,7 +59,6 @@ class Prompt_Builder {
 		$significance  = $this->significance->classify( $data );
 		$download_link = $this->resolve_download_link( $config, $data );
 		$images        = $this->extract_images( $data->body );
-		$is_draft      = false; // Context not available here; placeholder support built in.
 
 		$title_guidance   = $this->build_title_guidance( $significance, $display_name, $data->tag );
 		$content_guidance = $this->build_content_guidance( $significance, $images, $download_link );
@@ -274,12 +273,7 @@ EOT;
 	 * @return array<string, mixed> Repo config array, or empty array if not found.
 	 */
 	private function get_repo_config( string $identifier ): array {
-		foreach ( $this->repo_settings->get_repositories() as $repo ) {
-			if ( ( $repo['identifier'] ?? '' ) === $identifier ) {
-				return $repo;
-			}
-		}
-		return [];
+		return $this->repo_settings->get_repository( $identifier );
 	}
 
 	/**

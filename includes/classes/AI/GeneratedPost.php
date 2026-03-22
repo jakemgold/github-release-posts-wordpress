@@ -22,4 +22,37 @@ readonly class GeneratedPost {
 		public string $content,
 		public string $provider_slug,
 	) {}
+
+	/**
+	 * Parses a raw AI response into a GeneratedPost.
+	 *
+	 * Expected format: line 1 = subtitle, blank line, then HTML body.
+	 * Falls back to a generic title if the subtitle line is empty.
+	 *
+	 * @param string      $raw           Raw text response from the AI provider.
+	 * @param ReleaseData $data          Source release data (for fallback title).
+	 * @param string      $provider_slug Provider slug.
+	 * @return self
+	 */
+	public static function from_raw_text( string $raw, ReleaseData $data, string $provider_slug ): self {
+		$raw   = trim( $raw );
+		$parts = explode( "\n", $raw, 2 );
+		$title = trim( $parts[0] ?? '' );
+		$body  = trim( $parts[1] ?? '' );
+
+		if ( '' === $title ) {
+			$title = sprintf(
+				/* translators: 1: repo identifier, 2: release tag */
+				__( '%1$s %2$s Release Notes', 'changelog-to-blog-post' ),
+				$data->identifier,
+				$data->tag
+			);
+		}
+
+		return new self(
+			title:         $title,
+			content:       wpautop( $body ),
+			provider_slug: $provider_slug,
+		);
+	}
 }

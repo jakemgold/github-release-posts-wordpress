@@ -105,24 +105,6 @@ class WP_AI_Client_Connector implements AIProviderInterface {
 	 * @return GeneratedPost
 	 */
 	private function parse_response( string $raw, ReleaseData $data ): GeneratedPost {
-		$raw   = trim( $raw );
-		$lines = explode( "\n", $raw, 2 );
-		$title = trim( $lines[0] ?? '' );
-		$body  = trim( $lines[1] ?? '' );
-
-		if ( '' === $title ) {
-			$title = sprintf(
-				/* translators: 1: repo identifier 2: release tag */
-				__( '%1$s %2$s Release Notes', 'changelog-to-blog-post' ),
-				$data->identifier,
-				$data->tag
-			);
-		}
-
-		return new GeneratedPost(
-			title:         $title,
-			content:       wpautop( $body ),
-			provider_slug: $this->get_slug(),
-		);
+		return GeneratedPost::from_raw_text( $raw, $data, $this->get_slug() );
 	}
 }

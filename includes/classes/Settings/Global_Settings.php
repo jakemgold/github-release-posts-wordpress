@@ -188,7 +188,7 @@ class Global_Settings {
 	public function get_notification_settings(): array {
 		return [
 			'enabled'         => (bool) get_option( Plugin_Constants::OPTION_NOTIFICATIONS_ENABLED, false ),
-			'email'           => (string) get_option( Plugin_Constants::OPTION_NOTIFICATION_EMAIL, get_option( 'admin_email', '' ) ),
+			'email'           => (string) get_option( Plugin_Constants::OPTION_NOTIFICATION_EMAIL, '' ),
 			'email_secondary' => (string) get_option( Plugin_Constants::OPTION_NOTIFICATION_EMAIL_SECONDARY, '' ),
 			'trigger'         => (string) get_option( Plugin_Constants::OPTION_NOTIFICATION_TRIGGER, 'draft' ),
 		];

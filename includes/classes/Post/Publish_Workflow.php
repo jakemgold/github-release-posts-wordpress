@@ -9,6 +9,7 @@ namespace TenUp\ChangelogToBlogPost\Post;
 
 use TenUp\ChangelogToBlogPost\AI\GeneratedPost;
 use TenUp\ChangelogToBlogPost\AI\ReleaseData;
+use TenUp\ChangelogToBlogPost\Plugin_Constants;
 use TenUp\ChangelogToBlogPost\Settings\Global_Settings;
 use TenUp\ChangelogToBlogPost\Settings\Repository_Settings;
 
@@ -22,7 +23,7 @@ class Publish_Workflow {
 	/**
 	 * Transient key for storing cron run results for the admin notice.
 	 */
-	const TRANSIENT_CRON_RESULTS = 'ctbp_cron_run_results';
+	const TRANSIENT_CRON_RESULTS = Plugin_Constants::TRANSIENT_CRON_RESULTS;
 
 	/**
 	 * @param Repository_Settings $repo_settings   Per-repo configuration.
@@ -113,10 +114,9 @@ class Publish_Workflow {
 		}
 
 		// Per-repo override.
-		foreach ( $this->repo_settings->get_repositories() as $repo ) {
-			if ( ( $repo['identifier'] ?? '' ) === $identifier && ! empty( $repo['post_status'] ) ) {
-				return (string) $repo['post_status'];
-			}
+		$config = $this->repo_settings->get_repository( $identifier );
+		if ( ! empty( $config['post_status'] ) ) {
+			return (string) $config['post_status'];
 		}
 
 		// Global default.

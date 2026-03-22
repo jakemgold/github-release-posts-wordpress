@@ -34,6 +34,21 @@ class Repository_Settings {
 	}
 
 	/**
+	 * Retrieves a single repository's configuration by identifier.
+	 *
+	 * @param string $identifier The `owner/repo` identifier.
+	 * @return array<string, mixed> Repo config array, or empty array if not found.
+	 */
+	public function get_repository( string $identifier ): array {
+		foreach ( $this->get_repositories() as $repo ) {
+			if ( ( $repo['identifier'] ?? '' ) === $identifier ) {
+				return $repo;
+			}
+		}
+		return [];
+	}
+
+	/**
 	 * Persists the full repositories array.
 	 *
 	 * @param array<int, array<string, mixed>> $repos Array of repository objects.

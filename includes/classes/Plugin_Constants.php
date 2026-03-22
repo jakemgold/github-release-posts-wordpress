@@ -155,6 +155,18 @@ class Plugin_Constants {
 	const OPTION_CUSTOM_PROMPT_INSTRUCTIONS = 'ctbp_custom_prompt_instructions';
 
 	/**
+	 * Transient storing AI failure notice data for admin display.
+	 * Set when consecutive failures reach the threshold.
+	 */
+	const TRANSIENT_AI_FAILURE_NOTICE = 'ctbp_ai_failure_notice';
+
+	/**
+	 * Transient storing cron run results for the admin notice.
+	 * Overwritten on each cron run; cleared after display.
+	 */
+	const TRANSIENT_CRON_RESULTS = 'ctbp_cron_run_results';
+
+	/**
 	 * Prefix for AI response cache transients.
 	 * Full key: TRANSIENT_AI_RESPONSE_PREFIX . md5( 'owner/repo' . tag )
 	 * TTL: 4 hours.

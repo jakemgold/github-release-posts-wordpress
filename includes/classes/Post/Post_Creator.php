@@ -167,15 +167,13 @@ class Post_Creator {
 	 * @return string Display name.
 	 */
 	private function resolve_display_name( string $identifier ): string {
-		foreach ( $this->repo_settings->get_repositories() as $repo ) {
-			if ( ( $repo['identifier'] ?? '' ) === $identifier && ! empty( $repo['display_name'] ) ) {
-				return (string) $repo['display_name'];
-			}
+		$config = $this->repo_settings->get_repository( $identifier );
+
+		if ( ! empty( $config['display_name'] ) ) {
+			return (string) $config['display_name'];
 		}
 
-		// Derive from repo slug.
 		$parts = explode( '/', $identifier );
-		$name  = end( $parts );
-		return ucwords( str_replace( [ '-', '_' ], ' ', $name ) );
+		return $this->repo_settings->derive_display_name( end( $parts ) );
 	}
 }

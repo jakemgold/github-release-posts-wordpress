@@ -112,11 +112,13 @@ class AI_Provider_Factory {
 		// Validate: reject anything that doesn't satisfy the interface.
 		foreach ( $providers as $slug => $provider ) {
 			if ( ! ( $provider instanceof AIProviderInterface ) ) {
-				// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-				error_log( sprintf(
-					'[CTBP] ctbp_register_ai_providers: provider "%s" does not implement AIProviderInterface and was removed.',
-					$slug
-				) );
+				if ( defined( 'WP_DEBUG' ) && WP_DEBUG && defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
+					// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+					error_log( sprintf(
+						'[CTBP] ctbp_register_ai_providers: provider "%s" does not implement AIProviderInterface and was removed.',
+						$slug
+					) );
+				}
 				unset( $providers[ $slug ] );
 			}
 		}

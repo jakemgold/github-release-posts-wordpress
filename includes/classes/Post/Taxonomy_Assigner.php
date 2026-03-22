@@ -175,11 +175,6 @@ class Taxonomy_Assigner {
 	 * @return array<string, mixed> Repo config, or empty array if not found.
 	 */
 	private function find_repo_config( string $identifier ): array {
-		foreach ( $this->repo_settings->get_repositories() as $repo ) {
-			if ( ( $repo['identifier'] ?? '' ) === $identifier ) {
-				return $repo;
-			}
-		}
-		return [];
+		return $this->repo_settings->get_repository( $identifier );
 	}
 }

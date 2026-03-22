@@ -120,7 +120,7 @@ class AI_Processor {
 
 		if ( $count >= self::FAILURE_THRESHOLD ) {
 			set_transient(
-				'ctbp_ai_failure_notice',
+				Plugin_Constants::TRANSIENT_AI_FAILURE_NOTICE,
 				[
 					'identifier' => $data->identifier,
 					'tag'        => $data->tag,
