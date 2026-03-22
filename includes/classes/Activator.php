@@ -66,10 +66,15 @@ class Activator {
 		// Clear stale event first (handles crash-reinstall scenario).
 		wp_clear_scheduled_hook( Plugin_Constants::CRON_HOOK_RELEASE_CHECK );
 
-		$interval = get_option(
-			Plugin_Constants::OPTION_CHECK_INTERVAL,
-			'daily'
-		);
+		/**
+		 * Filters the WP-Cron schedule used for release checks.
+		 *
+		 * Defaults to 'daily'. Return any valid WP-Cron schedule name
+		 * (e.g. 'hourly', 'twicedaily', 'daily', 'weekly').
+		 *
+		 * @param string $frequency Default schedule name.
+		 */
+		$interval = (string) apply_filters( 'ctbp_check_frequency', 'daily' );
 
 		if ( ! wp_next_scheduled( Plugin_Constants::CRON_HOOK_RELEASE_CHECK ) ) {
 			wp_schedule_event( time(), $interval, Plugin_Constants::CRON_HOOK_RELEASE_CHECK );

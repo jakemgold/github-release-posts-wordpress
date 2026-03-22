@@ -35,6 +35,7 @@ class PluginTest extends TestCase {
 	 * get_instance() returns the same object on repeated calls.
 	 */
 	public function test_get_instance_returns_singleton(): void {
+		\WP_Mock::expectFilterAdded( 'cron_schedules', [ \WP_Mock\Functions::type( Plugin::class ), 'add_cron_schedules' ] );
 		\WP_Mock::expectActionAdded( 'init', [ \WP_Mock\Functions::type( Plugin::class ), 'i18n' ] );
 		\WP_Mock::expectActionAdded( 'init', [ \WP_Mock\Functions::type( Plugin::class ), 'init' ] );
 
@@ -46,15 +47,45 @@ class PluginTest extends TestCase {
 	}
 
 	/**
-	 * setup() hooks i18n and init to the 'init' action.
+	 * setup() registers cron_schedules filter and both init actions.
 	 */
 	public function test_setup_registers_hooks(): void {
+		\WP_Mock::expectFilterAdded( 'cron_schedules', [ \WP_Mock\Functions::type( Plugin::class ), 'add_cron_schedules' ] );
 		\WP_Mock::expectActionAdded( 'init', [ \WP_Mock\Functions::type( Plugin::class ), 'i18n' ] );
 		\WP_Mock::expectActionAdded( 'init', [ \WP_Mock\Functions::type( Plugin::class ), 'init' ] );
 
 		Plugin::get_instance();
 
 		$this->assertConditionsMet();
+	}
+
+	/**
+	 * add_cron_schedules() adds the 'weekly' interval when not already present (AC-008).
+	 */
+	public function test_add_cron_schedules_registers_weekly(): void {
+		\WP_Mock::expectFilterAdded( 'cron_schedules', \WP_Mock\Functions::anyOf() );
+		\WP_Mock::expectActionAdded( 'init', \WP_Mock\Functions::anyOf() );
+
+		$plugin    = Plugin::get_instance();
+		$schedules = $plugin->add_cron_schedules( [] );
+
+		$this->assertArrayHasKey( 'weekly', $schedules );
+		$this->assertSame( WEEK_IN_SECONDS, $schedules['weekly']['interval'] );
+		$this->assertNotEmpty( $schedules['weekly']['display'] );
+	}
+
+	/**
+	 * add_cron_schedules() does not overwrite an existing 'weekly' schedule.
+	 */
+	public function test_add_cron_schedules_does_not_overwrite_existing_weekly(): void {
+		\WP_Mock::expectFilterAdded( 'cron_schedules', \WP_Mock\Functions::anyOf() );
+		\WP_Mock::expectActionAdded( 'init', \WP_Mock\Functions::anyOf() );
+
+		$existing = [ 'weekly' => [ 'interval' => 999, 'display' => 'Custom weekly' ] ];
+		$plugin   = Plugin::get_instance();
+		$result   = $plugin->add_cron_schedules( $existing );
+
+		$this->assertSame( 999, $result['weekly']['interval'], 'Existing weekly schedule should not be overwritten' );
 	}
 
 	/**

@@ -46,6 +46,9 @@ class Release_Monitor {
 	 * @return void
 	 */
 	public function run(): void {
+		// Record start time before processing so a partial run still updates the display (BR-004).
+		update_option( Plugin_Constants::OPTION_LAST_RUN_AT, time(), false );
+
 		$repos = $this->repo_settings->get_repositories();
 
 		foreach ( $repos as $repo ) {

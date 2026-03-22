@@ -29,6 +29,12 @@ $error_message = get_transient( 'ctbp_admin_errors_' . $current_user_id );
 if ( $error_message ) {
 	delete_transient( 'ctbp_admin_errors_' . $current_user_id );
 }
+
+// Typed notice transient (success/warning from onboarding, etc.).
+$admin_notice = get_transient( 'ctbp_admin_notice_' . $current_user_id );
+if ( $admin_notice ) {
+	delete_transient( 'ctbp_admin_notice_' . $current_user_id );
+}
 ?>
 <div class="wrap">
 	<h1><?php echo esc_html__( 'Changelog to Blog Post', 'changelog-to-blog-post' ); ?></h1>
@@ -42,6 +48,25 @@ if ( $error_message ) {
 	<?php if ( $error_message ) : ?>
 		<div class="notice notice-error is-dismissible">
 			<p><?php echo esc_html( $error_message ); ?></p>
+		</div>
+	<?php endif; ?>
+
+	<?php if ( $admin_notice && ! empty( $admin_notice['message'] ) ) : ?>
+		<?php
+		$notice_class = 'notice-info';
+		if ( 'success' === $admin_notice['type'] ) {
+			$notice_class = 'notice-success';
+		} elseif ( 'warning' === $admin_notice['type'] || 'error' === $admin_notice['type'] ) {
+			$notice_class = 'notice-warning';
+		}
+		?>
+		<div class="notice <?php echo esc_attr( $notice_class ); ?> is-dismissible">
+			<p>
+				<?php echo esc_html( $admin_notice['message'] ); ?>
+				<?php if ( ! empty( $admin_notice['url'] ) ) : ?>
+					&nbsp;<a href="<?php echo esc_url( $admin_notice['url'] ); ?>"><?php echo esc_html__( 'View draft', 'changelog-to-blog-post' ); ?></a>
+				<?php endif; ?>
+			</p>
 		</div>
 	<?php endif; ?>
 

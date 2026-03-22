@@ -244,6 +244,28 @@ $at_limit      = count( $repos ) >= $max_repos;
 	</p>
 <?php endif; ?>
 
+<!-- Conflict resolution dialog for "Generate draft now" (JS-driven) -->
+<dialog id="ctbp-conflict-dialog" aria-labelledby="ctbp-conflict-dialog-title">
+	<p id="ctbp-conflict-dialog-title">
+		<?php echo esc_html__( 'A post already exists for this release.', 'changelog-to-blog-post' ); ?>
+	</p>
+	<p id="ctbp-conflict-post-info"></p>
+	<p class="ctbp-conflict-replace-warning">
+		<?php echo esc_html__( 'This will permanently delete the existing post and generate a new draft. This cannot be undone.', 'changelog-to-blog-post' ); ?>
+	</p>
+	<div class="ctbp-conflict-actions">
+		<button type="button" id="ctbp-conflict-replace" class="button button-primary button-link-delete">
+			<?php echo esc_html__( 'Replace existing', 'changelog-to-blog-post' ); ?>
+		</button>
+		<button type="button" id="ctbp-conflict-alongside" class="button">
+			<?php echo esc_html__( 'Add alongside', 'changelog-to-blog-post' ); ?>
+		</button>
+		<button type="button" id="ctbp-conflict-cancel" class="button button-link">
+			<?php echo esc_html__( 'Cancel', 'changelog-to-blog-post' ); ?>
+		</button>
+	</div>
+</dialog>
+
 <!-- Confirmation dialog for repo removal (JS-driven) -->
 <dialog id="ctbp-remove-dialog" aria-labelledby="ctbp-remove-dialog-title">
 	<p id="ctbp-remove-dialog-title">

@@ -74,9 +74,7 @@ class ActivatorTest extends TestCase {
 
 		// Stub cron functions.
 		\WP_Mock::userFunction( 'wp_clear_scheduled_hook' )->andReturn( null );
-		\WP_Mock::userFunction( 'get_option' )
-			->with( Plugin_Constants::OPTION_CHECK_INTERVAL, 'daily' )
-			->andReturn( 'daily' );
+		\WP_Mock::onFilter( 'ctbp_check_frequency' )->with( 'daily' )->reply( 'daily' );
 		\WP_Mock::userFunction( 'wp_next_scheduled' )->andReturn( false );
 		\WP_Mock::userFunction( 'wp_schedule_event' )->andReturn( true );
 
@@ -86,7 +84,7 @@ class ActivatorTest extends TestCase {
 	}
 
 	/**
-	 * Activation clears any stale cron event before registering a new one.
+	 * Activation clears any stale cron event before registering a new one (AC-004).
 	 */
 	public function test_activate_clears_stale_cron_before_registering(): void {
 		\WP_Mock::userFunction( 'current_user_can' )
@@ -100,9 +98,7 @@ class ActivatorTest extends TestCase {
 			->with( Plugin_Constants::CRON_HOOK_RELEASE_CHECK )
 			->once();
 
-		\WP_Mock::userFunction( 'get_option' )
-			->with( Plugin_Constants::OPTION_CHECK_INTERVAL, 'daily' )
-			->andReturn( 'daily' );
+		\WP_Mock::onFilter( 'ctbp_check_frequency' )->with( 'daily' )->reply( 'daily' );
 
 		\WP_Mock::userFunction( 'wp_next_scheduled' )
 			->with( Plugin_Constants::CRON_HOOK_RELEASE_CHECK )
@@ -118,15 +114,13 @@ class ActivatorTest extends TestCase {
 	}
 
 	/**
-	 * Activation does not register a duplicate cron event if one is already scheduled.
+	 * Activation does not register a duplicate cron event if one is already scheduled (BR-001).
 	 */
 	public function test_activate_does_not_duplicate_cron_event(): void {
 		\WP_Mock::userFunction( 'current_user_can' )->andReturn( true );
 		\WP_Mock::userFunction( 'add_option' )->andReturn( true );
 		\WP_Mock::userFunction( 'wp_clear_scheduled_hook' )->andReturn( null );
-		\WP_Mock::userFunction( 'get_option' )
-			->with( Plugin_Constants::OPTION_CHECK_INTERVAL, 'daily' )
-			->andReturn( 'daily' );
+		\WP_Mock::onFilter( 'ctbp_check_frequency' )->with( 'daily' )->reply( 'daily' );
 
 		// Simulate already-scheduled event.
 		\WP_Mock::userFunction( 'wp_next_scheduled' )
@@ -139,6 +133,29 @@ class ActivatorTest extends TestCase {
 		Activator::activate();
 
 		$this->assertConditionsMet();
+	}
+
+	/**
+	 * The ctbp_check_frequency filter value is used when registering the cron event (AC-008).
+	 */
+	public function test_register_cron_event_uses_filter_value(): void {
+		\WP_Mock::userFunction( 'current_user_can' )->andReturn( true );
+		\WP_Mock::userFunction( 'add_option' )->andReturn( true );
+		\WP_Mock::userFunction( 'wp_clear_scheduled_hook' )->andReturn( null );
+
+		// Developer filters to 'hourly'.
+		\WP_Mock::onFilter( 'ctbp_check_frequency' )->with( 'daily' )->reply( 'hourly' );
+
+		\WP_Mock::userFunction( 'wp_next_scheduled' )->andReturn( false );
+
+		\WP_Mock::userFunction( 'wp_schedule_event' )
+			->once()
+			->andReturnUsing( function ( $timestamp, $recurrence, $hook ) {
+				$this->assertSame( 'hourly', $recurrence );
+				return true;
+			} );
+
+		Activator::activate();
 	}
 
 	// -------------------------------------------------------------------------
