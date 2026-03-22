@@ -10,7 +10,6 @@ namespace TenUp\ChangelogToBlogPost\Tests\Post;
 use TenUp\ChangelogToBlogPost\AI\GeneratedPost;
 use TenUp\ChangelogToBlogPost\AI\ReleaseData;
 use TenUp\ChangelogToBlogPost\Post\Publish_Workflow;
-use TenUp\ChangelogToBlogPost\Settings\Global_Settings;
 use TenUp\ChangelogToBlogPost\Settings\Repository_Settings;
 use WP_Mock\Tools\TestCase;
 
@@ -21,14 +20,12 @@ class Publish_WorkflowTest extends TestCase {
 
 	private Publish_Workflow $workflow;
 	private Repository_Settings $repo_settings;
-	private Global_Settings $global_settings;
 
 	public function setUp(): void {
 		parent::setUp();
 
-		$this->repo_settings   = \Mockery::mock( Repository_Settings::class );
-		$this->global_settings = \Mockery::mock( Global_Settings::class );
-		$this->workflow        = new Publish_Workflow( $this->repo_settings, $this->global_settings );
+		$this->repo_settings = \Mockery::mock( Repository_Settings::class );
+		$this->workflow      = new Publish_Workflow( $this->repo_settings );
 
 		// Mock current_time for tests that resolve to 'publish' status.
 		\WP_Mock::userFunction( 'current_time' )->andReturn( '2025-01-15 12:00:00' );
@@ -53,9 +50,6 @@ class Publish_WorkflowTest extends TestCase {
 		$this->repo_settings->shouldReceive( 'get_repository' )
 			->with( 'owner/repo' )
 			->andReturn( [ 'identifier' => 'owner/repo', 'post_status' => 'publish' ] );
-		$this->global_settings->shouldReceive( 'get_post_defaults' )->andReturn( [
-			'post_status' => 'draft',
-		] );
 
 		\WP_Mock::userFunction( 'wp_update_post' )->once()->with( \Mockery::on( function ( $args ) {
 			return $args['ID'] === 42 && $args['post_status'] === 'publish';
@@ -69,16 +63,13 @@ class Publish_WorkflowTest extends TestCase {
 		$this->assertConditionsMet();
 	}
 
-	public function test_handle_falls_back_to_global_status(): void {
+	public function test_handle_defaults_to_draft_when_repo_status_empty(): void {
 		$this->repo_settings->shouldReceive( 'get_repository' )
 			->with( 'owner/repo' )
 			->andReturn( [ 'identifier' => 'owner/repo', 'post_status' => '' ] );
-		$this->global_settings->shouldReceive( 'get_post_defaults' )->andReturn( [
-			'post_status' => 'publish',
-		] );
 
 		\WP_Mock::userFunction( 'wp_update_post' )->once()->with( \Mockery::on( function ( $args ) {
-			return $args['post_status'] === 'publish';
+			return $args['post_status'] === 'draft';
 		} ) );
 
 		$this->stub_result_recording();
@@ -91,9 +82,6 @@ class Publish_WorkflowTest extends TestCase {
 		$this->repo_settings->shouldReceive( 'get_repository' )
 			->with( 'owner/repo' )
 			->andReturn( [] );
-		$this->global_settings->shouldReceive( 'get_post_defaults' )->andReturn( [
-			'post_status' => '',
-		] );
 
 		\WP_Mock::userFunction( 'wp_update_post' )->once()->with( \Mockery::on( function ( $args ) {
 			return $args['post_status'] === 'draft';
@@ -113,9 +101,6 @@ class Publish_WorkflowTest extends TestCase {
 		$this->repo_settings->shouldReceive( 'get_repository' )
 			->with( 'owner/repo' )
 			->andReturn( [ 'identifier' => 'owner/repo', 'post_status' => 'publish' ] );
-		$this->global_settings->shouldReceive( 'get_post_defaults' )->andReturn( [
-			'post_status' => 'publish',
-		] );
 
 		\WP_Mock::userFunction( 'wp_update_post' )->once()->with( \Mockery::on( function ( $args ) {
 			return $args['post_status'] === 'draft';
@@ -137,7 +122,6 @@ class Publish_WorkflowTest extends TestCase {
 		$this->repo_settings->shouldReceive( 'get_repository' )
 			->with( 'owner/repo' )
 			->andReturn( [ 'identifier' => 'owner/repo', 'post_status' => 'publish' ] );
-		$this->global_settings->shouldReceive( 'get_post_defaults' )->andReturn( [] );
 
 		\WP_Mock::userFunction( 'wp_update_post' )->once()->with( \Mockery::on( function ( $args ) {
 			return isset( $args['post_date'] ) && isset( $args['post_date_gmt'] );
@@ -153,9 +137,6 @@ class Publish_WorkflowTest extends TestCase {
 		$this->repo_settings->shouldReceive( 'get_repository' )
 			->with( 'owner/repo' )
 			->andReturn( [] );
-		$this->global_settings->shouldReceive( 'get_post_defaults' )->andReturn( [
-			'post_status' => 'draft',
-		] );
 
 		\WP_Mock::userFunction( 'wp_update_post' )->once()->with( \Mockery::on( function ( $args ) {
 			return ! isset( $args['post_date'] ) && ! isset( $args['post_date_gmt'] );
@@ -175,9 +156,6 @@ class Publish_WorkflowTest extends TestCase {
 		$this->repo_settings->shouldReceive( 'get_repository' )
 			->with( 'owner/repo' )
 			->andReturn( [] );
-		$this->global_settings->shouldReceive( 'get_post_defaults' )->andReturn( [
-			'post_status' => 'draft',
-		] );
 
 		\WP_Mock::userFunction( 'wp_update_post' );
 		$this->stub_result_recording();

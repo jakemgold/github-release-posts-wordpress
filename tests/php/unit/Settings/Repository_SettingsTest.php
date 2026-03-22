@@ -93,7 +93,7 @@ class Repository_SettingsTest extends TestCase {
 	 */
 	public function test_add_repository_rejects_duplicate(): void {
 		$existing = [
-			[ 'identifier' => 'owner/repo', 'display_name' => 'Owner Repo', 'paused' => false, 'wporg_slug' => '', 'custom_url' => '', 'post_status' => '', 'category' => 0, 'tags' => [] ],
+			[ 'identifier' => 'owner/repo', 'display_name' => 'Owner Repo', 'paused' => false, 'plugin_link' => '', 'post_status' => '', 'categories' => [], 'tags' => [] ],
 		];
 
 		\WP_Mock::userFunction( 'get_option' )
@@ -118,7 +118,7 @@ class Repository_SettingsTest extends TestCase {
 		// Build 25 fake repos.
 		$existing = [];
 		for ( $i = 0; $i < 25; $i++ ) {
-			$existing[] = [ 'identifier' => "owner/repo{$i}", 'display_name' => "Repo {$i}", 'paused' => false, 'wporg_slug' => '', 'custom_url' => '', 'post_status' => '', 'category' => 0, 'tags' => [] ];
+			$existing[] = [ 'identifier' => "owner/repo{$i}", 'display_name' => "Repo {$i}", 'paused' => false, 'plugin_link' => '', 'post_status' => '', 'categories' => [], 'tags' => [] ];
 		}
 
 		\WP_Mock::userFunction( 'get_option' )
@@ -169,8 +169,8 @@ class Repository_SettingsTest extends TestCase {
 	 */
 	public function test_remove_repository_does_not_affect_other_repos(): void {
 		$existing = [
-			[ 'identifier' => 'owner/repo-a', 'display_name' => 'Repo A', 'paused' => false, 'wporg_slug' => '', 'custom_url' => '', 'post_status' => '', 'category' => 0, 'tags' => [] ],
-			[ 'identifier' => 'owner/repo-b', 'display_name' => 'Repo B', 'paused' => false, 'wporg_slug' => '', 'custom_url' => '', 'post_status' => '', 'category' => 0, 'tags' => [] ],
+			[ 'identifier' => 'owner/repo-a', 'display_name' => 'Repo A', 'paused' => false, 'plugin_link' => '', 'post_status' => '', 'categories' => [], 'tags' => [] ],
+			[ 'identifier' => 'owner/repo-b', 'display_name' => 'Repo B', 'paused' => false, 'plugin_link' => '', 'post_status' => '', 'categories' => [], 'tags' => [] ],
 		];
 
 		\WP_Mock::userFunction( 'get_option' )

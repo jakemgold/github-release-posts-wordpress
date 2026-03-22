@@ -40,6 +40,14 @@ class Post_CreatorTest extends TestCase {
 			->byDefault();
 
 		$this->creator = new Post_Creator( $this->repo_settings );
+
+		// Stub get_post for sideload_images — return a post with no remote images.
+		\WP_Mock::userFunction( 'get_post' )->andReturnUsing( function ( $id ) {
+			$post               = new \stdClass();
+			$post->ID           = $id;
+			$post->post_content = '<!-- wp:paragraph --><p>Post body here.</p><!-- /wp:paragraph -->';
+			return $post;
+		} )->byDefault();
 	}
 
 	public function tearDown(): void {
@@ -70,8 +78,9 @@ class Post_CreatorTest extends TestCase {
 			->once()
 			->with(
 				\Mockery::on( function ( $args ) {
-					return $args['post_title'] === 'My Plugin v1.2.0 — Improved performance and stability'
-						&& $args['post_content'] === '<p>Post body here.</p>'
+					return $args['post_title'] === 'My Plugin v1.2 — Improved performance and stability'
+						&& str_contains( $args['post_content'], 'wp:paragraph' )
+						&& str_contains( $args['post_content'], 'Post body here.' )
 						&& $args['post_status'] === 'draft'
 						&& $args['post_type'] === 'post';
 				} ),
@@ -218,7 +227,7 @@ class Post_CreatorTest extends TestCase {
 			->with(
 				\Mockery::on( function ( $args ) {
 					// "cool-widget" → "Cool Widget"
-					return str_starts_with( $args['post_title'], 'Cool Widget v1.2.0' );
+					return str_starts_with( $args['post_title'], 'Cool Widget v1.2' );
 				} ),
 				true
 			)

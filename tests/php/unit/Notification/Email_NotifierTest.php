@@ -74,13 +74,15 @@ class Email_NotifierTest extends TestCase {
 	}
 
 	// -------------------------------------------------------------------------
-	// collect() — skips when disabled (AC-011)
+	// collect() — skips when no recipients configured
 	// -------------------------------------------------------------------------
 
-	public function test_collect_skips_when_notifications_disabled(): void {
+	public function test_collect_skips_when_no_recipients(): void {
 		$this->global_settings->shouldReceive( 'get_notification_settings' )->andReturn( [
-			'enabled' => false,
+			'notify_site_owner' => false,
+			'additional_emails' => '',
 		] );
+		$this->global_settings->shouldReceive( 'get_additional_email_list' )->andReturn( [] );
 
 		$this->notifier->collect( 1, 'draft', $this->make_data(), [] );
 
@@ -93,8 +95,8 @@ class Email_NotifierTest extends TestCase {
 	// collect() + send() — successful email
 	// -------------------------------------------------------------------------
 
-	public function test_send_sends_batched_email(): void {
-		$this->mock_enabled_notifications();
+	public function test_send_sends_batched_email_to_site_owner(): void {
+		$this->mock_site_owner_notifications();
 
 		// Register the shutdown hook expectation.
 		\WP_Mock::expectActionAdded( 'shutdown', [ $this->notifier, 'send' ] );
@@ -104,14 +106,11 @@ class Email_NotifierTest extends TestCase {
 		// Now send.
 		\WP_Mock::userFunction( 'get_bloginfo' )->with( 'name' )->andReturn( 'Test Site' );
 		\WP_Mock::userFunction( 'get_edit_post_link' )->andReturn( 'https://example.com/wp-admin/post.php?post=42' );
-		\WP_Mock::userFunction( 'get_option' )->with( 'admin_email', '' )->andReturn( 'admin@example.com' );
-
-		// Let the ctbp_notification_email filter pass through (WP_Mock default).
 
 		\WP_Mock::userFunction( 'wp_mail' )
 			->once()
 			->with(
-				'test@example.com',
+				'admin@example.com',
 				\Mockery::type( 'string' ),
 				\Mockery::type( 'string' ),
 				\Mockery::type( 'array' )
@@ -130,23 +129,35 @@ class Email_NotifierTest extends TestCase {
 	}
 
 	// -------------------------------------------------------------------------
-	// send() — trigger preference filtering (AC-006)
+	// send() — always sends for both draft and published posts
 	// -------------------------------------------------------------------------
 
-	public function test_send_skips_drafts_when_trigger_is_publish(): void {
-		$this->global_settings->shouldReceive( 'get_notification_settings' )->andReturn( [
-			'enabled'         => true,
-			'email'           => 'test@example.com',
-			'email_secondary' => '',
-			'trigger'         => 'publish', // Only publish triggers email.
-		] );
-
+	public function test_send_sends_for_draft_posts(): void {
+		$this->mock_site_owner_notifications();
 		\WP_Mock::expectActionAdded( 'shutdown', [ $this->notifier, 'send' ] );
 
-		// Collect a draft — should be filtered out at send time.
 		$this->notifier->collect( 42, 'draft', $this->make_data(), [] );
 
-		\WP_Mock::userFunction( 'wp_mail' )->never();
+		\WP_Mock::userFunction( 'get_bloginfo' )->with( 'name' )->andReturn( 'Test Site' );
+		\WP_Mock::userFunction( 'get_edit_post_link' )->andReturn( 'https://example.com/wp-admin/post.php?post=42' );
+
+		\WP_Mock::userFunction( 'wp_mail' )->once()->andReturn( true );
+
+		$this->notifier->send();
+		$this->assertConditionsMet();
+	}
+
+	public function test_send_sends_for_published_posts(): void {
+		$this->mock_site_owner_notifications();
+		\WP_Mock::expectActionAdded( 'shutdown', [ $this->notifier, 'send' ] );
+
+		$this->notifier->collect( 42, 'publish', $this->make_data(), [] );
+
+		\WP_Mock::userFunction( 'get_bloginfo' )->with( 'name' )->andReturn( 'Test Site' );
+		\WP_Mock::userFunction( 'get_edit_post_link' )->andReturn( 'https://example.com/wp-admin/post.php?post=42' );
+		\WP_Mock::userFunction( 'get_permalink' )->with( 42 )->andReturn( 'https://example.com/my-plugin-update/' );
+
+		\WP_Mock::userFunction( 'wp_mail' )->once()->andReturn( true );
 
 		$this->notifier->send();
 		$this->assertConditionsMet();
@@ -157,7 +168,7 @@ class Email_NotifierTest extends TestCase {
 	// -------------------------------------------------------------------------
 
 	public function test_send_includes_view_link_for_published_posts(): void {
-		$this->mock_enabled_notifications();
+		$this->mock_site_owner_notifications();
 
 		\WP_Mock::expectActionAdded( 'shutdown', [ $this->notifier, 'send' ] );
 
@@ -166,14 +177,11 @@ class Email_NotifierTest extends TestCase {
 		\WP_Mock::userFunction( 'get_bloginfo' )->with( 'name' )->andReturn( 'Test Site' );
 		\WP_Mock::userFunction( 'get_edit_post_link' )->andReturn( 'https://example.com/wp-admin/post.php?post=42' );
 		\WP_Mock::userFunction( 'get_permalink' )->with( 42 )->andReturn( 'https://example.com/my-plugin-update/' );
-		\WP_Mock::userFunction( 'get_option' )->with( 'admin_email', '' )->andReturn( 'admin@example.com' );
-
-		// Let the ctbp_notification_email filter pass through (WP_Mock default).
 
 		\WP_Mock::userFunction( 'wp_mail' )
 			->once()
 			->with(
-				'test@example.com',
+				'admin@example.com',
 				\Mockery::type( 'string' ),
 				\Mockery::on( function ( $body ) {
 					// Both edit and view links should be present.
@@ -189,7 +197,7 @@ class Email_NotifierTest extends TestCase {
 	}
 
 	public function test_send_omits_view_link_for_draft_posts(): void {
-		$this->mock_enabled_notifications();
+		$this->mock_site_owner_notifications();
 
 		\WP_Mock::expectActionAdded( 'shutdown', [ $this->notifier, 'send' ] );
 
@@ -197,14 +205,11 @@ class Email_NotifierTest extends TestCase {
 
 		\WP_Mock::userFunction( 'get_bloginfo' )->with( 'name' )->andReturn( 'Test Site' );
 		\WP_Mock::userFunction( 'get_edit_post_link' )->andReturn( 'https://example.com/wp-admin/post.php?post=42' );
-		\WP_Mock::userFunction( 'get_option' )->with( 'admin_email', '' )->andReturn( 'admin@example.com' );
-
-		// Let the ctbp_notification_email filter pass through (WP_Mock default).
 
 		\WP_Mock::userFunction( 'wp_mail' )
 			->once()
 			->with(
-				'test@example.com',
+				'admin@example.com',
 				\Mockery::type( 'string' ),
 				\Mockery::on( function ( $body ) {
 					return str_contains( $body, 'Edit post' )
@@ -219,15 +224,41 @@ class Email_NotifierTest extends TestCase {
 	}
 
 	// -------------------------------------------------------------------------
-	// send() — secondary recipient (AC-010)
+	// send() — additional recipients
 	// -------------------------------------------------------------------------
 
-	public function test_send_sends_to_secondary_recipient(): void {
+	public function test_send_sends_to_additional_recipients(): void {
 		$this->global_settings->shouldReceive( 'get_notification_settings' )->andReturn( [
-			'enabled'         => true,
-			'email'           => 'primary@example.com',
-			'email_secondary' => 'secondary@example.com',
-			'trigger'         => 'both',
+			'notify_site_owner' => true,
+			'additional_emails' => 'editor@example.com, team@example.com',
+		] );
+		$this->global_settings->shouldReceive( 'get_additional_email_list' )->andReturn( [
+			'editor@example.com',
+			'team@example.com',
+		] );
+
+		\WP_Mock::userFunction( 'get_option' )->with( 'admin_email', '' )->andReturn( 'admin@example.com' );
+		\WP_Mock::expectActionAdded( 'shutdown', [ $this->notifier, 'send' ] );
+
+		$this->notifier->collect( 42, 'draft', $this->make_data(), [] );
+
+		\WP_Mock::userFunction( 'get_bloginfo' )->with( 'name' )->andReturn( 'Test Site' );
+		\WP_Mock::userFunction( 'get_edit_post_link' )->andReturn( 'https://example.com/wp-admin/post.php?post=42' );
+
+		// Should be called 3 times — admin + 2 additional.
+		\WP_Mock::userFunction( 'wp_mail' )->times( 3 )->andReturn( true );
+
+		$this->notifier->send();
+		$this->assertConditionsMet();
+	}
+
+	public function test_send_sends_only_to_additional_emails_when_site_owner_disabled(): void {
+		$this->global_settings->shouldReceive( 'get_notification_settings' )->andReturn( [
+			'notify_site_owner' => false,
+			'additional_emails' => 'editor@example.com',
+		] );
+		$this->global_settings->shouldReceive( 'get_additional_email_list' )->andReturn( [
+			'editor@example.com',
 		] );
 
 		\WP_Mock::expectActionAdded( 'shutdown', [ $this->notifier, 'send' ] );
@@ -237,10 +268,16 @@ class Email_NotifierTest extends TestCase {
 		\WP_Mock::userFunction( 'get_bloginfo' )->with( 'name' )->andReturn( 'Test Site' );
 		\WP_Mock::userFunction( 'get_edit_post_link' )->andReturn( 'https://example.com/wp-admin/post.php?post=42' );
 
-		// Let the ctbp_notification_email filter pass through (WP_Mock default).
-
-		// Should be called twice — once per recipient.
-		\WP_Mock::userFunction( 'wp_mail' )->twice()->andReturn( true );
+		// Should be called once — only the additional email.
+		\WP_Mock::userFunction( 'wp_mail' )
+			->once()
+			->with(
+				'editor@example.com',
+				\Mockery::type( 'string' ),
+				\Mockery::type( 'string' ),
+				\Mockery::type( 'array' )
+			)
+			->andReturn( true );
 
 		$this->notifier->send();
 		$this->assertConditionsMet();
@@ -277,12 +314,12 @@ class Email_NotifierTest extends TestCase {
 		);
 	}
 
-	private function mock_enabled_notifications(): void {
+	private function mock_site_owner_notifications(): void {
 		$this->global_settings->shouldReceive( 'get_notification_settings' )->andReturn( [
-			'enabled'         => true,
-			'email'           => 'test@example.com',
-			'email_secondary' => '',
-			'trigger'         => 'both',
+			'notify_site_owner' => true,
+			'additional_emails' => '',
 		] );
+		$this->global_settings->shouldReceive( 'get_additional_email_list' )->andReturn( [] );
+		\WP_Mock::userFunction( 'get_option' )->with( 'admin_email', '' )->andReturn( 'admin@example.com' );
 	}
 }

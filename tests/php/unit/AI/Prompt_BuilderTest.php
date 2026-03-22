@@ -31,6 +31,7 @@ class Prompt_BuilderTest extends TestCase {
 		$this->significance    = \Mockery::mock( Release_Significance::class );
 		$this->global_settings = \Mockery::mock( Global_Settings::class );
 		$this->global_settings->shouldReceive( 'get_custom_prompt_instructions' )->andReturn( '' )->byDefault();
+		$this->global_settings->shouldReceive( 'get_audience_level' )->andReturn( 'mixed' )->byDefault();
 		$this->builder = new Prompt_Builder( $this->repo_settings, $this->significance, $this->global_settings );
 	}
 
@@ -45,22 +46,19 @@ class Prompt_BuilderTest extends TestCase {
 	}
 
 	// -------------------------------------------------------------------------
-	// resolve_download_link() — priority: custom_url > wporg_slug > html_url
+	// resolve_download_link() — plugin_link: URL vs slug vs fallback
 	// -------------------------------------------------------------------------
 
-	public function test_resolve_download_link_prefers_custom_url(): void {
-		$config = [
-			'custom_url'  => 'https://example.com/download',
-			'wporg_slug'  => 'my-plugin',
-		];
-		$data = $this->make_release_data();
+	public function test_resolve_download_link_uses_url(): void {
+		$config = [ 'plugin_link' => 'https://example.com/download' ];
+		$data   = $this->make_release_data();
 
 		$result = $this->builder->resolve_download_link( $config, $data );
 		$this->assertSame( 'https://example.com/download', $result );
 	}
 
-	public function test_resolve_download_link_falls_back_to_wporg(): void {
-		$config = [ 'wporg_slug' => 'my-plugin' ];
+	public function test_resolve_download_link_uses_slug_as_wporg_url(): void {
+		$config = [ 'plugin_link' => 'my-plugin' ];
 		$data   = $this->make_release_data();
 
 		$result = $this->builder->resolve_download_link( $config, $data );
@@ -123,7 +121,7 @@ class Prompt_BuilderTest extends TestCase {
 			->andReturn( [
 				'identifier'   => 'owner/repo',
 				'display_name' => 'My Plugin',
-				'wporg_slug'   => 'my-plugin',
+				'plugin_link'  => 'my-plugin',
 			] );
 
 		$this->significance->shouldReceive( 'classify' )
@@ -138,7 +136,7 @@ class Prompt_BuilderTest extends TestCase {
 		$this->assertIsString( $result );
 		$this->assertStringContainsString( 'My Plugin', $result );
 		$this->assertStringContainsString( 'v1.2.0', $result );
-		$this->assertStringContainsString( 'Minor release', $result );
+		$this->assertStringContainsString( 'Minor', $result );
 		$this->assertStringContainsString( 'wordpress.org/plugins/my-plugin/', $result );
 	}
 

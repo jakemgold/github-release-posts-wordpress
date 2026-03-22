@@ -124,71 +124,46 @@ class Global_SettingsTest extends TestCase {
 	}
 
 	// -------------------------------------------------------------------------
-	// Notification validation
+	// Notification settings
 	// -------------------------------------------------------------------------
 
 	/**
-	 * save_notification_settings() returns an error for an invalid primary email.
+	 * get_notification_settings() returns simplified notification settings.
 	 */
-	public function test_save_notification_settings_rejects_invalid_email(): void {
-		\WP_Mock::userFunction( 'is_email' )
-			->with( 'not-an-email' )
-			->andReturn( false );
+	public function test_get_notification_settings_returns_defaults(): void {
+		\WP_Mock::userFunction( 'get_option' )
+			->with( Plugin_Constants::OPTION_NOTIFY_SITE_OWNER, true )
+			->andReturn( true );
 
-		\WP_Mock::userFunction( '__' )->andReturnArg( 0 );
+		\WP_Mock::userFunction( 'get_option' )
+			->with( Plugin_Constants::OPTION_ADDITIONAL_EMAILS, '' )
+			->andReturn( '' );
 
-		$result = ( new Global_Settings() )->save_notification_settings(
-			[ 'email' => 'not-an-email', 'email_secondary' => '' ]
-		);
+		$result = ( new Global_Settings() )->get_notification_settings();
 
-		$this->assertFalse( $result['saved'] );
-		$this->assertNotEmpty( $result['errors'] );
+		$this->assertTrue( $result['notify_site_owner'] );
+		$this->assertSame( '', $result['additional_emails'] );
 	}
 
 	/**
-	 * save_notification_settings() saves successfully for valid emails.
+	 * get_additional_email_list() parses comma-separated emails and caps at 5.
 	 */
-	public function test_save_notification_settings_saves_valid_emails(): void {
-		\WP_Mock::userFunction( 'is_email' )->andReturn( true );
-		\WP_Mock::userFunction( 'update_option' )->andReturn( true );
+	public function test_get_additional_email_list_parses_and_validates(): void {
+		\WP_Mock::userFunction( 'get_option' )
+			->with( Plugin_Constants::OPTION_ADDITIONAL_EMAILS, '' )
+			->andReturn( 'a@b.com, bad, c@d.com' );
 
-		$result = ( new Global_Settings() )->save_notification_settings(
-			[
-				'enabled'         => true,
-				'email'           => 'admin@example.com',
-				'email_secondary' => '',
-				'trigger'         => 'draft',
-			]
-		);
+		\WP_Mock::userFunction( 'is_email' )->andReturnUsing( function ( $email ) {
+			return str_contains( $email, '@' ) && str_contains( $email, '.' );
+		} );
 
-		$this->assertTrue( $result['saved'] );
-		$this->assertEmpty( $result['errors'] );
+		$result = ( new Global_Settings() )->get_additional_email_list();
+
+		$this->assertSame( [ 'a@b.com', 'c@d.com' ], $result );
 	}
 
 	// -------------------------------------------------------------------------
 	// Post defaults
 	// -------------------------------------------------------------------------
 
-	/**
-	 * get_post_defaults() returns 'draft' as default post status when option is not set.
-	 */
-	public function test_get_post_defaults_returns_draft_as_default_status(): void {
-		\WP_Mock::userFunction( 'get_option' )
-			->with( Plugin_Constants::OPTION_DEFAULT_POST_STATUS, 'draft' )
-			->andReturn( 'draft' );
-
-		\WP_Mock::userFunction( 'get_option' )
-			->with( Plugin_Constants::OPTION_DEFAULT_CATEGORY, 0 )
-			->andReturn( 0 );
-
-		\WP_Mock::userFunction( 'get_option' )
-			->with( Plugin_Constants::OPTION_DEFAULT_TAGS, [] )
-			->andReturn( [] );
-
-		$defaults = ( new Global_Settings() )->get_post_defaults();
-
-		$this->assertSame( 'draft', $defaults['post_status'] );
-		$this->assertSame( 0, $defaults['category'] );
-		$this->assertSame( [], $defaults['tags'] );
-	}
 }
