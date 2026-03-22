@@ -28,8 +28,8 @@ $trigger_is_published = in_array( $notif['trigger'] ?? '', [ 'publish', 'both' ]
 $status_is_draft      = ( $defaults['post_status'] ?? 'draft' ) === 'draft';
 $show_trigger_warning = $trigger_is_published && $status_is_draft;
 
-$key_based_providers  = [ 'openai', 'anthropic', 'gemini' ];
-$no_key_providers     = [ 'classifai', 'wordpress_ai' ];
+$key_based_providers  = [ 'openai', 'anthropic' ];
+$no_key_providers     = [ 'wp_ai_client' ];
 ?>
 
 <h2><?php echo esc_html__( 'GitHub', 'changelog-to-blog-post' ); ?></h2>
@@ -62,11 +62,9 @@ $no_key_providers     = [ 'classifai', 'wordpress_ai' ];
 		<label for="ctbp_ai_provider"><?php echo esc_html__( 'Active AI Provider', 'changelog-to-blog-post' ); ?></label><br>
 		<select id="ctbp_ai_provider" name="ctbp_ai_provider">
 			<option value="" <?php selected( $provider, '' ); ?>><?php echo esc_html__( '— Select a provider —', 'changelog-to-blog-post' ); ?></option>
+			<option value="wp_ai_client" <?php selected( $provider, 'wp_ai_client' ); ?>><?php echo esc_html__( 'WordPress AI Services (recommended)', 'changelog-to-blog-post' ); ?></option>
 			<option value="openai" <?php selected( $provider, 'openai' ); ?>><?php echo esc_html__( 'OpenAI', 'changelog-to-blog-post' ); ?></option>
 			<option value="anthropic" <?php selected( $provider, 'anthropic' ); ?>><?php echo esc_html__( 'Anthropic', 'changelog-to-blog-post' ); ?></option>
-			<option value="gemini" <?php selected( $provider, 'gemini' ); ?>><?php echo esc_html__( 'Google Gemini', 'changelog-to-blog-post' ); ?></option>
-			<option value="classifai" <?php selected( $provider, 'classifai' ); ?>><?php echo esc_html__( 'ClassifAI', 'changelog-to-blog-post' ); ?></option>
-			<option value="wordpress_ai" <?php selected( $provider, 'wordpress_ai' ); ?>><?php echo esc_html__( 'WordPress AI API', 'changelog-to-blog-post' ); ?></option>
 		</select>
 	</p>
 
@@ -108,13 +106,7 @@ $no_key_providers     = [ 'classifai', 'wordpress_ai' ];
 			<?php echo $provider !== $p ? 'hidden' : ''; ?>
 		>
 			<p class="description">
-				<?php
-				if ( 'classifai' === $p ) {
-					echo esc_html__( 'ClassifAI manages its own credentials. Configure API keys within the ClassifAI plugin settings.', 'changelog-to-blog-post' );
-				} else {
-					echo esc_html__( 'The WordPress AI API uses site-level credentials managed by the WordPress AI API plugin.', 'changelog-to-blog-post' );
-				}
-				?>
+				<?php echo esc_html__( 'WordPress AI Services manages its own API keys. Configure your preferred AI provider in Settings → AI Services.', 'changelog-to-blog-post' ); ?>
 			</p>
 		</div>
 	<?php endforeach; ?>
