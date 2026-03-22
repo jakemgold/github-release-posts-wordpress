@@ -12,6 +12,7 @@ use TenUp\ChangelogToBlogPost\AI\AI_Provider_Factory;
 use TenUp\ChangelogToBlogPost\AI\Prompt_Builder;
 use TenUp\ChangelogToBlogPost\AI\Release_Significance;
 use TenUp\ChangelogToBlogPost\Post\Post_Creator;
+use TenUp\ChangelogToBlogPost\Post\Taxonomy_Assigner;
 use TenUp\ChangelogToBlogPost\GitHub\API_Client;
 use TenUp\ChangelogToBlogPost\GitHub\Release_Monitor;
 use TenUp\ChangelogToBlogPost\GitHub\Release_Queue;
@@ -132,5 +133,6 @@ class Plugin {
 
 		// Post creation — creates WordPress posts from AI-generated content.
 		( new Post_Creator( $repo_settings ) )->setup();
+		( new Taxonomy_Assigner( $repo_settings, $global_settings ) )->setup();
 	}
 }
