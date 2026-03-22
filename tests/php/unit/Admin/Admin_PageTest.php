@@ -32,14 +32,18 @@ class Admin_PageTest extends TestCase {
 	}
 
 	/**
-	 * setup() registers admin_menu, admin_enqueue_scripts, and init hooks.
+	 * setup() registers admin_menu, admin_enqueue_scripts, and other hooks.
 	 */
 	public function test_setup_registers_hooks(): void {
-		\WP_Mock::expectActionAdded( 'admin_menu', [ \WP_Mock\Functions::type( Admin_Page::class ), 'register_menu_page' ] );
-		\WP_Mock::expectActionAdded( 'admin_enqueue_scripts', [ \WP_Mock\Functions::type( Admin_Page::class ), 'enqueue_assets' ] );
-		\WP_Mock::expectActionAdded( 'init', [ \WP_Mock\Functions::type( Admin_Page::class ), 'register_ajax_actions' ] );
+		$page = new Admin_Page();
 
-		( new Admin_Page() )->setup();
+		\WP_Mock::expectActionAdded( 'admin_menu', [ $page, 'register_menu_page' ] );
+		\WP_Mock::expectActionAdded( 'admin_enqueue_scripts', [ $page, 'enqueue_assets' ] );
+		\WP_Mock::expectActionAdded( 'enqueue_block_editor_assets', [ $page, 'enqueue_editor_assets' ] );
+		\WP_Mock::expectActionAdded( 'rest_api_init', [ $page, 'register_rest_routes' ] );
+		\WP_Mock::expectActionAdded( 'init', [ $page, 'register_post_meta' ] );
+
+		$page->setup();
 
 		$this->assertConditionsMet();
 	}
@@ -75,6 +79,7 @@ class Admin_PageTest extends TestCase {
 		\WP_Mock::userFunction( 'wp_localize_script' )->once();
 		\WP_Mock::userFunction( 'wp_create_nonce' )->andReturn( 'test_nonce' );
 		\WP_Mock::userFunction( 'admin_url' )->andReturn( 'http://example.com/wp-admin/admin-ajax.php' );
+		\WP_Mock::userFunction( 'get_rest_url' )->andReturn( 'https://example.com/wp-json/' );
 		\WP_Mock::userFunction( '__' )->andReturnArg( 0 );
 
 		// Use reflection to set the private page_hook property.
@@ -92,29 +97,29 @@ class Admin_PageTest extends TestCase {
 	 * render_page() calls wp_die() when user lacks manage_options capability.
 	 */
 	public function test_render_page_dies_without_capability(): void {
+		$_SERVER['REQUEST_METHOD'] = 'GET';
+
 		\WP_Mock::userFunction( 'current_user_can' )
 			->with( 'manage_options' )
 			->andReturn( false );
 
-		\WP_Mock::userFunction( 'wp_die' )->once();
 		\WP_Mock::userFunction( 'esc_html__' )->andReturnArg( 0 );
 
-		( new Admin_Page() )->render_page();
+		$died = false;
+		\WP_Mock::userFunction( 'wp_die' )->andReturnUsing( function () use ( &$died ) {
+			$died = true;
+			throw new \RuntimeException( 'wp_die called' );
+		} );
 
-		$this->assertConditionsMet();
-	}
+		try {
+			( new Admin_Page() )->render_page();
+		} catch ( \RuntimeException $e ) {
+			// Expected.
+		}
 
-	/**
-	 * register_ajax_actions() registers the three AJAX action hooks.
-	 */
-	public function test_register_ajax_actions_registers_hooks(): void {
-		\WP_Mock::expectActionAdded( 'wp_ajax_ctbp_generate_draft_now', [ \WP_Mock\Functions::type( Admin_Page::class ), 'ajax_generate_draft_now' ] );
-		\WP_Mock::expectActionAdded( 'wp_ajax_ctbp_test_ai_connection', [ \WP_Mock\Functions::type( Admin_Page::class ), 'ajax_test_ai_connection' ] );
-		\WP_Mock::expectActionAdded( 'wp_ajax_ctbp_validate_wporg_slug', [ \WP_Mock\Functions::type( Admin_Page::class ), 'ajax_validate_wporg_slug' ] );
+		$this->assertTrue( $died, 'wp_die() should have been called' );
 
-		( new Admin_Page() )->register_ajax_actions();
-
-		$this->assertConditionsMet();
+		unset( $_SERVER['REQUEST_METHOD'] );
 	}
 
 	/**

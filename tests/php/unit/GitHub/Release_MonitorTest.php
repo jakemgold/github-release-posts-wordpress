@@ -249,6 +249,8 @@ class Release_MonitorTest extends TestCase {
 		\WP_Mock::userFunction( 'update_option' )->andReturn( true );
 
 		$this->monitor->run();
+
+		$this->assertConditionsMet();
 	}
 
 	/**

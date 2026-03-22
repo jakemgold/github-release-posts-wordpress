@@ -22,7 +22,7 @@
 	},
 	"autoload-dev": {
 		"psr-4": {
-			"TenUp\\ChangelogToBlogPost\\Tests\\": "tests/php/"
+			"TenUp\\ChangelogToBlogPost\\Tests\\": "tests/php/unit/"
 		}
 	},
 	"scripts": {

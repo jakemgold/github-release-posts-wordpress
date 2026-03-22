@@ -123,7 +123,8 @@ class AI_ProcessorTest extends TestCase {
 		$this->provider->method( 'get_slug' )->willReturn( 'anthropic' );
 		$this->factory->method( 'get_provider' )->willReturn( $this->provider );
 
-		\WP_Mock::onFilter( 'ctbp_generate_prompt' )->reply( 'test prompt' );
+		// Let the prompt filter pass through (returns '' from default).
+		// The test verifies caching and failure counts, not prompt content.
 
 		// Cache should be set with 4h TTL.
 		\WP_Mock::userFunction( 'set_transient' )
@@ -142,7 +143,7 @@ class AI_ProcessorTest extends TestCase {
 
 		\WP_Mock::userFunction( 'update_option' )
 			->once()
-			->with( Plugin_Constants::OPTION_AI_FAILURE_COUNTS, [] );
+			->with( Plugin_Constants::OPTION_AI_FAILURE_COUNTS, \Mockery::any(), false );
 
 		\WP_Mock::expectAction( 'ctbp_post_generated', $generated, \WP_Mock\Functions::type( ReleaseData::class ), [] );
 

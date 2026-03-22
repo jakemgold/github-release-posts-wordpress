@@ -46,15 +46,15 @@ class Taxonomy_AssignerTest extends TestCase {
 	// -------------------------------------------------------------------------
 
 	public function test_handle_applies_category_from_repo_config(): void {
-		$this->repo_settings->shouldReceive( 'get_repositories' )->andReturn( [
-			[ 'identifier' => 'owner/repo', 'category' => 5, 'tags' => [] ],
-		] );
+		$this->repo_settings->shouldReceive( 'get_repository' )
+			->with( 'owner/repo' )
+			->andReturn( [ 'identifier' => 'owner/repo', 'category' => 5, 'tags' => [] ] );
 		$this->global_settings->shouldReceive( 'get_post_defaults' )->andReturn( [
 			'category' => 99,
 			'tags'     => [],
 		] );
 
-		\WP_Mock::onFilter( 'ctbp_post_terms' )->reply( false );
+		// Let the filter pass through (WP_Mock default behavior).
 		\WP_Mock::userFunction( 'term_exists' )->with( 5, 'category' )->andReturn( true );
 		\WP_Mock::userFunction( 'wp_set_post_categories' )->once()->with( 42, [ 5 ] );
 
@@ -63,15 +63,15 @@ class Taxonomy_AssignerTest extends TestCase {
 	}
 
 	public function test_handle_falls_back_to_global_category(): void {
-		$this->repo_settings->shouldReceive( 'get_repositories' )->andReturn( [
-			[ 'identifier' => 'owner/repo', 'category' => 0, 'tags' => [] ],
-		] );
+		$this->repo_settings->shouldReceive( 'get_repository' )
+			->with( 'owner/repo' )
+			->andReturn( [ 'identifier' => 'owner/repo', 'category' => 0, 'tags' => [] ] );
 		$this->global_settings->shouldReceive( 'get_post_defaults' )->andReturn( [
 			'category' => 10,
 			'tags'     => [],
 		] );
 
-		\WP_Mock::onFilter( 'ctbp_post_terms' )->reply( false );
+		// Let the filter pass through (WP_Mock default behavior).
 		\WP_Mock::userFunction( 'term_exists' )->with( 10, 'category' )->andReturn( true );
 		\WP_Mock::userFunction( 'wp_set_post_categories' )->once()->with( 42, [ 10 ] );
 
@@ -80,13 +80,15 @@ class Taxonomy_AssignerTest extends TestCase {
 	}
 
 	public function test_handle_skips_category_when_none_configured(): void {
-		$this->repo_settings->shouldReceive( 'get_repositories' )->andReturn( [] );
+		$this->repo_settings->shouldReceive( 'get_repository' )
+			->with( 'owner/repo' )
+			->andReturn( [] );
 		$this->global_settings->shouldReceive( 'get_post_defaults' )->andReturn( [
 			'category' => 0,
 			'tags'     => [],
 		] );
 
-		\WP_Mock::onFilter( 'ctbp_post_terms' )->reply( false );
+		// Let the filter pass through (WP_Mock default behavior).
 		\WP_Mock::userFunction( 'wp_set_post_categories' )->never();
 
 		$this->assigner->handle( 42, $this->make_post(), $this->make_data(), [] );
@@ -98,15 +100,15 @@ class Taxonomy_AssignerTest extends TestCase {
 	// -------------------------------------------------------------------------
 
 	public function test_handle_applies_tags_from_repo_config(): void {
-		$this->repo_settings->shouldReceive( 'get_repositories' )->andReturn( [
-			[ 'identifier' => 'owner/repo', 'category' => 0, 'tags' => [ 3, 7 ] ],
-		] );
+		$this->repo_settings->shouldReceive( 'get_repository' )
+			->with( 'owner/repo' )
+			->andReturn( [ 'identifier' => 'owner/repo', 'category' => 0, 'tags' => [ 3, 7 ] ] );
 		$this->global_settings->shouldReceive( 'get_post_defaults' )->andReturn( [
 			'category' => 0,
 			'tags'     => [ 99 ],
 		] );
 
-		\WP_Mock::onFilter( 'ctbp_post_terms' )->reply( false );
+		// Let the filter pass through (WP_Mock default behavior).
 		\WP_Mock::userFunction( 'term_exists' )->with( 3, 'post_tag' )->andReturn( true );
 		\WP_Mock::userFunction( 'term_exists' )->with( 7, 'post_tag' )->andReturn( true );
 		\WP_Mock::userFunction( 'wp_set_post_tags' )->once()->with( 42, [ 3, 7 ] );
@@ -116,13 +118,15 @@ class Taxonomy_AssignerTest extends TestCase {
 	}
 
 	public function test_handle_skips_tags_when_none_configured(): void {
-		$this->repo_settings->shouldReceive( 'get_repositories' )->andReturn( [] );
+		$this->repo_settings->shouldReceive( 'get_repository' )
+			->with( 'owner/repo' )
+			->andReturn( [] );
 		$this->global_settings->shouldReceive( 'get_post_defaults' )->andReturn( [
 			'category' => 0,
 			'tags'     => [],
 		] );
 
-		\WP_Mock::onFilter( 'ctbp_post_terms' )->reply( false );
+		// Let the filter pass through (WP_Mock default behavior).
 		\WP_Mock::userFunction( 'wp_set_post_tags' )->never();
 
 		$this->assigner->handle( 42, $this->make_post(), $this->make_data(), [] );
@@ -134,15 +138,15 @@ class Taxonomy_AssignerTest extends TestCase {
 	// -------------------------------------------------------------------------
 
 	public function test_handle_skips_missing_category_and_continues(): void {
-		$this->repo_settings->shouldReceive( 'get_repositories' )->andReturn( [
-			[ 'identifier' => 'owner/repo', 'category' => 999, 'tags' => [ 3 ] ],
-		] );
+		$this->repo_settings->shouldReceive( 'get_repository' )
+			->with( 'owner/repo' )
+			->andReturn( [ 'identifier' => 'owner/repo', 'category' => 999, 'tags' => [ 3 ] ] );
 		$this->global_settings->shouldReceive( 'get_post_defaults' )->andReturn( [
 			'category' => 0,
 			'tags'     => [],
 		] );
 
-		\WP_Mock::onFilter( 'ctbp_post_terms' )->reply( false );
+		// Let the filter pass through (WP_Mock default behavior).
 
 		// Category does not exist.
 		\WP_Mock::userFunction( 'term_exists' )->with( 999, 'category' )->andReturn( false );
@@ -157,15 +161,15 @@ class Taxonomy_AssignerTest extends TestCase {
 	}
 
 	public function test_handle_skips_missing_tags_and_applies_valid_ones(): void {
-		$this->repo_settings->shouldReceive( 'get_repositories' )->andReturn( [
-			[ 'identifier' => 'owner/repo', 'category' => 0, 'tags' => [ 1, 2, 3 ] ],
-		] );
+		$this->repo_settings->shouldReceive( 'get_repository' )
+			->with( 'owner/repo' )
+			->andReturn( [ 'identifier' => 'owner/repo', 'category' => 0, 'tags' => [ 1, 2, 3 ] ] );
 		$this->global_settings->shouldReceive( 'get_post_defaults' )->andReturn( [
 			'category' => 0,
 			'tags'     => [],
 		] );
 
-		\WP_Mock::onFilter( 'ctbp_post_terms' )->reply( false );
+		// Let the filter pass through (WP_Mock default behavior).
 
 		\WP_Mock::userFunction( 'term_exists' )->with( 1, 'post_tag' )->andReturn( true );
 		\WP_Mock::userFunction( 'term_exists' )->with( 2, 'post_tag' )->andReturn( false ); // Missing.
@@ -183,7 +187,9 @@ class Taxonomy_AssignerTest extends TestCase {
 	// -------------------------------------------------------------------------
 
 	public function test_handle_applies_ctbp_post_terms_filter(): void {
-		$this->repo_settings->shouldReceive( 'get_repositories' )->andReturn( [] );
+		$this->repo_settings->shouldReceive( 'get_repository' )
+			->with( 'owner/repo' )
+			->andReturn( [] );
 		$this->global_settings->shouldReceive( 'get_post_defaults' )->andReturn( [
 			'category' => 5,
 			'tags'     => [ 1 ],
@@ -193,11 +199,7 @@ class Taxonomy_AssignerTest extends TestCase {
 
 		// Filter overrides terms entirely.
 		\WP_Mock::onFilter( 'ctbp_post_terms' )
-			->with(
-				[ 'category' => 5, 'tags' => [ 1 ] ],
-				42,
-				$data
-			)
+			->with( [ 'category' => 5, 'tags' => [ 1 ] ], 42, $data )
 			->reply( [ 'category' => 20, 'tags' => [ 8, 9 ] ] );
 
 		\WP_Mock::userFunction( 'term_exists' )->with( 20, 'category' )->andReturn( true );
@@ -216,15 +218,15 @@ class Taxonomy_AssignerTest extends TestCase {
 	// -------------------------------------------------------------------------
 
 	public function test_handle_uses_repo_tags_with_global_category(): void {
-		$this->repo_settings->shouldReceive( 'get_repositories' )->andReturn( [
-			[ 'identifier' => 'owner/repo', 'category' => 0, 'tags' => [ 4, 5 ] ],
-		] );
+		$this->repo_settings->shouldReceive( 'get_repository' )
+			->with( 'owner/repo' )
+			->andReturn( [ 'identifier' => 'owner/repo', 'category' => 0, 'tags' => [ 4, 5 ] ] );
 		$this->global_settings->shouldReceive( 'get_post_defaults' )->andReturn( [
 			'category' => 10,
 			'tags'     => [ 99 ],
 		] );
 
-		\WP_Mock::onFilter( 'ctbp_post_terms' )->reply( false );
+		// Let the filter pass through (WP_Mock default behavior).
 
 		// Global category used (repo has 0).
 		\WP_Mock::userFunction( 'term_exists' )->with( 10, 'category' )->andReturn( true );

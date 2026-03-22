@@ -37,7 +37,9 @@ class AI_Provider_FactoryTest extends TestCase {
 	public function test_get_provider_returns_wp_error_when_no_provider_set(): void {
 		$this->settings->method( 'get_ai_provider' )->willReturn( '' );
 
-		\WP_Mock::onFilter( 'ctbp_register_ai_providers' )->reply( [] );
+		\WP_Mock::onFilter( 'ctbp_register_ai_providers' )
+			->with( \Mockery::type( 'array' ) )
+			->reply( [] );
 
 		$result = $this->factory->get_provider();
 
@@ -48,7 +50,9 @@ class AI_Provider_FactoryTest extends TestCase {
 	public function test_get_provider_returns_wp_error_for_unknown_slug(): void {
 		$this->settings->method( 'get_ai_provider' )->willReturn( 'unknown_provider' );
 
-		\WP_Mock::onFilter( 'ctbp_register_ai_providers' )->reply( [] );
+		\WP_Mock::onFilter( 'ctbp_register_ai_providers' )
+			->with( \Mockery::type( 'array' ) )
+			->reply( [] );
 		\WP_Mock::userFunction( 'get_option' )->andReturn( [] );
 
 		$result = $this->factory->get_provider();
@@ -96,14 +100,14 @@ class AI_Provider_FactoryTest extends TestCase {
 		$this->settings->method( 'get_ai_provider' )->willReturn( 'bad_provider' );
 
 		// Register a non-interface value — should be stripped.
-		\WP_Mock::onFilter( 'ctbp_register_ai_providers' )->reply(
-			[ 'bad_provider' => new \stdClass() ]
-		);
+		\WP_Mock::onFilter( 'ctbp_register_ai_providers' )
+			->with( \Mockery::type( 'array' ) )
+			->reply( [ 'bad_provider' => new \stdClass() ] );
 
 		\WP_Mock::userFunction( 'get_option' )->andReturn( [] );
 
-		// error_log is called when the bad provider is removed.
-		\WP_Mock::userFunction( 'error_log' )->andReturn( null );
+		// error_log is a native PHP function — cannot be mocked.
+		// It will be called when the bad provider is removed, but we can't prevent it.
 
 		$result = $this->factory->get_provider();
 

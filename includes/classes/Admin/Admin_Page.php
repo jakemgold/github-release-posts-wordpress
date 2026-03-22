@@ -93,16 +93,19 @@ class Admin_Page {
 
 		wp_enqueue_style(
 			'changelog-to-blog-post-admin',
-			CHANGELOG_TO_BLOG_POST_URL . 'assets/css/admin/style.css',
+			CHANGELOG_TO_BLOG_POST_URL . 'dist/css/admin-style.css',
 			[],
 			CHANGELOG_TO_BLOG_POST_VERSION
 		);
 
+		$admin_asset_file = CHANGELOG_TO_BLOG_POST_PATH . 'dist/js/admin.asset.php';
+		$admin_asset      = file_exists( $admin_asset_file ) ? require $admin_asset_file : [ 'dependencies' => [], 'version' => CHANGELOG_TO_BLOG_POST_VERSION ];
+
 		wp_enqueue_script(
 			'changelog-to-blog-post-admin-js',
-			CHANGELOG_TO_BLOG_POST_URL . 'assets/js/admin/index.js',
-			[],
-			CHANGELOG_TO_BLOG_POST_VERSION,
+			CHANGELOG_TO_BLOG_POST_URL . 'dist/js/admin.js',
+			$admin_asset['dependencies'],
+			$admin_asset['version'] ?? CHANGELOG_TO_BLOG_POST_VERSION,
 			true
 		);
 
@@ -137,12 +140,12 @@ class Admin_Page {
 	 * @return void
 	 */
 	public function enqueue_editor_assets(): void {
-		$asset_file = CHANGELOG_TO_BLOG_POST_PATH . 'assets/js/editor/index.min.asset.php';
+		$asset_file = CHANGELOG_TO_BLOG_POST_PATH . 'dist/js/editor.asset.php';
 		$asset      = file_exists( $asset_file ) ? require $asset_file : [ 'dependencies' => [], 'version' => CHANGELOG_TO_BLOG_POST_VERSION ];
 
 		wp_enqueue_script(
 			'changelog-to-blog-post-editor',
-			CHANGELOG_TO_BLOG_POST_URL . 'assets/js/editor/index.min.js',
+			CHANGELOG_TO_BLOG_POST_URL . 'dist/js/editor.js',
 			$asset['dependencies'],
 			$asset['version'] ?? CHANGELOG_TO_BLOG_POST_VERSION,
 			true

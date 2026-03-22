@@ -70,10 +70,10 @@ class Release_SignificanceTest extends TestCase {
 	 * @dataProvider semver_classification_provider
 	 */
 	public function test_classify_by_semver( string $tag, string $expected ): void {
-		$data = $this->make_release_data( $tag, 'No security content here.' );
+		$data = $this->make_release_data( $tag, 'Bug fixes and improvements.' );
 
 		\WP_Mock::onFilter( 'ctbp_release_significance' )
-			->with( $expected, $tag, 'No security content here.' )
+			->with( $expected, $tag, 'Bug fixes and improvements.' )
 			->reply( $expected );
 
 		$result = $this->significance->classify( $data );

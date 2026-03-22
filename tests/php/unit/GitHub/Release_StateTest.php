@@ -102,7 +102,7 @@ class Release_StateTest extends TestCase {
 			->once()
 			->with(
 				$this->option_key( 'owner/repo' ),
-				\WP_Mock\Functions\type( 'array' ),
+				\WP_Mock\Functions::type( 'array' ),
 				false
 			)
 			->andReturnUsing( function ( $key, $data ) {
@@ -140,7 +140,7 @@ class Release_StateTest extends TestCase {
 			->once()
 			->with(
 				$this->option_key( 'owner/repo' ),
-				\WP_Mock\Functions\type( 'array' ),
+				\WP_Mock\Functions::type( 'array' ),
 				false
 			)
 			->andReturnUsing( function ( $key, $data ) {
@@ -167,6 +167,8 @@ class Release_StateTest extends TestCase {
 			->with( $this->option_key( 'owner/repo' ) );
 
 		$this->state->clear_state( 'owner/repo' );
+
+		$this->assertConditionsMet();
 	}
 
 	/**

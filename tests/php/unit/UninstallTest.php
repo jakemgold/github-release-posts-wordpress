@@ -25,6 +25,9 @@ class UninstallTest extends TestCase {
 	public function setUp(): void {
 		parent::setUp();
 		\WP_Mock::setUp();
+
+		// Mock plugin_dir_path so uninstall.php can resolve the autoloader path.
+		\WP_Mock::userFunction( 'plugin_dir_path' )->andReturn( dirname( __DIR__, 3 ) . '/' );
 	}
 
 	/**

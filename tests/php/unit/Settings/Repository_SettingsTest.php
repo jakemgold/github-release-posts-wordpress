@@ -150,7 +150,7 @@ class Repository_SettingsTest extends TestCase {
 			->andReturn( Repository_Settings::MAX_REPOSITORIES );
 
 		\WP_Mock::userFunction( 'update_option' )
-			->with( Plugin_Constants::OPTION_REPOSITORIES, \WP_Mock\Functions::anyOf() )
+			->with( Plugin_Constants::OPTION_REPOSITORIES, \Mockery::type( 'array' ) )
 			->andReturn( true );
 
 		$result = ( new Repository_Settings() )->add_repository( 'owner/new-repo' );

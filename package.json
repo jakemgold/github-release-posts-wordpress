@@ -3,14 +3,21 @@
 	"version": "1.0.0",
 	"description": "Convert changelog entries into WordPress blog posts.",
 	"scripts": {
-		"start": "10up-scripts start",
-		"build": "10up-scripts build",
-		"lint:js": "10up-scripts lint-js",
-		"lint:css": "10up-scripts lint-style",
+		"start": "10up-toolkit start",
+		"build": "10up-toolkit build",
+		"lint:js": "10up-toolkit lint-js",
+		"lint:css": "10up-toolkit lint-style",
 		"lint": "npm run lint:js && npm run lint:css",
-		"test": "10up-scripts test-unit-jest"
+		"test": "10up-toolkit test-unit-jest"
+	},
+	"@10up/scripts": {
+		"entry": {
+			"admin": "./assets/js/admin/index.js",
+			"editor": "./assets/js/editor/index.js",
+			"admin-style": "./assets/css/admin/style.css"
+		}
 	},
 	"devDependencies": {
-		"@10up/scripts": "^3.0.0"
+		"@10up/scripts": "^1.3.4"
 	}
 }

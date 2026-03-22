@@ -26,16 +26,25 @@ class Post_CreatorTest extends TestCase {
 		parent::setUp();
 
 		$this->repo_settings = \Mockery::mock( Repository_Settings::class );
-		$this->repo_settings->shouldReceive( 'get_repositories' )
+		$this->repo_settings->shouldReceive( 'get_repository' )
+			->with( 'owner/my-plugin' )
 			->andReturn( [
-				[
-					'identifier'   => 'owner/my-plugin',
-					'display_name' => 'My Plugin',
-				],
+				'identifier'   => 'owner/my-plugin',
+				'display_name' => 'My Plugin',
 			] )
+			->byDefault();
+		$this->repo_settings->shouldReceive( 'derive_display_name' )
+			->andReturnUsing( function ( $name ) {
+				return ucwords( str_replace( [ '-', '_' ], ' ', $name ) );
+			} )
 			->byDefault();
 
 		$this->creator = new Post_Creator( $this->repo_settings );
+	}
+
+	public function tearDown(): void {
+		\WP_Query::reset_mock();
+		parent::tearDown();
 	}
 
 	// -------------------------------------------------------------------------
@@ -200,7 +209,9 @@ class Post_CreatorTest extends TestCase {
 		$data = $this->make_release_data( 'unknown-org/cool-widget' );
 
 		// No matching repo config.
-		$this->repo_settings->shouldReceive( 'get_repositories' )->andReturn( [] );
+		$this->repo_settings->shouldReceive( 'get_repository' )
+			->with( 'unknown-org/cool-widget' )
+			->andReturn( [] );
 
 		\WP_Mock::userFunction( 'wp_insert_post' )
 			->once()
@@ -227,13 +238,7 @@ class Post_CreatorTest extends TestCase {
 	// -------------------------------------------------------------------------
 
 	public function test_find_existing_post_checks_all_post_statuses(): void {
-		$query_mock = \Mockery::mock( 'overload:WP_Query' );
-		$query_mock->shouldReceive( '__construct' )
-			->once()
-			->with( \Mockery::on( function ( $args ) {
-				return $args['post_status'] === 'any';
-			} ) );
-		$query_mock->posts = [];
+		\WP_Query::$mock_posts = [];
 
 		$result = $this->creator->find_existing_post( 'owner/repo', 'v1.0.0' );
 		$this->assertNull( $result );
@@ -264,12 +269,10 @@ class Post_CreatorTest extends TestCase {
 	}
 
 	private function mock_wp_query_no_results(): void {
-		$query_mock = \Mockery::mock( 'overload:WP_Query' );
-		$query_mock->posts = [];
+		\WP_Query::$mock_posts = [];
 	}
 
 	private function mock_wp_query_with_result( int $post_id ): void {
-		$query_mock = \Mockery::mock( 'overload:WP_Query' );
-		$query_mock->posts = [ $post_id ];
+		\WP_Query::$mock_posts = [ $post_id ];
 	}
 }

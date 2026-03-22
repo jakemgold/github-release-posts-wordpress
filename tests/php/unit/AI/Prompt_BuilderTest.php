@@ -117,14 +117,13 @@ class Prompt_BuilderTest extends TestCase {
 	public function test_build_returns_string_with_release_info(): void {
 		$data = $this->make_release_data();
 
-		$this->repo_settings->shouldReceive( 'get_repositories' )
+		$this->repo_settings->shouldReceive( 'get_repository' )
+			->with( 'owner/repo' )
 			->once()
 			->andReturn( [
-				[
-					'identifier'   => 'owner/repo',
-					'display_name' => 'My Plugin',
-					'wporg_slug'   => 'my-plugin',
-				],
+				'identifier'   => 'owner/repo',
+				'display_name' => 'My Plugin',
+				'wporg_slug'   => 'my-plugin',
 			] );
 
 		$this->significance->shouldReceive( 'classify' )
@@ -132,10 +131,7 @@ class Prompt_BuilderTest extends TestCase {
 			->with( $data )
 			->andReturn( 'minor' );
 
-		// Sub-filters pass through.
-		\WP_Mock::onFilter( 'ctbp_prompt_title_guidance' )->reply( false );
-		\WP_Mock::onFilter( 'ctbp_prompt_content_guidance' )->reply( false );
-		\WP_Mock::onFilter( 'ctbp_prompt' )->reply( false );
+		// Let sub-filters pass through (WP_Mock default behavior).
 
 		$result = $this->builder->build( '', $data );
 
@@ -149,17 +145,16 @@ class Prompt_BuilderTest extends TestCase {
 	public function test_build_derives_display_name_when_not_configured(): void {
 		$data = $this->make_release_data();
 
-		$this->repo_settings->shouldReceive( 'get_repositories' )
+		$this->repo_settings->shouldReceive( 'get_repository' )
+			->with( 'owner/repo' )
 			->once()
 			->andReturn( [] ); // No matching repo config.
 
-		$this->significance->shouldReceive( 'classify' )
+$this->significance->shouldReceive( 'classify' )
 			->once()
 			->andReturn( 'patch' );
 
-		\WP_Mock::onFilter( 'ctbp_prompt_title_guidance' )->reply( false );
-		\WP_Mock::onFilter( 'ctbp_prompt_content_guidance' )->reply( false );
-		\WP_Mock::onFilter( 'ctbp_prompt' )->reply( false );
+		// Let sub-filters pass through (WP_Mock default behavior).
 
 		$result = $this->builder->build( '', $data );
 
@@ -170,12 +165,13 @@ class Prompt_BuilderTest extends TestCase {
 	public function test_build_includes_image_placeholders_when_no_images(): void {
 		$data = $this->make_release_data( 'No images in this release body.' );
 
-		$this->repo_settings->shouldReceive( 'get_repositories' )->andReturn( [] );
-		$this->significance->shouldReceive( 'classify' )->andReturn( 'minor' );
+		$this->repo_settings->shouldReceive( 'get_repository' )->andReturn( [] );
+$this->significance->shouldReceive( 'classify' )->andReturn( 'minor' );
 
-		\WP_Mock::onFilter( 'ctbp_prompt_title_guidance' )->reply( false );
-		\WP_Mock::onFilter( 'ctbp_prompt_content_guidance' )->reply( false );
-		\WP_Mock::onFilter( 'ctbp_prompt' )->reply( false );
+		\WP_Mock::userFunction( 'apply_filters' )->andReturnUsing( function () {
+			$args = func_get_args();
+			return $args[1] ?? '';
+		} );
 
 		$result = $this->builder->build( '', $data );
 
@@ -186,12 +182,13 @@ class Prompt_BuilderTest extends TestCase {
 		$body = 'New feature: ![screenshot](https://example.com/new.png)';
 		$data = $this->make_release_data( $body );
 
-		$this->repo_settings->shouldReceive( 'get_repositories' )->andReturn( [] );
-		$this->significance->shouldReceive( 'classify' )->andReturn( 'minor' );
+		$this->repo_settings->shouldReceive( 'get_repository' )->andReturn( [] );
+$this->significance->shouldReceive( 'classify' )->andReturn( 'minor' );
 
-		\WP_Mock::onFilter( 'ctbp_prompt_title_guidance' )->reply( false );
-		\WP_Mock::onFilter( 'ctbp_prompt_content_guidance' )->reply( false );
-		\WP_Mock::onFilter( 'ctbp_prompt' )->reply( false );
+		\WP_Mock::userFunction( 'apply_filters' )->andReturnUsing( function () {
+			$args = func_get_args();
+			return $args[1] ?? '';
+		} );
 
 		$result = $this->builder->build( '', $data );
 
@@ -202,12 +199,13 @@ class Prompt_BuilderTest extends TestCase {
 	public function test_build_response_format_instructions(): void {
 		$data = $this->make_release_data();
 
-		$this->repo_settings->shouldReceive( 'get_repositories' )->andReturn( [] );
-		$this->significance->shouldReceive( 'classify' )->andReturn( 'patch' );
+		$this->repo_settings->shouldReceive( 'get_repository' )->andReturn( [] );
+$this->significance->shouldReceive( 'classify' )->andReturn( 'patch' );
 
-		\WP_Mock::onFilter( 'ctbp_prompt_title_guidance' )->reply( false );
-		\WP_Mock::onFilter( 'ctbp_prompt_content_guidance' )->reply( false );
-		\WP_Mock::onFilter( 'ctbp_prompt' )->reply( false );
+		\WP_Mock::userFunction( 'apply_filters' )->andReturnUsing( function () {
+			$args = func_get_args();
+			return $args[1] ?? '';
+		} );
 
 		$result = $this->builder->build( '', $data );
 
@@ -218,14 +216,15 @@ class Prompt_BuilderTest extends TestCase {
 	public function test_build_includes_custom_instructions_when_set(): void {
 		$data = $this->make_release_data();
 
-		$this->repo_settings->shouldReceive( 'get_repositories' )->andReturn( [] );
-		$this->significance->shouldReceive( 'classify' )->andReturn( 'minor' );
+		$this->repo_settings->shouldReceive( 'get_repository' )->andReturn( [] );
+$this->significance->shouldReceive( 'classify' )->andReturn( 'minor' );
 		$this->global_settings->shouldReceive( 'get_custom_prompt_instructions' )
 			->andReturn( 'Write in a friendly, conversational tone. Our audience is non-technical.' );
 
-		\WP_Mock::onFilter( 'ctbp_prompt_title_guidance' )->reply( false );
-		\WP_Mock::onFilter( 'ctbp_prompt_content_guidance' )->reply( false );
-		\WP_Mock::onFilter( 'ctbp_prompt' )->reply( false );
+		\WP_Mock::userFunction( 'apply_filters' )->andReturnUsing( function () {
+			$args = func_get_args();
+			return $args[1] ?? '';
+		} );
 
 		$result = $this->builder->build( '', $data );
 
@@ -236,12 +235,13 @@ class Prompt_BuilderTest extends TestCase {
 	public function test_build_omits_custom_instructions_when_empty(): void {
 		$data = $this->make_release_data();
 
-		$this->repo_settings->shouldReceive( 'get_repositories' )->andReturn( [] );
-		$this->significance->shouldReceive( 'classify' )->andReturn( 'minor' );
+		$this->repo_settings->shouldReceive( 'get_repository' )->andReturn( [] );
+$this->significance->shouldReceive( 'classify' )->andReturn( 'minor' );
 
-		\WP_Mock::onFilter( 'ctbp_prompt_title_guidance' )->reply( false );
-		\WP_Mock::onFilter( 'ctbp_prompt_content_guidance' )->reply( false );
-		\WP_Mock::onFilter( 'ctbp_prompt' )->reply( false );
+		\WP_Mock::userFunction( 'apply_filters' )->andReturnUsing( function () {
+			$args = func_get_args();
+			return $args[1] ?? '';
+		} );
 
 		$result = $this->builder->build( '', $data );
 

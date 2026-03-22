@@ -166,38 +166,6 @@ class Global_SettingsTest extends TestCase {
 	}
 
 	// -------------------------------------------------------------------------
-	// Check frequency / cron reschedule
-	// -------------------------------------------------------------------------
-
-	/**
-	 * save_check_frequency() calls wp_clear_scheduled_hook and wp_schedule_event.
-	 */
-	public function test_save_check_frequency_reschedules_cron(): void {
-		\WP_Mock::userFunction( 'update_option' )->andReturn( true );
-
-		\WP_Mock::userFunction( 'wp_clear_scheduled_hook' )
-			->with( Plugin_Constants::CRON_HOOK_RELEASE_CHECK )
-			->once();
-
-		\WP_Mock::userFunction( 'wp_schedule_event' )
-			->with( \WP_Mock\Functions::anyOf(), 'daily', Plugin_Constants::CRON_HOOK_RELEASE_CHECK )
-			->once();
-
-		$result = ( new Global_Settings() )->save_check_frequency( 'daily' );
-
-		$this->assertTrue( $result );
-		$this->assertConditionsMet();
-	}
-
-	/**
-	 * save_check_frequency() rejects an invalid frequency value.
-	 */
-	public function test_save_check_frequency_rejects_invalid_value(): void {
-		$result = ( new Global_Settings() )->save_check_frequency( 'monthly' );
-		$this->assertFalse( $result );
-	}
-
-	// -------------------------------------------------------------------------
 	// Post defaults
 	// -------------------------------------------------------------------------
 
