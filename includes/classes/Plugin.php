@@ -11,6 +11,7 @@ use TenUp\ChangelogToBlogPost\AI\AI_Processor;
 use TenUp\ChangelogToBlogPost\AI\AI_Provider_Factory;
 use TenUp\ChangelogToBlogPost\AI\Prompt_Builder;
 use TenUp\ChangelogToBlogPost\AI\Release_Significance;
+use TenUp\ChangelogToBlogPost\Notification\Email_Notifier;
 use TenUp\ChangelogToBlogPost\Post\Post_Creator;
 use TenUp\ChangelogToBlogPost\Post\Publish_Workflow;
 use TenUp\ChangelogToBlogPost\Post\Taxonomy_Assigner;
@@ -136,5 +137,8 @@ class Plugin {
 		( new Post_Creator( $repo_settings ) )->setup();
 		( new Taxonomy_Assigner( $repo_settings, $global_settings ) )->setup();
 		( new Publish_Workflow( $repo_settings, $global_settings ) )->setup();
+
+		// Email notifications — batched summary after cron runs.
+		( new Email_Notifier( $global_settings, new Release_Significance() ) )->setup();
 	}
 }

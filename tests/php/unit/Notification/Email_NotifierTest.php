@@ -1,0 +1,293 @@
+<?php
+/**
+ * Tests for Email_Notifier.
+ *
+ * @package ChangelogToBlogPost\Tests\Notification
+ */
+
+namespace TenUp\ChangelogToBlogPost\Tests\Notification;
+
+use TenUp\ChangelogToBlogPost\AI\ReleaseData;
+use TenUp\ChangelogToBlogPost\AI\Release_Significance;
+use TenUp\ChangelogToBlogPost\Notification\Email_Notifier;
+use TenUp\ChangelogToBlogPost\Settings\Global_Settings;
+use WP_Mock\Tools\TestCase;
+
+/**
+ * @covers \TenUp\ChangelogToBlogPost\Notification\Email_Notifier
+ */
+class Email_NotifierTest extends TestCase {
+
+	private Email_Notifier $notifier;
+	private Global_Settings $global_settings;
+	private Release_Significance $significance;
+
+	public function setUp(): void {
+		parent::setUp();
+
+		$this->global_settings = \Mockery::mock( Global_Settings::class );
+		$this->significance    = \Mockery::mock( Release_Significance::class );
+		$this->significance->shouldReceive( 'classify' )->andReturn( 'minor' )->byDefault();
+
+		$this->notifier = new Email_Notifier( $this->global_settings, $this->significance );
+	}
+
+	// -------------------------------------------------------------------------
+	// setup()
+	// -------------------------------------------------------------------------
+
+	public function test_setup_registers_action(): void {
+		\WP_Mock::expectActionAdded( 'ctbp_post_status_set', [ $this->notifier, 'collect' ], 10, 4 );
+		$this->notifier->setup();
+		$this->assertConditionsMet();
+	}
+
+	// -------------------------------------------------------------------------
+	// collect() — skips manual triggers (AC-008)
+	// -------------------------------------------------------------------------
+
+	public function test_collect_skips_force_draft(): void {
+		$this->global_settings->shouldReceive( 'get_notification_settings' )->never();
+		\WP_Mock::userFunction( 'add_action' )->never();
+
+		$this->notifier->collect( 1, 'draft', $this->make_data(), [ 'force_draft' => true ] );
+		$this->assertConditionsMet();
+	}
+
+	public function test_collect_skips_bypass_idempotency(): void {
+		$this->global_settings->shouldReceive( 'get_notification_settings' )->never();
+
+		$this->notifier->collect( 1, 'draft', $this->make_data(), [ 'bypass_idempotency' => true ] );
+		$this->assertConditionsMet();
+	}
+
+	public function test_collect_skips_manual_trigger(): void {
+		$this->global_settings->shouldReceive( 'get_notification_settings' )->never();
+
+		$this->notifier->collect( 1, 'draft', $this->make_data(), [ 'manual' => true ] );
+		$this->assertConditionsMet();
+	}
+
+	// -------------------------------------------------------------------------
+	// collect() — skips when disabled (AC-011)
+	// -------------------------------------------------------------------------
+
+	public function test_collect_skips_when_notifications_disabled(): void {
+		$this->global_settings->shouldReceive( 'get_notification_settings' )->andReturn( [
+			'enabled' => false,
+		] );
+
+		$this->notifier->collect( 1, 'draft', $this->make_data(), [] );
+
+		// send() should have nothing.
+		$this->notifier->send();
+		$this->assertConditionsMet();
+	}
+
+	// -------------------------------------------------------------------------
+	// collect() + send() — successful email
+	// -------------------------------------------------------------------------
+
+	public function test_send_sends_batched_email(): void {
+		$this->mock_enabled_notifications();
+
+		// Register the shutdown hook expectation.
+		\WP_Mock::expectActionAdded( 'shutdown', [ $this->notifier, 'send' ] );
+
+		$this->notifier->collect( 42, 'draft', $this->make_data(), [] );
+
+		// Now send.
+		\WP_Mock::userFunction( 'get_bloginfo' )->with( 'name' )->andReturn( 'Test Site' );
+		\WP_Mock::userFunction( 'get_edit_post_link' )->andReturn( 'https://example.com/wp-admin/post.php?post=42' );
+		\WP_Mock::userFunction( 'get_option' )->with( 'admin_email', '' )->andReturn( 'admin@example.com' );
+
+		\WP_Mock::onFilter( 'ctbp_notification_email' )->reply( false );
+
+		\WP_Mock::userFunction( 'wp_mail' )
+			->once()
+			->with(
+				'test@example.com',
+				\Mockery::type( 'string' ),
+				\Mockery::type( 'string' ),
+				\Mockery::type( 'array' )
+			)
+			->andReturn( true );
+
+		$this->notifier->send();
+		$this->assertConditionsMet();
+	}
+
+	public function test_send_does_not_send_when_no_entries(): void {
+		\WP_Mock::userFunction( 'wp_mail' )->never();
+
+		$this->notifier->send();
+		$this->assertConditionsMet();
+	}
+
+	// -------------------------------------------------------------------------
+	// send() — trigger preference filtering (AC-006)
+	// -------------------------------------------------------------------------
+
+	public function test_send_skips_drafts_when_trigger_is_publish(): void {
+		$this->global_settings->shouldReceive( 'get_notification_settings' )->andReturn( [
+			'enabled'         => true,
+			'email'           => 'test@example.com',
+			'email_secondary' => '',
+			'trigger'         => 'publish', // Only publish triggers email.
+		] );
+
+		\WP_Mock::expectActionAdded( 'shutdown', [ $this->notifier, 'send' ] );
+
+		// Collect a draft — should be filtered out at send time.
+		$this->notifier->collect( 42, 'draft', $this->make_data(), [] );
+
+		\WP_Mock::userFunction( 'wp_mail' )->never();
+
+		$this->notifier->send();
+		$this->assertConditionsMet();
+	}
+
+	// -------------------------------------------------------------------------
+	// send() — email includes both edit and view links for published
+	// -------------------------------------------------------------------------
+
+	public function test_send_includes_view_link_for_published_posts(): void {
+		$this->mock_enabled_notifications();
+
+		\WP_Mock::expectActionAdded( 'shutdown', [ $this->notifier, 'send' ] );
+
+		$this->notifier->collect( 42, 'publish', $this->make_data(), [] );
+
+		\WP_Mock::userFunction( 'get_bloginfo' )->with( 'name' )->andReturn( 'Test Site' );
+		\WP_Mock::userFunction( 'get_edit_post_link' )->andReturn( 'https://example.com/wp-admin/post.php?post=42' );
+		\WP_Mock::userFunction( 'get_permalink' )->with( 42 )->andReturn( 'https://example.com/my-plugin-update/' );
+		\WP_Mock::userFunction( 'get_option' )->with( 'admin_email', '' )->andReturn( 'admin@example.com' );
+
+		\WP_Mock::onFilter( 'ctbp_notification_email' )->reply( false );
+
+		\WP_Mock::userFunction( 'wp_mail' )
+			->once()
+			->with(
+				'test@example.com',
+				\Mockery::type( 'string' ),
+				\Mockery::on( function ( $body ) {
+					// Both edit and view links should be present.
+					return str_contains( $body, 'Edit post' )
+						&& str_contains( $body, 'View post' );
+				} ),
+				\Mockery::type( 'array' )
+			)
+			->andReturn( true );
+
+		$this->notifier->send();
+		$this->assertConditionsMet();
+	}
+
+	public function test_send_omits_view_link_for_draft_posts(): void {
+		$this->mock_enabled_notifications();
+
+		\WP_Mock::expectActionAdded( 'shutdown', [ $this->notifier, 'send' ] );
+
+		$this->notifier->collect( 42, 'draft', $this->make_data(), [] );
+
+		\WP_Mock::userFunction( 'get_bloginfo' )->with( 'name' )->andReturn( 'Test Site' );
+		\WP_Mock::userFunction( 'get_edit_post_link' )->andReturn( 'https://example.com/wp-admin/post.php?post=42' );
+		\WP_Mock::userFunction( 'get_option' )->with( 'admin_email', '' )->andReturn( 'admin@example.com' );
+
+		\WP_Mock::onFilter( 'ctbp_notification_email' )->reply( false );
+
+		\WP_Mock::userFunction( 'wp_mail' )
+			->once()
+			->with(
+				'test@example.com',
+				\Mockery::type( 'string' ),
+				\Mockery::on( function ( $body ) {
+					return str_contains( $body, 'Edit post' )
+						&& ! str_contains( $body, 'View post' );
+				} ),
+				\Mockery::type( 'array' )
+			)
+			->andReturn( true );
+
+		$this->notifier->send();
+		$this->assertConditionsMet();
+	}
+
+	// -------------------------------------------------------------------------
+	// send() — secondary recipient (AC-010)
+	// -------------------------------------------------------------------------
+
+	public function test_send_sends_to_secondary_recipient(): void {
+		$this->global_settings->shouldReceive( 'get_notification_settings' )->andReturn( [
+			'enabled'         => true,
+			'email'           => 'primary@example.com',
+			'email_secondary' => 'secondary@example.com',
+			'trigger'         => 'both',
+		] );
+
+		\WP_Mock::expectActionAdded( 'shutdown', [ $this->notifier, 'send' ] );
+
+		$this->notifier->collect( 42, 'draft', $this->make_data(), [] );
+
+		\WP_Mock::userFunction( 'get_bloginfo' )->with( 'name' )->andReturn( 'Test Site' );
+		\WP_Mock::userFunction( 'get_edit_post_link' )->andReturn( 'https://example.com/wp-admin/post.php?post=42' );
+
+		\WP_Mock::onFilter( 'ctbp_notification_email' )->reply( false );
+
+		// Should be called twice — once per recipient.
+		\WP_Mock::userFunction( 'wp_mail' )->twice()->andReturn( true );
+
+		$this->notifier->send();
+		$this->assertConditionsMet();
+	}
+
+	// -------------------------------------------------------------------------
+	// send() — filter can suppress email (AC-013)
+	// -------------------------------------------------------------------------
+
+	public function test_send_suppressed_by_filter(): void {
+		$this->mock_enabled_notifications();
+
+		\WP_Mock::expectActionAdded( 'shutdown', [ $this->notifier, 'send' ] );
+
+		$this->notifier->collect( 42, 'draft', $this->make_data(), [] );
+
+		\WP_Mock::userFunction( 'get_bloginfo' )->with( 'name' )->andReturn( 'Test Site' );
+		\WP_Mock::userFunction( 'get_edit_post_link' )->andReturn( 'https://example.com/wp-admin/post.php?post=42' );
+		\WP_Mock::userFunction( 'get_option' )->with( 'admin_email', '' )->andReturn( 'admin@example.com' );
+
+		// Filter returns falsy — suppress email.
+		\WP_Mock::onFilter( 'ctbp_notification_email' )
+			->reply( null );
+
+		\WP_Mock::userFunction( 'wp_mail' )->never();
+
+		$this->notifier->send();
+		$this->assertConditionsMet();
+	}
+
+	// -------------------------------------------------------------------------
+	// Helpers
+	// -------------------------------------------------------------------------
+
+	private function make_data(): ReleaseData {
+		return new ReleaseData(
+			identifier:   'owner/repo',
+			tag:          'v1.0.0',
+			name:         'v1.0.0',
+			body:         'Changes.',
+			html_url:     'https://github.com/owner/repo/releases/tag/v1.0.0',
+			published_at: '2025-01-01T00:00:00Z',
+			assets:       [],
+		);
+	}
+
+	private function mock_enabled_notifications(): void {
+		$this->global_settings->shouldReceive( 'get_notification_settings' )->andReturn( [
+			'enabled'         => true,
+			'email'           => 'test@example.com',
+			'email_secondary' => '',
+			'trigger'         => 'both',
+		] );
+	}
+}
