@@ -155,22 +155,52 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	if ( testBtn ) {
 		testBtn.addEventListener( 'click', function () {
 			const resultEl = document.getElementById( 'ctbp-connection-result' );
+			const spinner  = testBtn.parentNode.querySelector( '.ctbp-connection-spinner' );
+
+			if ( spinner ) {
+				spinner.style.display = 'inline-block';
+				spinner.classList.add( 'is-active' );
+			}
 			if ( resultEl ) {
-				resultEl.textContent = ctbpAdmin.i18n.validating;
+				resultEl.innerHTML = '';
+			}
+
+			// Read currently selected provider and key from the form (not saved values).
+			var selectedProvider = providerSelect ? providerSelect.value : '';
+			var keyInput = selectedProvider
+				? document.getElementById( 'ctbp_api_key_' + selectedProvider )
+				: null;
+			var apiKey = keyInput ? keyInput.value : '';
+
+			var params = {};
+			if ( selectedProvider ) {
+				params.provider = selectedProvider;
+			}
+			if ( apiKey ) {
+				params.api_key = apiKey;
 			}
 
 			window.ctbpFetch(
 				'GET',
 				'/ai/test-connection',
-				{},
-				function ( data ) {
+				params,
+				function () {
+					if ( spinner ) {
+						spinner.classList.remove( 'is-active' );
+						spinner.style.display = 'none';
+					}
 					if ( resultEl ) {
-						resultEl.textContent = data.message || '';
+						resultEl.innerHTML = '<span class="dashicons dashicons-yes-alt" style="color: #00a32a; vertical-align: middle;"></span>';
 					}
 				},
 				function ( data ) {
+					if ( spinner ) {
+						spinner.classList.remove( 'is-active' );
+						spinner.style.display = 'none';
+					}
 					if ( resultEl ) {
-						resultEl.textContent = ( data && data.message ) ? data.message : ctbpAdmin.i18n.notImplemented;
+						var msg = ( data && data.message ) ? data.message : ctbpAdmin.i18n.notImplemented;
+						resultEl.innerHTML = '<span class="dashicons dashicons-warning" style="color: #dba617; vertical-align: middle;"></span> ' + msg;
 					}
 				}
 			);
@@ -178,27 +208,147 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	}
 
 	// -------------------------------------------------------------------------
-	// Repository edit row toggling.
+	// Repository inline edit — WP Quick Edit clone pattern.
 	// -------------------------------------------------------------------------
-	document.querySelectorAll( '.ctbp-edit-repo-btn' ).forEach( function ( btn ) {
-		btn.addEventListener( 'click', function () {
-			const editRowId = btn.getAttribute( 'aria-controls' );
-			const editRow   = document.getElementById( editRowId );
+	const editTemplate = document.getElementById( 'ctbp-inline-edit' );
 
-			if ( ! editRow ) {
-				return;
+	/**
+	 * Closes the currently active inline edit row (if any),
+	 * removes it from the DOM, and restores the data row.
+	 */
+	function closeActiveEditRow() {
+		const activeEdit = document.querySelector( '.wp-list-table tbody > .ctbp-repo-edit-row' );
+		if ( ! activeEdit ) {
+			return;
+		}
+		// Spacer is between the data row and the edit row.
+		const spacer  = activeEdit.previousElementSibling;
+		const dataRow = spacer ? spacer.previousElementSibling : null;
+
+		if ( dataRow ) {
+			dataRow.style.display = '';
+		}
+		if ( spacer && spacer.classList.contains( 'hidden' ) ) {
+			spacer.remove();
+		}
+		activeEdit.remove();
+	}
+
+	/**
+	 * Opens the inline edit row for a data row by cloning the template,
+	 * populating it with the row's data-* attributes, and injecting it.
+	 *
+	 * @param {HTMLElement} dataRow The <tr> data row to edit.
+	 */
+	function openEditRow( dataRow ) {
+		// Close any already-open edit row first.
+		closeActiveEditRow();
+
+		if ( ! editTemplate ) {
+			return;
+		}
+
+		const repo        = dataRow.dataset.repo || '';
+		const displayName = dataRow.dataset.displayName || '';
+		const editRow     = editTemplate.querySelector( 'tr' ).cloneNode( true );
+
+		// Populate the legend.
+		const legend = editRow.querySelector( '.inline-edit-legend' );
+		if ( legend ) {
+			legend.textContent = ( ctbpAdmin.i18n.editLabel || 'Edit:' ) + ' ' + displayName;
+		}
+
+		// Populate text fields.
+		var fields = {
+			display_name: dataRow.dataset.displayName || '',
+			plugin_link:  dataRow.dataset.pluginLink || '',
+			tags:         dataRow.dataset.tags || '',
+		};
+
+		Object.keys( fields ).forEach( function ( key ) {
+			var input = editRow.querySelector( '[data-field="' + key + '"]' );
+			if ( input ) {
+				input.value = fields[ key ];
+				input.name  = 'repos[' + repo + '][' + key + ']';
 			}
+		} );
 
-			const isExpanded = btn.getAttribute( 'aria-expanded' ) === 'true';
+		// Populate select: post_status.
+		var statusSelect = editRow.querySelector( '[data-field="post_status"]' );
+		if ( statusSelect ) {
+			statusSelect.name  = 'repos[' + repo + '][post_status]';
+			statusSelect.value = dataRow.dataset.postStatus || 'draft';
+		}
 
-			if ( isExpanded ) {
-				editRow.hidden = true;
-				btn.setAttribute( 'aria-expanded', 'false' );
-				btn.textContent = ctbpAdmin.i18n.edit || 'Edit';
-			} else {
-				editRow.hidden = false;
-				btn.setAttribute( 'aria-expanded', 'true' );
-				btn.textContent = ctbpAdmin.i18n.done || 'Done';
+		// Populate category checklist.
+		var catHidden = editRow.querySelector( '.ctbp-tpl-cat-hidden' );
+		if ( catHidden ) {
+			catHidden.name = 'repos[' + repo + '][categories][]';
+		}
+		var savedCats = [];
+		try {
+			savedCats = JSON.parse( dataRow.dataset.categories || '[]' );
+		} catch ( e ) {
+			savedCats = [];
+		}
+		editRow.querySelectorAll( '.ctbp-tpl-categories input[type="checkbox"]' ).forEach( function ( cb ) {
+			cb.name    = 'repos[' + repo + '][categories][]';
+			cb.checked = savedCats.indexOf( parseInt( cb.value, 10 ) ) !== -1;
+		} );
+
+		// Populate select: author.
+		var authorSelect = editRow.querySelector( '.ctbp-tpl-author' );
+		if ( authorSelect ) {
+			authorSelect.name  = 'repos[' + repo + '][author]';
+			authorSelect.value = dataRow.dataset.author || '0';
+		}
+
+		// Populate checkbox: paused.
+		var pausedCheckbox = editRow.querySelector( '[data-field="paused"]' );
+		if ( pausedCheckbox ) {
+			pausedCheckbox.name    = 'repos[' + repo + '][paused]';
+			pausedCheckbox.checked = dataRow.dataset.paused === '1';
+		}
+
+		// Populate featured image.
+		var featuredImageId = parseInt( dataRow.dataset.featuredImage || '0', 10 );
+		var imgInput        = editRow.querySelector( '[data-field="featured_image"]' );
+		if ( imgInput ) {
+			imgInput.name  = 'repos[' + repo + '][featured_image]';
+			imgInput.value = featuredImageId;
+		}
+		wireFeatureImagePicker( editRow, featuredImageId );
+
+		// Wire up Cancel button.
+		var cancelBtn = editRow.querySelector( '.ctbp-cancel-edit' );
+		if ( cancelBtn ) {
+			cancelBtn.addEventListener( 'click', closeActiveEditRow );
+		}
+
+		// Wire up plugin link blur validation.
+		var pluginLinkInput = editRow.querySelector( '.ctbp-plugin-link-input' );
+		if ( pluginLinkInput ) {
+			wirePluginLinkValidation( pluginLinkInput );
+		}
+
+		// Insert a hidden spacer + the edit row after the data row.
+		// WP Quick Edit does the same: dataRow, spacer, editRow — so
+		// the edit row lands at the same nth-child parity as the data row.
+		var spacer = document.createElement( 'tr' );
+		spacer.className = 'hidden';
+
+		dataRow.style.display = 'none';
+		dataRow.parentNode.insertBefore( spacer, dataRow.nextSibling );
+		spacer.parentNode.insertBefore( editRow, spacer.nextSibling );
+	}
+
+	// Open edit row from row-action "Edit" link.
+	document.querySelectorAll( '.ctbp-edit-repo-btn' ).forEach( function ( link ) {
+		link.addEventListener( 'click', function ( e ) {
+			e.preventDefault();
+			var dataRow = link.closest( 'tr' );
+			if ( dataRow ) {
+				openEditRow( dataRow );
 			}
 		} );
 	} );
@@ -210,9 +360,11 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	const removeRepoInput = document.getElementById( 'ctbp-remove-repo-input' );
 	const removeCancelBtn = document.getElementById( 'ctbp-remove-cancel' );
 
-	document.querySelectorAll( '.ctbp-remove-repo-btn' ).forEach( function ( btn ) {
-		btn.addEventListener( 'click', function () {
-			const repo = btn.dataset.repo;
+	document.querySelectorAll( '.ctbp-remove-repo-btn' ).forEach( function ( link ) {
+		link.addEventListener( 'click', function ( e ) {
+			e.preventDefault();
+
+			const repo = link.dataset.repo;
 
 			if ( removeDialog && removeRepoInput ) {
 				removeRepoInput.value = repo;
@@ -242,92 +394,243 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	}
 
 	// -------------------------------------------------------------------------
-	// WP.org slug validation.
+	// Featured image media picker.
 	// -------------------------------------------------------------------------
-	document.querySelectorAll( '.ctbp-validate-slug' ).forEach( function ( btn ) {
-		btn.addEventListener( 'click', function () {
-			const row      = btn.closest( 'p' );
-			const input    = row ? row.querySelector( '.ctbp-wporg-slug-input' ) : null;
-			const resultEl = row ? row.querySelector( '.ctbp-slug-validation-result' ) : null;
 
-			if ( ! input || ! resultEl ) {
+	/**
+	 * Wires the Select / Remove featured image buttons on an edit row.
+	 *
+	 * @param {HTMLElement} editRow         The inline edit <tr>.
+	 * @param {number}      attachmentId    Current attachment ID (0 = none).
+	 */
+	function wireFeatureImagePicker( editRow, attachmentId ) {
+		var selectBtn = editRow.querySelector( '.ctbp-select-image' );
+		var removeBtn = editRow.querySelector( '.ctbp-remove-image' );
+		var preview   = editRow.querySelector( '.ctbp-featured-image-preview' );
+		var input     = editRow.querySelector( '[data-field="featured_image"]' );
+
+		if ( ! selectBtn || ! input ) {
+			return;
+		}
+
+		// Show existing thumbnail if set.
+		if ( attachmentId > 0 && preview ) {
+			preview.innerHTML = '<img src="" style="max-width:75px;height:auto;display:block;margin-bottom:8px;" />';
+			var img = preview.querySelector( 'img' );
+			// Use wp.media attachment to get the URL.
+			var attachment = wp.media.attachment( attachmentId );
+			attachment.fetch().then( function () {
+				var url = ( attachment.get( 'sizes' ) && attachment.get( 'sizes' ).thumbnail )
+					? attachment.get( 'sizes' ).thumbnail.url
+					: attachment.get( 'url' );
+				if ( img ) {
+					img.src = url;
+				}
+			} );
+			if ( removeBtn ) {
+				removeBtn.style.display = '';
+			}
+		}
+
+		selectBtn.addEventListener( 'click', function ( e ) {
+			e.preventDefault();
+
+			var frame = wp.media( {
+				title:    ctbpAdmin.i18n.selectImage || 'Select Featured Image',
+				button:   { text: ctbpAdmin.i18n.useImage || 'Use this image' },
+				multiple: false,
+				library:  { type: 'image' },
+			} );
+
+			frame.on( 'select', function () {
+				var attachment = frame.state().get( 'selection' ).first().toJSON();
+				input.value = attachment.id;
+
+				if ( preview ) {
+					var url = ( attachment.sizes && attachment.sizes.thumbnail )
+						? attachment.sizes.thumbnail.url
+						: attachment.url;
+					preview.innerHTML = '<img src="' + url + '" style="max-width:75px;height:auto;display:block;margin-bottom:8px;" />';
+				}
+				if ( removeBtn ) {
+					removeBtn.style.display = '';
+				}
+			} );
+
+			frame.open();
+		} );
+
+		if ( removeBtn ) {
+			removeBtn.addEventListener( 'click', function ( e ) {
+				e.preventDefault();
+				input.value = '0';
+				if ( preview ) {
+					preview.innerHTML = '';
+				}
+				removeBtn.style.display = 'none';
+			} );
+		}
+	}
+
+	// -------------------------------------------------------------------------
+	// Plugin Link blur validation.
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Wires focus/blur validation on a plugin link input.
+	 * - URL: client-side format check.
+	 * - Plain string: WP.org slug API check.
+	 * - Skips validation if value unchanged since focus.
+	 *
+	 * @param {HTMLInputElement} input The plugin link input element.
+	 */
+	var warningTooltip = ctbpAdmin.i18n.pluginLinkHint || 'Enter a valid URL or WordPress.org plugin slug';
+
+	/**
+	 * Returns a green check dashicon.
+	 */
+	function validIcon() {
+		return '<span class="dashicons dashicons-yes-alt" style="color: #00a32a;"></span>';
+	}
+
+	/**
+	 * Returns a yellow warning dashicon with tooltip.
+	 */
+	function warningIcon() {
+		return '<span class="dashicons dashicons-warning" style="color: #dba617;" title="' + warningTooltip + '"></span>';
+	}
+
+	/**
+	 * Checks whether a value looks like a URL (has dots, suggesting a domain).
+	 */
+	function looksLikeUrl( value ) {
+		return /^https?:\/\//i.test( value ) || /[^\/\s]+\.[^\/\s]+/.test( value );
+	}
+
+	function wirePluginLinkValidation( input ) {
+		var focusValue = '';
+
+		input.addEventListener( 'focus', function () {
+			focusValue = input.value;
+		} );
+
+		input.addEventListener( 'blur', function () {
+			var value    = input.value.trim();
+			var statusEl = input.closest( '.input-text-wrap' ).querySelector( '.ctbp-plugin-link-status' );
+
+			if ( ! statusEl ) {
 				return;
 			}
 
-			const slug = input.value.trim();
-			if ( ! slug ) {
+			// Skip if unchanged.
+			if ( value === focusValue ) {
 				return;
 			}
 
-			resultEl.textContent = ctbpAdmin.i18n.validating;
+			// Empty — clear status.
+			if ( ! value ) {
+				statusEl.innerHTML = '';
+				return;
+			}
+
+			// Looks like a URL (has dots) — auto-prepend https:// if missing.
+			if ( looksLikeUrl( value ) ) {
+				if ( ! /^https?:\/\//i.test( value ) ) {
+					value = 'https://' + value;
+					input.value = value;
+				}
+				try {
+					new URL( value );
+					statusEl.innerHTML = validIcon();
+				} catch ( e ) {
+					statusEl.innerHTML = warningIcon();
+				}
+				return;
+			}
+
+			// Plain string — validate as WP.org slug via REST.
+			statusEl.innerHTML = '<span class="spinner is-active" style="float:none;margin:0;"></span>';
 
 			window.ctbpFetch(
 				'GET',
 				'/wporg/validate',
-				{ slug },
+				{ value: value },
 				function ( data ) {
-					if ( data && data.warning ) {
-						resultEl.textContent = ctbpAdmin.i18n.slugNotFound;
-					} else {
-						resultEl.textContent = ctbpAdmin.i18n.slugValid;
-					}
+					statusEl.innerHTML = data && data.valid ? validIcon() : warningIcon();
 				},
 				function () {
-					resultEl.textContent = ctbpAdmin.i18n.slugNotFound;
+					statusEl.innerHTML = warningIcon();
 				}
 			);
 		} );
-	} );
+	}
 
 	// -------------------------------------------------------------------------
-	// Generate draft now + conflict resolution dialog.
+	// Generate draft post + regeneration dialog.
 	// -------------------------------------------------------------------------
-	const conflictDialog    = document.getElementById( 'ctbp-conflict-dialog' );
-	const conflictPostInfo  = document.getElementById( 'ctbp-conflict-post-info' );
-	const conflictReplace   = document.getElementById( 'ctbp-conflict-replace' );
-	const conflictAlongside = document.getElementById( 'ctbp-conflict-alongside' );
-	const conflictCancel    = document.getElementById( 'ctbp-conflict-cancel' );
+	const conflictDialog  = document.getElementById( 'ctbp-conflict-dialog' );
+	const conflictInfo    = document.getElementById( 'ctbp-conflict-post-info' );
+	const conflictConfirm = document.getElementById( 'ctbp-conflict-confirm' );
+	const conflictCancel  = document.getElementById( 'ctbp-conflict-cancel' );
 
 	/**
-	 * Shows an inline result message below the generate button.
+	 * Updates the Last Post column for a data row with a fade-in highlight.
+	 *
+	 * @param {HTMLElement} btn  The generate button (used to find the row).
+	 * @param {Object}      post Post data from the REST response.
+	 */
+	function updateLastPostColumn( btn, post ) {
+		var dataRow = btn.closest( 'tr' );
+		if ( ! dataRow || ! post ) {
+			return;
+		}
+
+		var lastPostCell = dataRow.querySelector( '.column-last_post' );
+		if ( ! lastPostCell ) {
+			return;
+		}
+
+		var label = post.tag ? post.tag + ' on ' + post.date : post.date;
+		lastPostCell.innerHTML = '<a href="' + encodeURI( post.edit_url ) + '">' +
+			document.createTextNode( label ).textContent + '</a>';
+
+		// Highlight the cell briefly to signal the update.
+		lastPostCell.style.transition = 'background-color 0.3s';
+		lastPostCell.style.backgroundColor = '#dff0d8';
+		setTimeout( function () {
+			lastPostCell.style.backgroundColor = '';
+		}, 1500 );
+	}
+
+	/**
+	 * Shows a result indicator next to the generate button.
+	 *
+	 * Success: green check icon, updates the Last Post column.
+	 * Error: yellow warning icon with error message as tooltip.
 	 *
 	 * @param {HTMLElement} btn     The generate button.
-	 * @param {string}      message Text to display.
-	 * @param {string}      [url]   Optional edit URL for a "View draft" link.
-	 * @param {boolean}     [isErr] Whether this is an error (affects styling).
+	 * @param {Object|null} post    Post data on success, null on error.
+	 * @param {string}      [error] Error message on failure.
 	 */
-	function showGenerateResult( btn, message, url, isErr ) {
+	function showGenerateResult( btn, post, error ) {
 		// Hide any active spinner.
-		const spinner = btn.parentNode.querySelector( '.spinner' );
+		var spinner = btn.closest( 'td' ).querySelector( '.ctbp-generate-spinner' );
 		if ( spinner ) {
-			spinner.classList.remove( 'is-active' );
-			spinner.style.visibility = 'hidden';
+			spinner.style.display = 'none';
 		}
 
-		// Find or create result element (skip past spinner if present).
-		let resultEl = null;
-		let sibling = btn.nextSibling;
-		while ( sibling ) {
-			if ( sibling.classList && sibling.classList.contains( 'ctbp-generate-result' ) ) {
-				resultEl = sibling;
-				break;
-			}
-			sibling = sibling.nextSibling;
-		}
-		if ( ! resultEl ) {
-			resultEl = document.createElement( 'span' );
-			resultEl.className = 'ctbp-generate-result';
-			btn.parentNode.appendChild( resultEl );
+		var statusEl = btn.closest( 'td' ).querySelector( '.ctbp-generate-status' );
+		if ( ! statusEl ) {
+			return;
 		}
 
-		resultEl.style.color = isErr ? '#d63638' : '#00a32a';
-
-		if ( url ) {
-			resultEl.innerHTML =
-				document.createTextNode( message + ' ' ).textContent +
-				'<a href="' + encodeURI( url ) + '">' + ctbpAdmin.i18n.viewDraft + '</a>';
+		if ( post ) {
+			statusEl.innerHTML = '<span class="dashicons dashicons-yes-alt" style="color: #00a32a; vertical-align: middle;"></span>';
+			updateLastPostColumn( btn, post );
 		} else {
-			resultEl.textContent = message;
+			var msg = error || ctbpAdmin.i18n.notImplemented;
+			statusEl.innerHTML = '<span class="dashicons dashicons-warning" style="color: #dba617; vertical-align: middle;" title="' +
+				msg.replace( /"/g, '&quot;' ) + '"></span>';
 		}
 	}
 
@@ -339,38 +642,36 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	 * @param {string}      resolution 'replace' or 'alongside'.
 	 * @param {number}      postId     ID of the existing post (for replace).
 	 */
-	function resolveConflict( btn, repo, resolution, postId ) {
+	/**
+	 * Regenerates an existing post via the regenerate endpoint (creates a revision).
+	 */
+	function regenerateExisting( btn, postId ) {
 		if ( conflictDialog ) {
 			conflictDialog.close();
 		}
 
-		btn.disabled    = true;
+		btn.disabled = true;
 		btn.textContent = ctbpAdmin.i18n.generating;
+
+		var spinner = btn.closest( 'td' ).querySelector( '.ctbp-generate-spinner' );
+		if ( spinner ) {
+			spinner.style.display = 'inline-block';
+			spinner.classList.add( 'is-active' );
+		}
 
 		window.ctbpFetch(
 			'POST',
-			'/releases/resolve-conflict',
-			{ repo, resolution, post_id: postId },
+			'/releases/regenerate',
+			{ post_id: postId },
 			function ( data ) {
-				btn.disabled    = false;
-				btn.textContent = ctbpAdmin.i18n.draftCreated || 'Generate draft now';
-				const post = data && data.post;
-				showGenerateResult(
-					btn,
-					ctbpAdmin.i18n.draftCreated,
-					post ? post.edit_url : null,
-					false
-				);
+				btn.disabled = false;
+				btn.textContent = ctbpAdmin.i18n.generatePost || 'Generate post';
+				showGenerateResult( btn, data && data.post, null );
 			},
 			function ( data ) {
-				btn.disabled    = false;
-				btn.textContent = 'Generate draft now';
-				showGenerateResult(
-					btn,
-					( data && data.message ) || ctbpAdmin.i18n.notImplemented,
-					null,
-					true
-				);
+				btn.disabled = false;
+				btn.textContent = ctbpAdmin.i18n.generatePost || 'Generate post';
+				showGenerateResult( btn, null, ( data && data.message ) || null );
 			}
 		);
 	}
@@ -379,18 +680,15 @@ document.addEventListener( 'DOMContentLoaded', function () {
 		btn.addEventListener( 'click', function () {
 			const repo = btn.dataset.repo;
 
-			btn.disabled    = true;
+			btn.disabled = true;
 			btn.textContent = ctbpAdmin.i18n.generating;
 
-			// Show WordPress admin spinner.
-			let spinner = btn.nextElementSibling;
-			if ( ! spinner || ! spinner.classList.contains( 'spinner' ) ) {
-				spinner = document.createElement( 'span' );
-				spinner.className = 'spinner';
-				btn.parentNode.insertBefore( spinner, btn.nextSibling );
+			// Show the adjacent spinner.
+			const spinner = btn.closest( 'td' ).querySelector( '.ctbp-generate-spinner' );
+			if ( spinner ) {
+				spinner.style.display = 'inline-block';
+				spinner.classList.add( 'is-active' );
 			}
-			spinner.classList.add( 'is-active' );
-			spinner.style.visibility = 'visible';
 
 			window.ctbpFetch(
 				'POST',
@@ -399,72 +697,58 @@ document.addEventListener( 'DOMContentLoaded', function () {
 				function ( data ) {
 					btn.disabled = false;
 
-					if ( data && data.conflict ) {
-						// Existing post found — show conflict dialog.
-						const post = data.post;
+					// Hide spinner — either showing dialog or result.
+					var sp = btn.closest( 'td' ).querySelector( '.ctbp-generate-spinner' );
+					if ( sp ) {
+						sp.style.display = 'none';
+					}
 
-						if ( conflictPostInfo ) {
-							conflictPostInfo.textContent =
+					if ( data && data.conflict ) {
+						// Existing post — show regenerate confirmation.
+						var post = data.post;
+
+						if ( conflictInfo ) {
+							conflictInfo.textContent =
 								'"' + ( post ? post.title : '' ) + '" (' + ( post ? post.status : '' ) + ')';
 						}
 
-						// Wire up resolution buttons for this specific request.
-						function onReplace() {
+						function onConfirm() {
 							cleanup();
-							resolveConflict( btn, repo, 'replace', post ? post.id : 0 );
-						}
-						function onAlongside() {
-							cleanup();
-							resolveConflict( btn, repo, 'alongside', 0 );
+							regenerateExisting( btn, post ? post.id : 0 );
 						}
 						function onCancel() {
 							cleanup();
 							if ( conflictDialog ) {
 								conflictDialog.close();
 							}
-							btn.textContent = 'Generate draft now';
+							btn.textContent = ctbpAdmin.i18n.generatePost || 'Generate post';
 						}
 						function cleanup() {
-							if ( conflictReplace )   { conflictReplace.removeEventListener( 'click', onReplace ); }
-							if ( conflictAlongside ) { conflictAlongside.removeEventListener( 'click', onAlongside ); }
-							if ( conflictCancel )    { conflictCancel.removeEventListener( 'click', onCancel ); }
+							if ( conflictConfirm ) { conflictConfirm.removeEventListener( 'click', onConfirm ); }
+							if ( conflictCancel )  { conflictCancel.removeEventListener( 'click', onCancel ); }
 						}
 
-						if ( conflictReplace )   { conflictReplace.addEventListener( 'click', onReplace ); }
-						if ( conflictAlongside ) { conflictAlongside.addEventListener( 'click', onAlongside ); }
-						if ( conflictCancel )    { conflictCancel.addEventListener( 'click', onCancel ); }
+						if ( conflictConfirm ) { conflictConfirm.addEventListener( 'click', onConfirm ); }
+						if ( conflictCancel )  { conflictCancel.addEventListener( 'click', onCancel ); }
 
 						if ( conflictDialog ) {
 							conflictDialog.showModal();
 						} else {
-							// Fallback: no <dialog> support — use confirm() chain.
-							if ( window.confirm( ctbpAdmin.i18n.replaceWarning ) ) {
-								resolveConflict( btn, repo, 'replace', post ? post.id : 0 );
-							} else {
-								resolveConflict( btn, repo, 'alongside', 0 );
+							// Fallback: no <dialog> support.
+							if ( window.confirm( ctbpAdmin.i18n.regenerateConfirm || 'A post already exists. Regenerate it?' ) ) {
+								regenerateExisting( btn, post ? post.id : 0 );
 							}
 						}
 					} else {
 						// Draft created without conflict.
-						const post = data && data.post;
-						btn.textContent = 'Generate draft now';
-						showGenerateResult(
-							btn,
-							ctbpAdmin.i18n.draftCreated,
-							post ? post.edit_url : null,
-							false
-						);
+						btn.textContent = ctbpAdmin.i18n.generatePost || 'Generate post';
+						showGenerateResult( btn, data && data.post, null );
 					}
 				},
 				function ( data ) {
-					btn.disabled    = false;
-					btn.textContent = 'Generate draft now';
-					showGenerateResult(
-						btn,
-						( data && data.message ) || ctbpAdmin.i18n.notImplemented,
-						null,
-						true
-					);
+					btn.disabled = false;
+					btn.textContent = ctbpAdmin.i18n.generatePost || 'Generate post';
+					showGenerateResult( btn, null, ( data && data.message ) || null );
 				}
 			);
 		} );
