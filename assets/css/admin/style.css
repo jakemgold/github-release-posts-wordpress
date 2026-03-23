@@ -28,6 +28,10 @@
 	width: 200px;
 }
 
+.wp-list-table .column-github {
+	white-space: nowrap;
+}
+
 .wp-list-table .column-status {
 	width: 80px;
 }
