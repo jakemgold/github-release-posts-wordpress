@@ -114,10 +114,12 @@ class AI_Provider_Factory {
 			if ( ! ( $provider instanceof AIProviderInterface ) ) {
 				if ( defined( 'WP_DEBUG' ) && WP_DEBUG && defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
 					// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-					error_log( sprintf(
-						'[CTBP] ctbp_register_ai_providers: provider "%s" does not implement AIProviderInterface and was removed.',
-						$slug
-					) );
+					error_log(
+						sprintf(
+							'[CTBP] ctbp_register_ai_providers: provider "%s" does not implement AIProviderInterface and was removed.',
+							$slug
+						)
+					);
 				}
 				unset( $providers[ $slug ] );
 			}

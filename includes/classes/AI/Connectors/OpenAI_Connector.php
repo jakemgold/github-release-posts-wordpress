@@ -93,12 +93,17 @@ class OpenAI_Connector implements AIProviderInterface {
 			);
 		}
 
-		$body = wp_json_encode( [
-			'model'    => $this->get_model(),
-			'messages' => [
-				[ 'role' => 'user', 'content' => $prompt ],
-			],
-		] );
+		$body = wp_json_encode(
+			[
+				'model'    => $this->get_model(),
+				'messages' => [
+					[
+						'role'    => 'user',
+						'content' => $prompt,
+					],
+				],
+			]
+		);
 
 		$response = wp_remote_post(
 			self::API_ENDPOINT,

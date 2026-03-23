@@ -79,11 +79,18 @@ class Anthropic_Connector implements AIProviderInterface {
 			self::API_ENDPOINT,
 			[
 				'headers' => $this->build_headers( $key ),
-				'body'    => wp_json_encode( [
-					'model'      => $this->get_model(),
-					'max_tokens' => 1,
-					'messages'   => [ [ 'role' => 'user', 'content' => 'ping' ] ],
-				] ),
+				'body'    => wp_json_encode(
+					[
+						'model'      => $this->get_model(),
+						'max_tokens' => 1,
+						'messages'   => [
+							[
+								'role'    => 'user',
+								'content' => 'ping',
+							],
+						],
+					]
+				),
 				'timeout' => 15,
 			]
 		);
@@ -107,11 +114,18 @@ class Anthropic_Connector implements AIProviderInterface {
 			self::API_ENDPOINT,
 			[
 				'headers' => $this->build_headers( $key ),
-				'body'    => wp_json_encode( [
-					'model'      => $this->get_model(),
-					'max_tokens' => 2048,
-					'messages'   => [ [ 'role' => 'user', 'content' => $prompt ] ],
-				] ),
+				'body'    => wp_json_encode(
+					[
+						'model'      => $this->get_model(),
+						'max_tokens' => 2048,
+						'messages'   => [
+							[
+								'role'    => 'user',
+								'content' => $prompt,
+							],
+						],
+					]
+				),
 				'timeout' => 120,
 			]
 		);

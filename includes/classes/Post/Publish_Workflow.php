@@ -134,7 +134,11 @@ class Publish_Workflow {
 	private function record_result( int $post_id, string $status, ReleaseData $data ): void {
 		$results = get_transient( self::TRANSIENT_CRON_RESULTS );
 		if ( ! is_array( $results ) ) {
-			$results = [ 'drafted' => [], 'published' => [], 'errors' => [] ];
+			$results = [
+				'drafted'   => [],
+				'published' => [],
+				'errors'    => [],
+			];
 		}
 
 		$entry = [
@@ -184,14 +188,17 @@ class Publish_Workflow {
 
 		if ( ! empty( $drafted ) ) {
 			$count   = count( $drafted );
-			$links   = array_map( function ( $entry ) {
-				return sprintf(
-					'<a href="%s">%s %s</a>',
-					esc_url( $entry['edit_url'] ?? '#' ),
-					esc_html( $entry['identifier'] ),
-					esc_html( $entry['tag'] )
-				);
-			}, $drafted );
+			$links   = array_map(
+				function ( $entry ) {
+					return sprintf(
+						'<a href="%s">%s %s</a>',
+						esc_url( $entry['edit_url'] ?? '#' ),
+						esc_html( $entry['identifier'] ),
+						esc_html( $entry['tag'] )
+					);
+				},
+				$drafted
+			);
 			$lines[] = sprintf(
 				/* translators: 1: count, 2: comma-separated edit links */
 				_n( '%1$d draft created: %2$s', '%1$d drafts created: %2$s', $count, 'changelog-to-blog-post' ),
@@ -202,14 +209,17 @@ class Publish_Workflow {
 
 		if ( ! empty( $published ) ) {
 			$count   = count( $published );
-			$links   = array_map( function ( $entry ) {
-				return sprintf(
-					'<a href="%s">%s %s</a>',
-					esc_url( $entry['edit_url'] ?? '#' ),
-					esc_html( $entry['identifier'] ),
-					esc_html( $entry['tag'] )
-				);
-			}, $published );
+			$links   = array_map(
+				function ( $entry ) {
+					return sprintf(
+						'<a href="%s">%s %s</a>',
+						esc_url( $entry['edit_url'] ?? '#' ),
+						esc_html( $entry['identifier'] ),
+						esc_html( $entry['tag'] )
+					);
+				},
+				$published
+			);
 			$lines[] = sprintf(
 				/* translators: 1: count, 2: comma-separated edit links */
 				_n( '%1$d post published: %2$s', '%1$d posts published: %2$s', $count, 'changelog-to-blog-post' ),

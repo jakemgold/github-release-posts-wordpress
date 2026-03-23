@@ -24,7 +24,7 @@ use TenUp\ChangelogToBlogPost\Settings\Repository_Settings;
 class Prompt_Builder {
 
 	/**
-	 * @param Repository_Settings $repo_settings   Per-repo configuration service.
+	 * @param Repository_Settings  $repo_settings   Per-repo configuration service.
 	 * @param Release_Significance $significance   Release significance classifier.
 	 * @param Global_Settings      $global_settings Global settings (custom prompt instructions).
 	 */
@@ -170,7 +170,7 @@ EOT;
 		$audience_instructions = $this->build_audience_instructions( $audience_level );
 
 		// Build link and CTA instructions.
-		$link_instructions = "LINKS:\n";
+		$link_instructions  = "LINKS:\n";
 		$link_instructions .= "- The first mention of the project name (\"{$display_name}\") in the body should be linked to: {$download_link}\n";
 
 		if ( $download_link !== $changelog_url ) {
@@ -230,7 +230,8 @@ CONTENT STRUCTURE:
 4. Do NOT include a developer notes section. Omit all technical details such as hook names, API changes, function signatures, or code examples.
 
 TONE: Write as if explaining the update to a smart colleague who manages WordPress sites but does not write code. Be clear, practical, and conversational. Never use developer jargon — translate everything into user-facing impact.
-EOT,
+EOT
+,
 
 			'mixed' => <<<'EOT'
 TARGET AUDIENCE: A mixed readership of WordPress site owners AND developers.
@@ -242,7 +243,8 @@ CONTENT STRUCTURE:
 4. Developer notes (optional): if the release body contains API changes, hooks, deprecations, or database changes, add a clearly labelled section with an <h3> heading titled "Developer improvements" or "For developers" that covers those details. Omit this section entirely if no developer-relevant content is present.
 
 TONE: Write the main body at the level of a sophisticated WordPress site owner or manager. Be clear, conversational, and jargon-free in the main sections. Reserve technical language for the developer notes section only.
-EOT,
+EOT
+,
 
 			'developer' => <<<'EOT'
 TARGET AUDIENCE: WordPress developers and plugin builders.
@@ -254,7 +256,8 @@ CONTENT STRUCTURE:
 4. Breaking changes or migration notes: if present, call these out prominently with clear upgrade instructions.
 
 TONE: Write for an audience that is comfortable with WordPress development concepts — hooks, filters, REST API, custom post types, etc. Be direct and specific. You can reference function names, hooks, and technical concepts without explanation, but keep the writing clear and well-structured.
-EOT,
+EOT
+,
 
 			'engineering' => <<<'EOT'
 TARGET AUDIENCE: Engineering teams working with WordPress at scale.
@@ -267,7 +270,8 @@ CONTENT STRUCTURE:
 5. Infrastructure notes: dependency updates, minimum version changes, build system changes, or CI/CD implications.
 
 TONE: Write as a detailed technical changelog narrative. Assume the reader understands WordPress internals, PHP development patterns, and software architecture. Be precise and thorough. Code examples and hook signatures are encouraged where they add clarity.
-EOT,
+EOT
+,
 
 			default => $this->build_audience_instructions( 'mixed' ),
 		};
@@ -288,7 +292,7 @@ EOT,
 			return "IMAGES: The release body contains the following images. Reference them contextually in the post by including the EXACT original URL in an <img> tag (the plugin will automatically download and import them into WordPress). Place them near the content they illustrate. Use a <figure> wrapper with an appropriate <figcaption>:\n{$image_list}";
 		}
 
-		return "IMAGES: No images are present in the release body. Do not include any image placeholders or suggestions.";
+		return 'IMAGES: No images are present in the release body. Do not include any image placeholders or suggestions.';
 	}
 
 	// -------------------------------------------------------------------------

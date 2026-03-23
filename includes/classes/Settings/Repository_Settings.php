@@ -178,10 +178,10 @@ class Repository_Settings {
 		$display_name = $this->derive_display_name( end( $repo_parts ) );
 
 		$repos[] = [
-			'identifier'   => $identifier,
-			'display_name' => $display_name,
-			'paused'       => false,
-			'plugin_link'  => '',
+			'identifier'     => $identifier,
+			'display_name'   => $display_name,
+			'paused'         => false,
+			'plugin_link'    => '',
 			'author'         => get_current_user_id(),
 			'post_status'    => (string) apply_filters( 'ctbp_default_post_status', 'draft' ),
 			'categories'     => (array) apply_filters( 'ctbp_default_categories', [] ),
@@ -207,8 +207,8 @@ class Repository_Settings {
 	 * @return bool Whether the repository was found and removed.
 	 */
 	public function remove_repository( string $identifier ): bool {
-		$repos   = $this->get_repositories();
-		$count   = count( $repos );
+		$repos    = $this->get_repositories();
+		$count    = count( $repos );
 		$filtered = array_filter(
 			$repos,
 			static function ( $repo ) use ( $identifier ) {
@@ -279,14 +279,22 @@ class Repository_Settings {
 	 */
 	public function validate_plugin_link( string $value ): array {
 		if ( empty( $value ) ) {
-			return [ 'valid' => false, 'type' => '', 'warning' => null ];
+			return [
+				'valid'   => false,
+				'type'    => '',
+				'warning' => null,
+			];
 		}
 
 		// URL — client-side format check is sufficient, just verify it parses.
 		if ( self::is_url( $value ) ) {
 			$parsed = wp_parse_url( $value );
 			if ( ! empty( $parsed['host'] ) ) {
-				return [ 'valid' => true, 'type' => 'url', 'warning' => null ];
+				return [
+					'valid'   => true,
+					'type'    => 'url',
+					'warning' => null,
+				];
 			}
 			return [
 				'valid'   => false,
@@ -300,7 +308,11 @@ class Repository_Settings {
 		$response = wp_remote_get( $url, [ 'timeout' => 10 ] );
 
 		if ( is_wp_error( $response ) ) {
-			return [ 'valid' => false, 'type' => 'slug', 'warning' => $response->get_error_message() ];
+			return [
+				'valid'   => false,
+				'type'    => 'slug',
+				'warning' => $response->get_error_message(),
+			];
 		}
 
 		$body = wp_remote_retrieve_body( $response );
@@ -314,7 +326,11 @@ class Repository_Settings {
 			];
 		}
 
-		return [ 'valid' => true, 'type' => 'slug', 'warning' => null ];
+		return [
+			'valid'   => true,
+			'type'    => 'slug',
+			'warning' => null,
+		];
 	}
 
 	/**

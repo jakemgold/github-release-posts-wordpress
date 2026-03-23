@@ -87,11 +87,15 @@ class Settings_Page {
 			self::PAGE_SLUG
 		);
 
-		register_setting( self::OPTION_GROUP, Plugin_Constants::OPTION_GITHUB_PAT, [
-			'type'              => 'string',
-			'sanitize_callback' => [ $this, 'sanitize_github_pat' ],
-			'autoload'          => false,
-		] );
+		register_setting(
+			self::OPTION_GROUP,
+			Plugin_Constants::OPTION_GITHUB_PAT,
+			[
+				'type'              => 'string',
+				'sanitize_callback' => [ $this, 'sanitize_github_pat' ],
+				'autoload'          => false,
+			]
+		);
 
 		add_settings_field(
 			Plugin_Constants::OPTION_GITHUB_PAT,
@@ -166,11 +170,15 @@ class Settings_Page {
 		);
 
 		// AI provider select.
-		register_setting( self::OPTION_GROUP, Plugin_Constants::OPTION_AI_PROVIDER, [
-			'type'              => 'string',
-			'sanitize_callback' => [ $this, 'sanitize_ai_provider' ],
-			'autoload'          => false,
-		] );
+		register_setting(
+			self::OPTION_GROUP,
+			Plugin_Constants::OPTION_AI_PROVIDER,
+			[
+				'type'              => 'string',
+				'sanitize_callback' => [ $this, 'sanitize_ai_provider' ],
+				'autoload'          => false,
+			]
+		);
 
 		add_settings_field(
 			Plugin_Constants::OPTION_AI_PROVIDER,
@@ -182,11 +190,15 @@ class Settings_Page {
 		);
 
 		// API keys (stored as a single serialized option).
-		register_setting( self::OPTION_GROUP, Plugin_Constants::OPTION_AI_API_KEYS, [
-			'type'              => 'array',
-			'sanitize_callback' => [ $this, 'sanitize_api_keys' ],
-			'autoload'          => false,
-		] );
+		register_setting(
+			self::OPTION_GROUP,
+			Plugin_Constants::OPTION_AI_API_KEYS,
+			[
+				'type'              => 'array',
+				'sanitize_callback' => [ $this, 'sanitize_api_keys' ],
+				'autoload'          => false,
+			]
+		);
 
 		add_settings_field(
 			Plugin_Constants::OPTION_AI_API_KEYS,
@@ -208,11 +220,15 @@ class Settings_Page {
 		);
 
 		// Audience level.
-		register_setting( self::OPTION_GROUP, Plugin_Constants::OPTION_AUDIENCE_LEVEL, [
-			'type'              => 'string',
-			'sanitize_callback' => [ $this, 'sanitize_audience_level' ],
-			'autoload'          => false,
-		] );
+		register_setting(
+			self::OPTION_GROUP,
+			Plugin_Constants::OPTION_AUDIENCE_LEVEL,
+			[
+				'type'              => 'string',
+				'sanitize_callback' => [ $this, 'sanitize_audience_level' ],
+				'autoload'          => false,
+			]
+		);
 
 		add_settings_field(
 			Plugin_Constants::OPTION_AUDIENCE_LEVEL,
@@ -224,11 +240,15 @@ class Settings_Page {
 		);
 
 		// Custom prompt instructions.
-		register_setting( self::OPTION_GROUP, Plugin_Constants::OPTION_CUSTOM_PROMPT_INSTRUCTIONS, [
-			'type'              => 'string',
-			'sanitize_callback' => 'sanitize_textarea_field',
-			'autoload'          => false,
-		] );
+		register_setting(
+			self::OPTION_GROUP,
+			Plugin_Constants::OPTION_CUSTOM_PROMPT_INSTRUCTIONS,
+			[
+				'type'              => 'string',
+				'sanitize_callback' => 'sanitize_textarea_field',
+				'autoload'          => false,
+			]
+		);
 
 		add_settings_field(
 			Plugin_Constants::OPTION_CUSTOM_PROMPT_INSTRUCTIONS,
@@ -240,11 +260,15 @@ class Settings_Page {
 		);
 
 		// AI disclosure.
-		register_setting( self::OPTION_GROUP, Plugin_Constants::OPTION_AI_DISCLOSURE, [
-			'type'              => 'boolean',
-			'sanitize_callback' => [ $this, 'sanitize_checkbox' ],
-			'autoload'          => false,
-		] );
+		register_setting(
+			self::OPTION_GROUP,
+			Plugin_Constants::OPTION_AI_DISCLOSURE,
+			[
+				'type'              => 'boolean',
+				'sanitize_callback' => [ $this, 'sanitize_checkbox' ],
+				'autoload'          => false,
+			]
+		);
 
 		add_settings_field(
 			Plugin_Constants::OPTION_AI_DISCLOSURE,
@@ -278,7 +302,7 @@ class Settings_Page {
 	 * @return void
 	 */
 	public function render_api_keys_field(): void {
-		$provider           = $this->global_settings->get_ai_provider();
+		$provider            = $this->global_settings->get_ai_provider();
 		$key_based_providers = [ 'openai', 'anthropic' ];
 		$no_key_providers    = [ 'wp_ai_client' ];
 
@@ -481,11 +505,15 @@ class Settings_Page {
 		);
 
 		// Notify site owner checkbox.
-		register_setting( self::OPTION_GROUP, Plugin_Constants::OPTION_NOTIFY_SITE_OWNER, [
-			'type'              => 'boolean',
-			'sanitize_callback' => [ $this, 'sanitize_checkbox' ],
-			'autoload'          => false,
-		] );
+		register_setting(
+			self::OPTION_GROUP,
+			Plugin_Constants::OPTION_NOTIFY_SITE_OWNER,
+			[
+				'type'              => 'boolean',
+				'sanitize_callback' => [ $this, 'sanitize_checkbox' ],
+				'autoload'          => false,
+			]
+		);
 
 		add_settings_field(
 			Plugin_Constants::OPTION_NOTIFY_SITE_OWNER,
@@ -496,11 +524,15 @@ class Settings_Page {
 		);
 
 		// Additional email addresses.
-		register_setting( self::OPTION_GROUP, Plugin_Constants::OPTION_ADDITIONAL_EMAILS, [
-			'type'              => 'string',
-			'sanitize_callback' => [ $this, 'sanitize_additional_emails' ],
-			'autoload'          => false,
-		] );
+		register_setting(
+			self::OPTION_GROUP,
+			Plugin_Constants::OPTION_ADDITIONAL_EMAILS,
+			[
+				'type'              => 'string',
+				'sanitize_callback' => [ $this, 'sanitize_additional_emails' ],
+				'autoload'          => false,
+			]
+		);
 
 		add_settings_field(
 			Plugin_Constants::OPTION_ADDITIONAL_EMAILS,
@@ -689,7 +721,7 @@ class Settings_Page {
 			<?php
 			printf(
 				/* translators: %s: current frequency (e.g. "daily") */
-				esc_html__( 'Checks run %s by default. Developers can override this with the %s filter.', 'changelog-to-blog-post' ),
+				esc_html__( 'Checks run %1$s by default. Developers can override this with the %2$s filter.', 'changelog-to-blog-post' ),
 				esc_html( (string) apply_filters( 'ctbp_check_frequency', 'daily' ) ),
 				'<code>ctbp_check_frequency</code>'
 			);

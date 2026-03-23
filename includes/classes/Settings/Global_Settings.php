@@ -87,10 +87,12 @@ class Global_Settings {
 					// Key exists but can't be decrypted (AUTH_KEY may have changed).
 					if ( defined( 'WP_DEBUG' ) && WP_DEBUG && defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
 						// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-						error_log( sprintf(
-							'[CTBP] Failed to decrypt API key for provider "%s". If you migrated this site, re-enter your API key in Settings.',
-							$provider
-						) );
+						error_log(
+							sprintf(
+								'[CTBP] Failed to decrypt API key for provider "%s". If you migrated this site, re-enter your API key in Settings.',
+								$provider
+							)
+						);
 					}
 				}
 				$keys[ $provider ] = $decrypted;
@@ -109,7 +111,7 @@ class Global_Settings {
 	 * @return bool Whether the save succeeded.
 	 */
 	public function save_api_keys( array $keys ): bool {
-		$existing  = get_option( Plugin_Constants::OPTION_AI_API_KEYS, [] );
+		$existing = get_option( Plugin_Constants::OPTION_AI_API_KEYS, [] );
 		if ( ! is_array( $existing ) ) {
 			$existing = [];
 		}

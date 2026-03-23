@@ -43,11 +43,13 @@ class Repository_List_Table extends \WP_List_Table {
 	 * @param array $repos Repository data from Repository_Settings.
 	 */
 	public function __construct( array $repos ) {
-		parent::__construct( [
-			'singular' => 'repository',
-			'plural'   => 'repositories',
-			'ajax'     => false,
-		] );
+		parent::__construct(
+			[
+				'singular' => 'repository',
+				'plural'   => 'repositories',
+				'ajax'     => false,
+			]
+		);
 
 		$this->repos = $repos;
 	}
@@ -105,16 +107,18 @@ class Repository_List_Table extends \WP_List_Table {
 			return;
 		}
 
-		$posts = get_posts( [
-			'post_type'      => 'post',
-			'post_status'    => [ 'publish', 'draft', 'pending', 'private' ],
-			'meta_key'       => Plugin_Constants::META_SOURCE_REPO,
-			'meta_value'     => $identifiers, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
-			'meta_compare'   => 'IN',
-			'posts_per_page' => 100,
-			'orderby'        => 'date',
-			'order'          => 'DESC',
-		] );
+		$posts = get_posts(
+			[
+				'post_type'   => 'post',
+				'post_status' => [ 'publish', 'draft', 'pending', 'private' ],
+				'meta_key'    => Plugin_Constants::META_SOURCE_REPO,
+				'meta_value'  => $identifiers, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+			'meta_compare'    => 'IN',
+			'posts_per_page'  => 100,
+			'orderby'         => 'date',
+			'order'           => 'DESC',
+			]
+		);
 
 		// Keep only the most recent post per identifier.
 		foreach ( $posts as $post ) {
@@ -168,7 +172,7 @@ class Repository_List_Table extends \WP_List_Table {
 		$display_name = $item['display_name'] ?? $identifier;
 
 		$actions = [
-			'edit' => sprintf(
+			'edit'   => sprintf(
 				'<a href="#" class="ctbp-edit-repo-btn">%s</a>',
 				esc_html__( 'Edit', 'changelog-to-blog-post' )
 			),
@@ -261,6 +265,19 @@ class Repository_List_Table extends \WP_List_Table {
 
 		$identifier = $item['identifier'] ?? '';
 
+		static $provider = null;
+		if ( null === $provider ) {
+			$provider = ( new \TenUp\ChangelogToBlogPost\Settings\Global_Settings() )->get_ai_provider();
+		}
+
+		if ( empty( $provider ) ) {
+			return sprintf(
+				'<button type="button" class="button button-small" disabled title="%s">%s</button>',
+				esc_attr__( 'Configure an AI provider in the Settings tab first.', 'changelog-to-blog-post' ),
+				esc_html__( 'Generate post', 'changelog-to-blog-post' )
+			);
+		}
+
 		return sprintf(
 			'<button type="button" class="button button-small ctbp-generate-draft" data-repo="%s" title="%s">%s</button>' .
 			'<span class="spinner ctbp-generate-spinner"></span>' .
@@ -307,11 +324,14 @@ class Repository_List_Table extends \WP_List_Table {
 								<label>
 									<span class="title"><?php echo esc_html__( 'Status', 'changelog-to-blog-post' ); ?></span>
 									<?php
-									$statuses = (array) apply_filters( 'ctbp_post_status_options', [
-										'draft'   => __( 'Draft', 'changelog-to-blog-post' ),
-										'pending' => __( 'Pending Review', 'changelog-to-blog-post' ),
-										'publish' => __( 'Published', 'changelog-to-blog-post' ),
-									] );
+									$statuses = (array) apply_filters(
+										'ctbp_post_status_options',
+										[
+											'draft'   => __( 'Draft', 'changelog-to-blog-post' ),
+											'pending' => __( 'Pending Review', 'changelog-to-blog-post' ),
+											'publish' => __( 'Published', 'changelog-to-blog-post' ),
+										]
+									);
 									?>
 									<select data-field="post_status">
 										<?php foreach ( $statuses as $status_value => $status_label ) : ?>
@@ -323,13 +343,15 @@ class Repository_List_Table extends \WP_List_Table {
 								<label class="inline-edit-author">
 									<span class="title"><?php echo esc_html__( 'Author', 'changelog-to-blog-post' ); ?></span>
 									<?php
-									wp_dropdown_users( [
-										'name'    => '',
-										'id'      => '',
-										'class'   => 'ctbp-tpl-author',
-										'who'     => 'authors',
-										'show'    => 'display_name',
-									] );
+									wp_dropdown_users(
+										[
+											'name'  => '',
+											'id'    => '',
+											'class' => 'ctbp-tpl-author',
+											'who'   => 'authors',
+											'show'  => 'display_name',
+										]
+									);
 									?>
 								</label>
 
@@ -348,9 +370,12 @@ class Repository_List_Table extends \WP_List_Table {
 								<input type="hidden" name="" value="0" class="ctbp-tpl-cat-hidden">
 								<ul class="cat-checklist category-checklist ctbp-tpl-categories">
 									<?php
-									wp_terms_checklist( 0, [
-										'taxonomy' => 'category',
-									] );
+									wp_terms_checklist(
+										0,
+										[
+											'taxonomy' => 'category',
+										]
+									);
 									?>
 								</ul>
 							</div>

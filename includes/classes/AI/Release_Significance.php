@@ -91,10 +91,12 @@ class Release_Significance {
 			// Unparseable tag — log and fall back to 'minor' (AC-005).
 			if ( defined( 'WP_DEBUG' ) && WP_DEBUG && defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
 				// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-				error_log( sprintf(
-					'[CTBP] Release_Significance: could not parse semver from tag "%s" — defaulting to "minor".',
-					$data->tag
-				) );
+				error_log(
+					sprintf(
+						'[CTBP] Release_Significance: could not parse semver from tag "%s" — defaulting to "minor".',
+						$data->tag
+					)
+				);
 			}
 			return 'minor';
 		}

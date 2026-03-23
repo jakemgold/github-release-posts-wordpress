@@ -201,8 +201,8 @@ class API_Client {
 	 */
 	public function fetch_issue( string $identifier, int $number ): array|\WP_Error {
 		[ $owner, $repo ] = explode( '/', $identifier, 2 );
-		$url  = sprintf( '%s/repos/%s/%s/issues/%d', self::API_BASE, $owner, $repo, $number );
-		$args = $this->build_request_args();
+		$url              = sprintf( '%s/repos/%s/%s/issues/%d', self::API_BASE, $owner, $repo, $number );
+		$args             = $this->build_request_args();
 
 		$response = wp_remote_get( $url, $args );
 

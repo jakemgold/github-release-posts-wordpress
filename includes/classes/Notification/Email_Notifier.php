@@ -204,7 +204,7 @@ class Email_Notifier {
 	 * @return string
 	 */
 	private function build_text_body( array $entries, string $site_name ): string {
-		$lines = [];
+		$lines   = [];
 		$lines[] = sprintf(
 			/* translators: %s: site name */
 			__( 'New plugin update posts on %s:', 'changelog-to-blog-post' ),
@@ -241,7 +241,7 @@ class Email_Notifier {
 	 * @return string
 	 */
 	private function build_html_body( array $entries, string $site_name ): string {
-		$html = '<div style="font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif; max-width: 600px;">';
+		$html  = '<div style="font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif; max-width: 600px;">';
 		$html .= '<h2>' . sprintf(
 			/* translators: %s: site name */
 			esc_html__( 'New plugin update posts on %s', 'changelog-to-blog-post' ),
@@ -268,7 +268,7 @@ class Email_Notifier {
 
 			if ( 'publish' === $entry['status'] ) {
 				$view_url = esc_url( get_permalink( $entry['post_id'] ) );
-				$html .= ' · <a href="' . $view_url . '">' . esc_html__( 'View post', 'changelog-to-blog-post' ) . '</a>';
+				$html    .= ' · <a href="' . $view_url . '">' . esc_html__( 'View post', 'changelog-to-blog-post' ) . '</a>';
 			}
 
 			$html .= ' · <a href="' . esc_url( $entry['html_url'] ) . '">' . esc_html__( 'GitHub Release', 'changelog-to-blog-post' ) . '</a>';
@@ -318,10 +318,12 @@ class Email_Notifier {
 	private function log_failure( string $recipient ): void {
 		if ( defined( 'WP_DEBUG' ) && WP_DEBUG && defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-			error_log( sprintf(
-				'[CTBP] Email_Notifier: wp_mail failed for recipient "%s".',
-				$recipient
-			) );
+			error_log(
+				sprintf(
+					'[CTBP] Email_Notifier: wp_mail failed for recipient "%s".',
+					$recipient
+				)
+			);
 		}
 	}
 }

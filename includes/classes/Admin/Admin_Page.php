@@ -117,61 +117,71 @@ class Admin_Page {
 			return;
 		}
 
-		$screen->add_help_tab( [
-			'id'      => 'ctbp-help-overview',
-			'title'   => __( 'Overview', 'changelog-to-blog-post' ),
-			'content' => '<h3>' . esc_html__( 'GitHub Release Posts', 'changelog-to-blog-post' ) . '</h3>'
-				. '<p>' . esc_html__( 'This plugin monitors GitHub repositories for new releases and uses AI to automatically generate blog posts from release notes. Posts are created as drafts (or published immediately) so your readers always know what changed in the projects you maintain.', 'changelog-to-blog-post' ) . '</p>'
-				. '<p>' . esc_html__( 'The plugin checks for new releases on a daily schedule via WP-Cron. You can also generate a post manually from the Repositories tab at any time.', 'changelog-to-blog-post' ) . '</p>',
-		] );
+		$screen->add_help_tab(
+			[
+				'id'      => 'ctbp-help-overview',
+				'title'   => __( 'Overview', 'changelog-to-blog-post' ),
+				'content' => '<h3>' . esc_html__( 'GitHub Release Posts', 'changelog-to-blog-post' ) . '</h3>'
+					. '<p>' . esc_html__( 'This plugin monitors GitHub repositories for new releases and uses AI to automatically generate blog posts from release notes. Posts are created as drafts (or published immediately) so your readers always know what changed in the projects you maintain.', 'changelog-to-blog-post' ) . '</p>'
+					. '<p>' . esc_html__( 'The plugin checks for new releases on a daily schedule via WP-Cron. You can also generate a post manually from the Repositories tab at any time.', 'changelog-to-blog-post' ) . '</p>',
+			]
+		);
 
-		$screen->add_help_tab( [
-			'id'      => 'ctbp-help-getting-started',
-			'title'   => __( 'Getting Started', 'changelog-to-blog-post' ),
-			'content' => '<h3>' . esc_html__( 'Getting Started', 'changelog-to-blog-post' ) . '</h3>'
-				. '<ol>'
-				. '<li>' . esc_html__( 'Configure an AI provider in the Settings tab. You can use WordPress AI Services (recommended), OpenAI, or Anthropic.', 'changelog-to-blog-post' ) . '</li>'
-				. '<li>' . esc_html__( 'Add a GitHub repository in the Repositories tab using the format "owner/repo" (e.g. "WordPress/gutenberg").', 'changelog-to-blog-post' ) . '</li>'
-				. '<li>' . esc_html__( 'Click "Generate post" to create your first post, or wait for the next scheduled check.', 'changelog-to-blog-post' ) . '</li>'
-				. '</ol>'
-				. '<p>' . esc_html__( 'Optionally, add a GitHub Personal Access Token in the Settings tab to increase the API rate limit from 60 to 5,000 requests per hour.', 'changelog-to-blog-post' ) . '</p>',
-		] );
+		$screen->add_help_tab(
+			[
+				'id'      => 'ctbp-help-getting-started',
+				'title'   => __( 'Getting Started', 'changelog-to-blog-post' ),
+				'content' => '<h3>' . esc_html__( 'Getting Started', 'changelog-to-blog-post' ) . '</h3>'
+					. '<ol>'
+					. '<li>' . esc_html__( 'Configure an AI provider in the Settings tab. You can use WordPress AI Services (recommended), OpenAI, or Anthropic.', 'changelog-to-blog-post' ) . '</li>'
+					. '<li>' . esc_html__( 'Add a GitHub repository in the Repositories tab using the format "owner/repo" (e.g. "WordPress/gutenberg").', 'changelog-to-blog-post' ) . '</li>'
+					. '<li>' . esc_html__( 'When you add a repository, the plugin automatically checks for the latest release and generates a draft post if one is found. You can also generate a post manually at any time.', 'changelog-to-blog-post' ) . '</li>'
+					. '</ol>'
+					. '<p>' . esc_html__( 'Optionally, add a GitHub Personal Access Token in the Settings tab to increase the API rate limit from 60 to 5,000 requests per hour.', 'changelog-to-blog-post' ) . '</p>',
+			]
+		);
 
-		$screen->add_help_tab( [
-			'id'      => 'ctbp-help-repositories',
-			'title'   => __( 'Repositories', 'changelog-to-blog-post' ),
-			'content' => '<h3>' . esc_html__( 'Managing Repositories', 'changelog-to-blog-post' ) . '</h3>'
-				. '<p>' . esc_html__( 'Each repository you add is monitored for new GitHub releases. When a new release is detected, the plugin fetches the release notes, sends them to your configured AI provider, and creates a blog post.', 'changelog-to-blog-post' ) . '</p>'
-				. '<h4>' . esc_html__( 'Per-Repository Options', 'changelog-to-blog-post' ) . '</h4>'
-				. '<ul>'
-				. '<li><strong>' . esc_html__( 'Display Name', 'changelog-to-blog-post' ) . '</strong> — ' . esc_html__( 'The project name used in post titles. Defaults to a cleaned-up version of the repo name.', 'changelog-to-blog-post' ) . '</li>'
-				. '<li><strong>' . esc_html__( 'Project Link', 'changelog-to-blog-post' ) . '</strong> — ' . esc_html__( 'A URL included in the generated post as a download or project link. If the repository is a WordPress plugin, you can enter just the WordPress.org slug instead. If left blank, the GitHub release URL is used.', 'changelog-to-blog-post' ) . '</li>'
-				. '</ul>'
-				. '<h4>' . esc_html__( 'Generate Draft Now', 'changelog-to-blog-post' ) . '</h4>'
-				. '<p>' . esc_html__( 'Creates a post from the latest release immediately, bypassing the cron schedule. Useful for testing your setup or generating a post on demand.', 'changelog-to-blog-post' ) . '</p>',
-		] );
+		$screen->add_help_tab(
+			[
+				'id'      => 'ctbp-help-repositories',
+				'title'   => __( 'Repositories', 'changelog-to-blog-post' ),
+				'content' => '<h3>' . esc_html__( 'Managing Repositories', 'changelog-to-blog-post' ) . '</h3>'
+					. '<p>' . esc_html__( 'Each repository you add is monitored for new GitHub releases. When a new release is detected, the plugin fetches the release notes, sends them to your configured AI provider, and creates a blog post.', 'changelog-to-blog-post' ) . '</p>'
+					. '<h4>' . esc_html__( 'Per-Repository Options', 'changelog-to-blog-post' ) . '</h4>'
+					. '<ul>'
+					. '<li><strong>' . esc_html__( 'Display Name', 'changelog-to-blog-post' ) . '</strong> — ' . esc_html__( 'The project name used in post titles. Defaults to a cleaned-up version of the repo name.', 'changelog-to-blog-post' ) . '</li>'
+					. '<li><strong>' . esc_html__( 'Project Link', 'changelog-to-blog-post' ) . '</strong> — ' . esc_html__( 'A URL included in the generated post as a download or project link. If the repository is a WordPress plugin, you can enter just the WordPress.org slug instead. If left blank, the GitHub release URL is used.', 'changelog-to-blog-post' ) . '</li>'
+					. '</ul>'
+					. '<h4>' . esc_html__( 'Generate Draft Now', 'changelog-to-blog-post' ) . '</h4>'
+					. '<p>' . esc_html__( 'Creates a post from the latest release immediately, bypassing the cron schedule. Useful for testing your setup or generating a post on demand.', 'changelog-to-blog-post' ) . '</p>',
+			]
+		);
 
-		$screen->add_help_tab( [
-			'id'      => 'ctbp-help-ai-settings',
-			'title'   => __( 'AI & Prompts', 'changelog-to-blog-post' ),
-			'content' => '<h3>' . esc_html__( 'AI Provider Settings', 'changelog-to-blog-post' ) . '</h3>'
+		$screen->add_help_tab(
+			[
+				'id'      => 'ctbp-help-ai-settings',
+				'title'   => __( 'AI & Prompts', 'changelog-to-blog-post' ),
+				'content' => '<h3>' . esc_html__( 'AI Provider Settings', 'changelog-to-blog-post' ) . '</h3>'
 				. '<p>' . esc_html__( 'The plugin supports three AI providers:', 'changelog-to-blog-post' ) . '</p>'
 				. '<ul>'
 				. '<li><strong>' . esc_html__( 'WordPress AI Services', 'changelog-to-blog-post' ) . '</strong> — '
 					/* translators: %s: link to AI Services plugin documentation */
-					. sprintf( esc_html__( 'Uses %s to manage API keys centrally. Recommended if you use AI features across multiple plugins.', 'changelog-to-blog-post' ),
+					. sprintf(
+						esc_html__( 'Uses %s to manage API keys centrally. Recommended if you use AI features across multiple plugins.', 'changelog-to-blog-post' ),
 						'<a href="https://developer.wordpress.org/plugins/ai-services/" target="_blank" rel="noopener">' . esc_html__( 'the AI Services plugin', 'changelog-to-blog-post' ) . '</a>'
 					)
 				. '</li>'
 				. '<li><strong>' . esc_html__( 'OpenAI', 'changelog-to-blog-post' ) . '</strong> — '
 					/* translators: %s: link to OpenAI API keys page */
-					. sprintf( esc_html__( 'Direct integration with OpenAI. %s.', 'changelog-to-blog-post' ),
+					. sprintf(
+						esc_html__( 'Direct integration with OpenAI. %s.', 'changelog-to-blog-post' ),
 						'<a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">' . esc_html__( 'Requires an API key', 'changelog-to-blog-post' ) . '</a>'
 					)
 				. '</li>'
 				. '<li><strong>' . esc_html__( 'Anthropic', 'changelog-to-blog-post' ) . '</strong> — '
 					/* translators: %s: link to Anthropic API keys page */
-					. sprintf( esc_html__( 'Direct integration with Anthropic (Claude). %s.', 'changelog-to-blog-post' ),
+					. sprintf(
+						esc_html__( 'Direct integration with Anthropic (Claude). %s.', 'changelog-to-blog-post' ),
 						'<a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">' . esc_html__( 'Requires an API key', 'changelog-to-blog-post' ) . '</a>'
 					)
 				. '</li>'
@@ -184,19 +194,22 @@ class Admin_Page {
 				. '<p>' . esc_html__( 'When enabled, the following note is appended to the end of each generated post in small italic text:', 'changelog-to-blog-post' ) . '</p>'
 				. '<blockquote><em>' . esc_html__( 'This post was generated from release notes with the help of AI using GitHub Release Posts plugin for WordPress.', 'changelog-to-blog-post' ) . '</em></blockquote>'
 				. '<p>' . esc_html__( 'This text is part of the post content and can be edited or removed. Developers can customize it with the ctbp_ai_disclosure_text filter.', 'changelog-to-blog-post' ) . '</p>',
-		] );
+			]
+		);
 
-		$screen->add_help_tab( [
-			'id'      => 'ctbp-help-github',
-			'title'   => __( 'GitHub Token', 'changelog-to-blog-post' ),
-			'content' => '<h3>' . esc_html__( 'GitHub Personal Access Token', 'changelog-to-blog-post' ) . '</h3>'
+		$screen->add_help_tab(
+			[
+				'id'      => 'ctbp-help-github',
+				'title'   => __( 'GitHub Token', 'changelog-to-blog-post' ),
+				'content' => '<h3>' . esc_html__( 'GitHub Personal Access Token', 'changelog-to-blog-post' ) . '</h3>'
 				. '<p>' . esc_html__( 'By default, the plugin uses unauthenticated GitHub API requests, which are limited to 60 per hour. Adding a Personal Access Token raises this limit to 5,000 requests per hour.', 'changelog-to-blog-post' ) . '</p>'
 				. '<p>' . esc_html__( 'A token is recommended if you track more than a few repositories or check for releases frequently.', 'changelog-to-blog-post' ) . '</p>'
 				. '<h4>' . esc_html__( 'Creating a Token', 'changelog-to-blog-post' ) . '</h4>'
 				. '<ol>'
 				. '<li>'
 					/* translators: %s: link to GitHub token settings */
-					. sprintf( esc_html__( 'Visit %s on GitHub.', 'changelog-to-blog-post' ),
+					. sprintf(
+						esc_html__( 'Visit %s on GitHub.', 'changelog-to-blog-post' ),
 						'<a href="https://github.com/settings/tokens" target="_blank" rel="noopener">' . esc_html__( 'Settings &rarr; Personal access tokens', 'changelog-to-blog-post' ) . '</a>'
 					)
 				. '</li>'
@@ -204,7 +217,8 @@ class Admin_Page {
 				. '<li>' . esc_html__( 'Paste the token into the GitHub Personal Access Token field in the Settings tab.', 'changelog-to-blog-post' ) . '</li>'
 				. '</ol>'
 				. '<p>' . esc_html__( 'The token is encrypted at rest using libsodium and is never exposed in the admin UI after saving.', 'changelog-to-blog-post' ) . '</p>',
-		] );
+			]
+		);
 
 		$screen->set_help_sidebar(
 			'<p><strong>' . esc_html__( 'For more information:', 'changelog-to-blog-post' ) . '</strong></p>'
@@ -234,7 +248,10 @@ class Admin_Page {
 		);
 
 		$admin_asset_file = CHANGELOG_TO_BLOG_POST_PATH . 'dist/js/admin.asset.php';
-		$admin_asset      = file_exists( $admin_asset_file ) ? require $admin_asset_file : [ 'dependencies' => [], 'version' => CHANGELOG_TO_BLOG_POST_VERSION ];
+		$admin_asset      = file_exists( $admin_asset_file ) ? require $admin_asset_file : [
+			'dependencies' => [],
+			'version'      => CHANGELOG_TO_BLOG_POST_VERSION,
+		];
 
 		wp_enqueue_script(
 			'changelog-to-blog-post-admin-js',
@@ -248,10 +265,10 @@ class Admin_Page {
 			'changelog-to-blog-post-admin-js',
 			'ctbpAdmin',
 			[
-				'restUrl'            => get_rest_url( null, 'ctbp/v1' ),
-				'restNonce'          => wp_create_nonce( 'wp_rest' ),
-				'blockEditorActive'  => self::is_block_editor_active(),
-				'i18n'      => [
+				'restUrl'           => get_rest_url( null, 'ctbp/v1' ),
+				'restNonce'         => wp_create_nonce( 'wp_rest' ),
+				'blockEditorActive' => self::is_block_editor_active(),
+				'i18n'              => [
 					'unsavedChanges'    => __( 'You have unsaved changes. Are you sure you want to leave this tab?', 'changelog-to-blog-post' ),
 					'confirmRemove'     => __( 'Are you sure you want to remove this repository? This cannot be undone.', 'changelog-to-blog-post' ),
 					'validating'        => __( 'Validating…', 'changelog-to-blog-post' ),
@@ -296,7 +313,10 @@ class Admin_Page {
 		}
 
 		$asset_file = CHANGELOG_TO_BLOG_POST_PATH . 'dist/js/editor.asset.php';
-		$asset      = file_exists( $asset_file ) ? require $asset_file : [ 'dependencies' => [], 'version' => CHANGELOG_TO_BLOG_POST_VERSION ];
+		$asset      = file_exists( $asset_file ) ? require $asset_file : [
+			'dependencies' => [],
+			'version'      => CHANGELOG_TO_BLOG_POST_VERSION,
+		];
 
 		wp_enqueue_script(
 			'changelog-to-blog-post-editor',
@@ -321,14 +341,18 @@ class Admin_Page {
 		];
 
 		foreach ( $meta_keys as $key ) {
-			register_post_meta( 'post', $key, [
-				'show_in_rest'  => true,
-				'single'        => true,
-				'type'          => 'string',
-				'auth_callback' => function () {
-					return current_user_can( 'edit_posts' );
-				},
-			] );
+			register_post_meta(
+				'post',
+				$key,
+				[
+					'show_in_rest'  => true,
+					'single'        => true,
+					'type'          => 'string',
+					'auth_callback' => function () {
+						return current_user_can( 'edit_posts' );
+					},
+				]
+			);
 		}
 	}
 
@@ -356,7 +380,6 @@ class Admin_Page {
 				],
 			]
 		);
-
 
 		register_rest_route(
 			'ctbp/v1',
@@ -393,7 +416,7 @@ class Admin_Page {
 						'default'           => '',
 						'sanitize_callback' => 'sanitize_text_field',
 					],
-					'api_key' => [
+					'api_key'  => [
 						'type'              => 'string',
 						'default'           => '',
 						'sanitize_callback' => 'sanitize_text_field',
@@ -486,7 +509,10 @@ class Admin_Page {
 			( new Release_State() )->clear_state( $identifier );
 			wp_safe_redirect(
 				add_query_arg(
-					[ 'tab' => 'repositories', 'saved' => '1' ],
+					[
+						'tab'   => 'repositories',
+						'saved' => '1',
+					],
 					$this->get_page_url()
 				)
 			);
@@ -531,7 +557,10 @@ class Admin_Page {
 
 			wp_safe_redirect(
 				add_query_arg(
-					[ 'tab' => 'repositories', 'saved' => '1' ],
+					[
+						'tab'   => 'repositories',
+						'saved' => '1',
+					],
 					$this->get_page_url()
 				)
 			);
@@ -543,30 +572,33 @@ class Admin_Page {
 
 		$update_failures = 0;
 		foreach ( $posted_repos as $identifier => $config ) {
-			$identifier = sanitize_text_field( wp_unslash( (string) $identifier ) );
-			$raw_repo_tags = sanitize_text_field( wp_unslash( $config['tags'] ?? '' ) );
+			$identifier      = sanitize_text_field( wp_unslash( (string) $identifier ) );
+			$raw_repo_tags   = sanitize_text_field( wp_unslash( $config['tags'] ?? '' ) );
 			$raw_plugin_link = sanitize_text_field( wp_unslash( $config['plugin_link'] ?? '' ) );
 			// If it looks like a URL, apply URL sanitization.
 			if ( Repository_Settings::is_url( $raw_plugin_link ) ) {
 				$raw_plugin_link = esc_url_raw( $raw_plugin_link );
 			}
 
-			$sanitized     = [
-				'display_name' => sanitize_text_field( wp_unslash( $config['display_name'] ?? '' ) ),
-				'plugin_link'  => $raw_plugin_link,
-				'author'       => absint( $config['author'] ?? 0 ),
-				'post_status'  => sanitize_key( $config['post_status'] ?? '' ),
-				'categories'   => array_map( 'absint', array_filter( (array) ( $config['categories'] ?? [] ) ) ),
-				'tags'         => $this->resolve_tag_names_to_ids( $raw_repo_tags ),
+			$sanitized = [
+				'display_name'   => sanitize_text_field( wp_unslash( $config['display_name'] ?? '' ) ),
+				'plugin_link'    => $raw_plugin_link,
+				'author'         => absint( $config['author'] ?? 0 ),
+				'post_status'    => sanitize_key( $config['post_status'] ?? '' ),
+				'categories'     => array_map( 'absint', array_filter( (array) ( $config['categories'] ?? [] ) ) ),
+				'tags'           => $this->resolve_tag_names_to_ids( $raw_repo_tags ),
 				'paused'         => ! empty( $config['paused'] ),
 				'featured_image' => absint( $config['featured_image'] ?? 0 ),
 			];
 			if ( ! $this->repo_settings->update_repository( $identifier, $sanitized ) ) {
-				$update_failures++;
+				++$update_failures;
 			}
 		}
 
-		$redirect_args = [ 'tab' => 'repositories', 'saved' => '1' ];
+		$redirect_args = [
+			'tab'   => 'repositories',
+			'saved' => '1',
+		];
 		if ( $update_failures > 0 ) {
 			$redirect_args['saved'] = '0';
 			set_transient(
@@ -657,7 +689,10 @@ class Admin_Page {
 		do_action(
 			'ctbp_process_release',
 			Release_Queue::from_release( $identifier, $release ),
-			[ 'force_draft' => true, 'manual' => true ]
+			[
+				'force_draft' => true,
+				'manual'      => true,
+			]
 		);
 
 		$post = Release_Monitor::find_post( $identifier, $release->tag );
@@ -847,11 +882,14 @@ class Admin_Page {
 
 		// Convert HTML to blocks and update the existing post (creates a revision).
 		$block_content = Post_Creator::convert_html_to_blocks( $result->content );
-		$update_result = wp_update_post( [
-			'ID'           => $post_id,
-			'post_title'   => $full_title,
-			'post_content' => $block_content,
-		], true );
+		$update_result = wp_update_post(
+			[
+				'ID'           => $post_id,
+				'post_title'   => $full_title,
+				'post_content' => $block_content,
+			],
+			true
+		);
 
 		if ( is_wp_error( $update_result ) ) {
 			return new \WP_Error(
@@ -913,7 +951,11 @@ class Admin_Page {
 		$user_id = get_current_user_id();
 		set_transient(
 			'ctbp_admin_notice_' . $user_id,
-			[ 'type' => $type, 'message' => $message, 'url' => $url ],
+			[
+				'type'    => $type,
+				'message' => $message,
+				'url'     => $url,
+			],
 			60
 		);
 	}

@@ -22,7 +22,7 @@ if ( ! in_array( $active_tab, $allowed_tabs, true ) ) {
 $current_user_id = get_current_user_id();
 
 // Success notice (repositories tab uses ?saved=1, settings tab uses ?settings-updated from Settings API).
-$show_saved      = isset( $_GET['saved'] ) && '1' === $_GET['saved']; // phpcs:ignore WordPress.Security.NonceVerification
+$show_saved       = isset( $_GET['saved'] ) && '1' === $_GET['saved']; // phpcs:ignore WordPress.Security.NonceVerification
 $settings_updated = 'settings' === $active_tab && isset( $_GET['settings-updated'] ); // phpcs:ignore WordPress.Security.NonceVerification
 
 // Error transient.
@@ -97,7 +97,7 @@ if ( $admin_notice ) {
 	$has_repos           = ! empty( $onboarding_repos->get_repositories() );
 
 	if ( ! $has_provider || ! $has_repos ) :
-	?>
+		?>
 		<div class="notice notice-info">
 			<p>
 				<strong><?php echo esc_html__( 'Getting started:', 'changelog-to-blog-post' ); ?></strong>
@@ -146,7 +146,7 @@ if ( $admin_notice ) {
 			<?php wp_nonce_field( 'ctbp_save_repositories', 'ctbp_nonce' ); ?>
 			<input type="hidden" name="ctbp_action" value="repositories">
 
-			<?php include __DIR__ . '/tab-repositories.php'; ?>
+			<?php require __DIR__ . '/tab-repositories.php'; ?>
 		</form>
 
 		<!-- Conflict resolution dialog for "Generate draft now" (JS-driven) -->
@@ -199,7 +199,7 @@ if ( $admin_notice ) {
 		<?php echo 'settings' !== $active_tab ? 'hidden' : ''; ?>
 	>
 		<form method="post" action="<?php echo esc_url( admin_url( 'options.php' ) ); ?>">
-			<?php include __DIR__ . '/tab-settings.php'; ?>
+			<?php require __DIR__ . '/tab-settings.php'; ?>
 
 			<?php submit_button( __( 'Save Settings', 'changelog-to-blog-post' ) ); ?>
 		</form>

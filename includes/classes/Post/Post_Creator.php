@@ -67,11 +67,11 @@ class Post_Creator {
 			}
 		}
 
-		$title         = $this->build_title( $data->identifier, $data->tag, $post->title );
-		$block_content = $this->convert_html_to_blocks( $post->content );
+		$title          = $this->build_title( $data->identifier, $data->tag, $post->title );
+		$block_content  = $this->convert_html_to_blocks( $post->content );
 		$block_content .= $this->build_disclosure_block( $data );
-		$author_id     = $this->resolve_author( $data->identifier );
-		$post_id       = wp_insert_post(
+		$author_id      = $this->resolve_author( $data->identifier );
+		$post_id        = wp_insert_post(
 			[
 				'post_title'   => $title,
 				'post_content' => $block_content,
@@ -85,12 +85,14 @@ class Post_Creator {
 		if ( is_wp_error( $post_id ) ) {
 			if ( defined( 'WP_DEBUG' ) && WP_DEBUG && defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
 				// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-				error_log( sprintf(
-					'[CTBP] Post creation failed for %s@%s: %s',
-					$data->identifier,
-					$data->tag,
-					$post_id->get_error_message()
-				) );
+				error_log(
+					sprintf(
+						'[CTBP] Post creation failed for %s@%s: %s',
+						$data->identifier,
+						$data->tag,
+						$post_id->get_error_message()
+					)
+				);
 			}
 			return;
 		}
@@ -117,23 +119,25 @@ class Post_Creator {
 	 * @return int|null Post ID if found, null otherwise.
 	 */
 	public function find_existing_post( string $identifier, string $tag ): ?int {
-		$query = new \WP_Query( [
-			'post_type'      => 'post',
-			'post_status'    => 'any',
-			'posts_per_page' => 1,
-			'fields'         => 'ids',
-			'meta_query'     => [ // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
-				'relation' => 'AND',
-				[
-					'key'   => Plugin_Constants::META_SOURCE_REPO,
-					'value' => $identifier,
+		$query = new \WP_Query(
+			[
+				'post_type'      => 'post',
+				'post_status'    => 'any',
+				'posts_per_page' => 1,
+				'fields'         => 'ids',
+				'meta_query'     => [ // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+					'relation' => 'AND',
+					[
+						'key'   => Plugin_Constants::META_SOURCE_REPO,
+						'value' => $identifier,
+					],
+					[
+						'key'   => Plugin_Constants::META_RELEASE_TAG,
+						'value' => $tag,
+					],
 				],
-				[
-					'key'   => Plugin_Constants::META_RELEASE_TAG,
-					'value' => $tag,
-				],
-			],
-		] );
+			]
+		);
 
 		$posts = $query->posts;
 		return ! empty( $posts ) ? (int) $posts[0] : null;
@@ -212,13 +216,15 @@ class Post_Creator {
 		}
 
 		// Fallback: first user with manage_options.
-		$admins = get_users( [
-			'capability' => 'manage_options',
-			'number'     => 1,
-			'orderby'    => 'ID',
-			'order'      => 'ASC',
-			'fields'     => 'ID',
-		] );
+		$admins = get_users(
+			[
+				'capability' => 'manage_options',
+				'number'     => 1,
+				'orderby'    => 'ID',
+				'order'      => 'ASC',
+				'fields'     => 'ID',
+			]
+		);
 
 		if ( ! empty( $admins ) ) {
 			return (int) $admins[0];
@@ -237,7 +243,7 @@ class Post_Creator {
 	 * @return void
 	 */
 	private function set_featured_image( int $post_id, string $identifier ): void {
-		$config       = $this->repo_settings->get_repository( $identifier );
+		$config        = $this->repo_settings->get_repository( $identifier );
 		$attachment_id = (int) ( $config['featured_image'] ?? 0 );
 
 		/**
@@ -307,10 +313,10 @@ class Post_Creator {
 		// Extract <figure> blocks first (they can contain nested elements
 		// like <figcaption> that confuse the simpler tag-based splitter).
 		$figure_placeholders = [];
-		$html = preg_replace_callback(
+		$html                = preg_replace_callback(
 			'%<figure[\s>].*?</figure>%si',
 			function ( $match ) use ( &$figure_placeholders ) {
-				$key = '<!--CTBP_FIGURE_' . count( $figure_placeholders ) . '-->';
+				$key                         = '<!--CTBP_FIGURE_' . count( $figure_placeholders ) . '-->';
 				$figure_placeholders[ $key ] = $match[0];
 				return $key;
 			},
@@ -340,7 +346,7 @@ class Post_Creator {
 			}
 
 			if ( preg_match( '/^<(p|ul|ol|h[1-6]|blockquote|img|hr|pre|table)[\s>]/i', $part, $tag_match ) ) {
-				$tag = strtolower( $tag_match[1] );
+				$tag      = strtolower( $tag_match[1] );
 				$blocks[] = self::wrap_in_block( $tag, $part );
 			} else {
 				// Leftover text — wrap as paragraph.
@@ -482,16 +488,19 @@ class Post_Creator {
 			require_once ABSPATH . 'wp-admin/includes/image.php';
 		}
 
-		$urls       = array_unique( $matches[1] );
-		$site_url   = get_site_url();
-		$failed     = 0;
-		$total      = 0;
+		$urls     = array_unique( $matches[1] );
+		$site_url = get_site_url();
+		$failed   = 0;
+		$total    = 0;
 
-		$allowed_domains = (array) apply_filters( 'ctbp_sideload_allowed_domains', [
-			'github.com',
-			'githubusercontent.com',
-			'github.io',
-		] );
+		$allowed_domains = (array) apply_filters(
+			'ctbp_sideload_allowed_domains',
+			[
+				'github.com',
+				'githubusercontent.com',
+				'github.io',
+			]
+		);
 
 		foreach ( $urls as $remote_url ) {
 			// Skip URLs already pointing to this site.
@@ -500,7 +509,7 @@ class Post_Creator {
 			}
 
 			// Only sideload from allowed domains to prevent SSRF.
-			$host = wp_parse_url( $remote_url, PHP_URL_HOST );
+			$host    = wp_parse_url( $remote_url, PHP_URL_HOST );
 			$allowed = false;
 			foreach ( $allowed_domains as $domain ) {
 				if ( $host === $domain || str_ends_with( $host, '.' . $domain ) ) {
@@ -512,18 +521,20 @@ class Post_Creator {
 				continue;
 			}
 
-			$total++;
+			++$total;
 			$attachment_id = media_sideload_image( $remote_url, $post_id, '', 'id' );
 
 			if ( is_wp_error( $attachment_id ) ) {
-				$failed++;
+				++$failed;
 				if ( defined( 'WP_DEBUG' ) && WP_DEBUG && defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
 					// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-					error_log( sprintf(
-						'[CTBP] Image sideload failed for %s: %s',
-						$remote_url,
-						$attachment_id->get_error_message()
-					) );
+					error_log(
+						sprintf(
+							'[CTBP] Image sideload failed for %s: %s',
+							$remote_url,
+							$attachment_id->get_error_message()
+						)
+					);
 				}
 				continue;
 			}
@@ -534,7 +545,7 @@ class Post_Creator {
 				$quoted_old = preg_quote( $remote_url, '/' );
 
 				// 1. Update wp:image block comments BEFORE replacing URLs,
-				//    while we can still match the remote URL in context.
+				// while we can still match the remote URL in context.
 				$content = preg_replace(
 					'/(<!-- wp:image)\s*(\{[^}]*\})?\s*(-->)(\s*<figure[^>]*>(?:\s*<a[^>]*>)?\s*<img[^>]*' . $quoted_old . ')/i',
 					'$1 {"id":' . $attachment_id . ',"sizeSlug":"full"} $3$4',
@@ -564,20 +575,24 @@ class Post_Creator {
 
 		// Update the post with local image URLs.
 		if ( $content !== $post->post_content ) {
-			wp_update_post( [
-				'ID'           => $post_id,
-				'post_content' => $content,
-			] );
+			wp_update_post(
+				[
+					'ID'           => $post_id,
+					'post_content' => $content,
+				]
+			);
 		}
 
 		if ( $failed > 0 && defined( 'WP_DEBUG' ) && WP_DEBUG && defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-			error_log( sprintf(
-				'[CTBP] Image sideload: %d of %d images failed for post %d.',
-				$failed,
-				$total,
-				$post_id
-			) );
+			error_log(
+				sprintf(
+					'[CTBP] Image sideload: %d of %d images failed for post %d.',
+					$failed,
+					$total,
+					$post_id
+				)
+			);
 		}
 	}
 

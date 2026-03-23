@@ -113,7 +113,10 @@ class Release_Enricher {
 				$key    = $repo . '#' . $number;
 
 				if ( ! isset( $seen[ $key ] ) ) {
-					$refs[]       = [ 'identifier' => $repo, 'number' => $number ];
+					$refs[]       = [
+						'identifier' => $repo,
+						'number'     => $number,
+					];
 					$seen[ $key ] = true;
 				}
 			}
@@ -126,7 +129,10 @@ class Release_Enricher {
 				$key    = $identifier . '#' . $number;
 
 				if ( ! isset( $seen[ $key ] ) ) {
-					$refs[]       = [ 'identifier' => $identifier, 'number' => $number ];
+					$refs[]       = [
+						'identifier' => $identifier,
+						'number'     => $number,
+					];
 					$seen[ $key ] = true;
 				}
 			}

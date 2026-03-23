@@ -41,7 +41,7 @@ class Onboarding_Handler {
 			return $this->failure_notice(
 				sprintf(
 					/* translators: %s: error message */
-					__( 'Could not fetch the latest release: %s Use "Generate draft now" once your configuration is complete.', 'changelog-to-blog-post' ),
+					__( 'Could not fetch the latest release: %s Use "Generate post" once your configuration is complete.', 'changelog-to-blog-post' ),
 					$release->get_error_message()
 				)
 			);
@@ -69,7 +69,10 @@ class Onboarding_Handler {
 		do_action(
 			'ctbp_process_release',
 			Release_Queue::from_release( $identifier, $release ),
-			[ 'force_draft' => true, 'onboarding' => true ]
+			[
+				'force_draft' => true,
+				'onboarding'  => true,
+			]
 		);
 
 		// Check whether a post was created by the action subscribers (AC-013, AC-014).
@@ -89,7 +92,7 @@ class Onboarding_Handler {
 
 		// AC-014: generation not available yet (no AI provider configured).
 		return $this->failure_notice(
-			__( 'Repository saved. To generate a preview draft, configure an AI provider in the Settings tab, then use "Generate draft now".', 'changelog-to-blog-post' )
+			__( 'Repository saved. To generate a preview draft, configure an AI provider in the Settings tab, then use "Generate post".', 'changelog-to-blog-post' )
 		);
 	}
 

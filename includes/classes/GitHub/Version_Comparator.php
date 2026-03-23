@@ -22,7 +22,7 @@ class Version_Comparator {
 	/**
 	 * Returns true if the candidate release is newer than the stored state.
 	 *
-	 * @param Release                                                              $candidate The release fetched from GitHub.
+	 * @param Release                                                                            $candidate The release fetched from GitHub.
 	 * @param array{last_seen_tag: string, last_seen_published_at: string, last_checked_at: int} $state     The stored repo state.
 	 * @return bool
 	 */

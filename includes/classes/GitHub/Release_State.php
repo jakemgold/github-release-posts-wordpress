@@ -49,8 +49,8 @@ class Release_State {
 	 * @return void
 	 */
 	public function update_last_seen( string $identifier, string $tag, string $published_at ): void {
-		$state                          = $this->get_state( $identifier );
-		$state['last_seen_tag']         = $tag;
+		$state                           = $this->get_state( $identifier );
+		$state['last_seen_tag']          = $tag;
 		$state['last_seen_published_at'] = $published_at;
 		update_option( $this->option_key( $identifier ), $state, false );
 	}

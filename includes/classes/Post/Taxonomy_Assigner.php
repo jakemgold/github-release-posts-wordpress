@@ -149,12 +149,14 @@ class Taxonomy_Assigner {
 	private function log_missing_term( string $taxonomy, int $term_id, string $identifier ): void {
 		if ( defined( 'WP_DEBUG' ) && WP_DEBUG && defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-			error_log( sprintf(
-				'[CTBP] Taxonomy_Assigner: %s term ID %d configured for repo "%s" no longer exists — skipping.',
-				$taxonomy,
-				$term_id,
-				$identifier
-			) );
+			error_log(
+				sprintf(
+					'[CTBP] Taxonomy_Assigner: %s term ID %d configured for repo "%s" no longer exists — skipping.',
+					$taxonomy,
+					$term_id,
+					$identifier
+				)
+			);
 		}
 	}
 

@@ -69,8 +69,8 @@ class AI_Processor {
 	public function handle( array $entry, array $context ): void {
 		self::$last_error = null;
 
-		$data       = ReleaseData::from_entry( $entry );
-		$cache_key  = Plugin_Constants::TRANSIENT_AI_RESPONSE_PREFIX . md5( $data->identifier . $data->tag );
+		$data      = ReleaseData::from_entry( $entry );
+		$cache_key = Plugin_Constants::TRANSIENT_AI_RESPONSE_PREFIX . md5( $data->identifier . $data->tag );
 
 		// Check response cache — skip API call if we already have a result.
 		// Bypass cache for manual requests (e.g. "Generate draft now", "Regenerate")
@@ -98,10 +98,13 @@ class AI_Processor {
 		$prompt = (string) apply_filters( 'ctbp_generate_prompt', '', $data );
 
 		if ( '' === trim( $prompt ) ) {
-			$this->record_failure( $data, new \WP_Error(
-				'ctbp_empty_prompt',
-				__( 'AI prompt is empty. Check that the prompt builder is configured correctly.', 'changelog-to-blog-post' )
-			) );
+			$this->record_failure(
+				$data,
+				new \WP_Error(
+					'ctbp_empty_prompt',
+					__( 'AI prompt is empty. Check that the prompt builder is configured correctly.', 'changelog-to-blog-post' )
+				)
+			);
 			return;
 		}
 
@@ -134,18 +137,20 @@ class AI_Processor {
 
 		if ( defined( 'WP_DEBUG' ) && WP_DEBUG && defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-			error_log( sprintf(
-				'[CTBP] AI generation failed for %s@%s (%s): %s',
-				$data->identifier,
-				$data->tag,
-				$error->get_error_code(),
-				$error->get_error_message()
-			) );
+			error_log(
+				sprintf(
+					'[CTBP] AI generation failed for %s@%s (%s): %s',
+					$data->identifier,
+					$data->tag,
+					$error->get_error_code(),
+					$error->get_error_message()
+				)
+			);
 		}
 
-		$counts  = (array) get_option( Plugin_Constants::OPTION_AI_FAILURE_COUNTS, [] );
-		$key     = md5( $data->identifier . $data->tag );
-		$count   = (int) ( $counts[ $key ] ?? 0 ) + 1;
+		$counts         = (array) get_option( Plugin_Constants::OPTION_AI_FAILURE_COUNTS, [] );
+		$key            = md5( $data->identifier . $data->tag );
+		$count          = (int) ( $counts[ $key ] ?? 0 ) + 1;
 		$counts[ $key ] = $count;
 		update_option( Plugin_Constants::OPTION_AI_FAILURE_COUNTS, $counts, false );
 
@@ -209,13 +214,16 @@ class AI_Processor {
 
 		$body = sprintf(
 			/* translators: 1: repo identifier, 2: release tag, 3: failure count, 4: error message */
-			__( 'GitHub Release Posts has failed to generate a post for %1$s (%2$s) after %3$d consecutive attempts.
+			__(
+				'GitHub Release Posts has failed to generate a post for %1$s (%2$s) after %3$d consecutive attempts.
 
 Last error: %4$s
 
 This may be caused by an issue with your AI provider configuration, insufficient API credits, or server timeout limits. You can try generating the post manually from Tools → Release Posts, or check your AI provider settings.
 
-This notification will not be sent again for this release unless the issue is resolved and a new failure streak occurs.', 'changelog-to-blog-post' ),
+This notification will not be sent again for this release unless the issue is resolved and a new failure streak occurs.',
+				'changelog-to-blog-post'
+			),
 			$data->identifier,
 			$data->tag,
 			self::FAILURE_THRESHOLD,
