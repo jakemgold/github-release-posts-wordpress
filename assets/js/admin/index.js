@@ -741,7 +741,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 
 			var statusEl = btn.closest( 'td' ).querySelector( '.ctbp-generate-status' );
 			if ( statusEl ) {
-				statusEl.textContent = ctbpAdmin.i18n.generating;
+				statusEl.innerHTML = '<span class="screen-reader-text">' + ctbpAdmin.i18n.generating + '</span>';
 			}
 
 			window.ctbpFetch(
@@ -774,6 +774,10 @@ document.addEventListener( 'DOMContentLoaded', function () {
 							cleanup();
 							if ( conflictDialog ) {
 								conflictDialog.close();
+							}
+							var s = btn.closest( 'td' ).querySelector( '.ctbp-generate-status' );
+							if ( s ) {
+								s.innerHTML = '';
 							}
 							enableRowActions( btn );
 							btn.focus();
