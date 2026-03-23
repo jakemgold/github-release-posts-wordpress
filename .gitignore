@@ -13,6 +13,10 @@
 .vscode/
 *.log
 
+# Planning artifacts
+.spark/
+requirements/
+
 # Test artifacts
 .phpunit.result.cache
 
