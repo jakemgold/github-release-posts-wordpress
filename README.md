@@ -1,8 +1,10 @@
-# GitHub Release Posts
+# GitHub Release Posts for WordPress
 
 **Automatically generate blog posts from GitHub releases using AI.**
 
 A WordPress plugin that monitors GitHub repositories for new releases and uses AI to generate human-readable blog posts from release notes. Posts can be automatically published or held as drafts for review, with email notifications when new posts are ready.
+
+Built by [Jake Goldman](https://www.linkedin.com/in/jacobgoldman/), founder of [10up](https://10up.com), and now a Partner / Advisor at [Fueled](https://fueled.com) since the [merger with 10up](https://fueled.com/blog/fueled-acquires-10up).
 
 ## How it works
 
@@ -116,6 +118,6 @@ vendor/bin/phpcs --standard=phpcs.xml.dist includes/  # WPCS lint
 
 GPL-2.0-or-later. See [LICENSE](https://www.gnu.org/licenses/gpl-2.0.html).
 
-## Credits
+## Like what you see?
 
-Built by [Jake Goldman](https://www.linkedin.com/in/jacobgoldman/), Fueled (formerly 10up).
+<a href="http://10up.com/contact/"><img src="https://github.com/10up/.github/raw/trunk/profile/10up-github-banner.jpg" width="850" alt="Work with the 10up WordPress Practice at Fueled"></a>
