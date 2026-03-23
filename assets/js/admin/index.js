@@ -653,6 +653,36 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	}
 
 	/**
+	 * Disables row action links (Edit, Remove) in the same table row.
+	 */
+	function disableRowActions( btn ) {
+		var row = btn.closest( 'tr' );
+		if ( ! row ) return;
+		row.querySelectorAll( '.row-actions a' ).forEach( function ( link ) {
+			link.dataset.ctbpHref = link.getAttribute( 'href' );
+			link.removeAttribute( 'href' );
+			link.style.pointerEvents = 'none';
+			link.style.opacity = '0.5';
+		} );
+	}
+
+	/**
+	 * Re-enables row action links.
+	 */
+	function enableRowActions( btn ) {
+		var row = btn.closest( 'tr' );
+		if ( ! row ) return;
+		row.querySelectorAll( '.row-actions a' ).forEach( function ( link ) {
+			if ( link.dataset.ctbpHref ) {
+				link.setAttribute( 'href', link.dataset.ctbpHref );
+				delete link.dataset.ctbpHref;
+			}
+			link.style.pointerEvents = '';
+			link.style.opacity = '';
+		} );
+	}
+
+	/**
 	 * Fires the resolve-conflict REST call and handles the response.
 	 *
 	 * @param {HTMLElement} btn        The generate button that triggered the flow.
@@ -670,7 +700,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 		btn.focus();
 
 		btn.disabled = true;
-		btn.textContent = ctbpAdmin.i18n.generating;
+		disableRowActions( btn );
 
 		var spinner = btn.closest( 'td' ).querySelector( '.ctbp-generate-spinner' );
 		if ( spinner ) {
@@ -684,12 +714,12 @@ document.addEventListener( 'DOMContentLoaded', function () {
 			{ post_id: postId },
 			function ( data ) {
 				btn.disabled = false;
-				btn.textContent = ctbpAdmin.i18n.generatePost || 'Generate post';
+				enableRowActions( btn );
 				showGenerateResult( btn, data && data.post, null );
 			},
 			function ( data ) {
 				btn.disabled = false;
-				btn.textContent = ctbpAdmin.i18n.generatePost || 'Generate post';
+				enableRowActions( btn );
 				showGenerateResult( btn, null, ( data && data.message ) || null );
 			}
 		);
@@ -700,7 +730,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 			const repo = btn.dataset.repo;
 
 			btn.disabled = true;
-			btn.textContent = ctbpAdmin.i18n.generating;
+			disableRowActions( btn );
 
 			// Show the adjacent spinner.
 			const spinner = btn.closest( 'td' ).querySelector( '.ctbp-generate-spinner' );
@@ -745,7 +775,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 							if ( conflictDialog ) {
 								conflictDialog.close();
 							}
-							btn.textContent = ctbpAdmin.i18n.generatePost || 'Generate post';
+							enableRowActions( btn );
 							btn.focus();
 						}
 						function cleanup() {
@@ -766,13 +796,13 @@ document.addEventListener( 'DOMContentLoaded', function () {
 						}
 					} else {
 						// Draft created without conflict.
-						btn.textContent = ctbpAdmin.i18n.generatePost || 'Generate post';
+						enableRowActions( btn );
 						showGenerateResult( btn, data && data.post, null );
 					}
 				},
 				function ( data ) {
 					btn.disabled = false;
-					btn.textContent = ctbpAdmin.i18n.generatePost || 'Generate post';
+					enableRowActions( btn );
 					showGenerateResult( btn, null, ( data && data.message ) || null );
 				}
 			);
