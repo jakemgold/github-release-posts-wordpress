@@ -91,10 +91,10 @@ A Release Attribution panel appears in the document sidebar, showing which GitHu
 
 == Screenshots ==
 
-1. Repositories tab
-2. Settings tab
-3. Example generated blog post
-4. Release Attribution panel in the block editor
+1. Repositories tab — monitor multiple GitHub repos with last post version, status, and one-click post generation.
+2. Settings tab — configure your AI provider, API key, audience level, custom prompt instructions, and notifications.
+3. Inline editing — per-repo settings including name, project link, post status, author, categories, tags, and featured image, following the familiar WordPress Quick Edit pattern.
+4. Generated post in the block editor — AI-written content with embedded images, plus the GitHub Release sidebar panel for source attribution and regeneration.
 
 == Changelog ==
 
