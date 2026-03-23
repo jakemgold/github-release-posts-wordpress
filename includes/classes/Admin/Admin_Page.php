@@ -237,6 +237,22 @@ class Admin_Page {
 			]
 		);
 
+		$screen->add_help_tab( [
+			'id'      => 'ctbp-help-troubleshooting',
+			'title'   => __( 'Troubleshooting', 'changelog-to-blog-post' ),
+			'content' => '<h3>' . esc_html__( 'Troubleshooting', 'changelog-to-blog-post' ) . '</h3>'
+				. '<h4>' . esc_html__( 'Post generation fails or times out', 'changelog-to-blog-post' ) . '</h4>'
+				. '<p>' . esc_html__( 'AI generation can take 30–60 seconds for complex releases. If your hosting environment has a short PHP execution time limit, the request may time out before the AI responds. Contact your host about increasing the limit, or try generating again — some releases take longer than others.', 'changelog-to-blog-post' ) . '</p>'
+				. '<h4>' . esc_html__( 'API credits or billing error', 'changelog-to-blog-post' ) . '</h4>'
+				. '<p>' . esc_html__( 'If you see a billing or credits error, verify that your API key was created in the same account where you purchased credits. OpenAI and Anthropic have separate billing systems for different products — ensure credits are loaded for the API, not just a chat subscription.', 'changelog-to-blog-post' ) . '</p>'
+				. '<h4>' . esc_html__( 'Images show "unexpected or invalid content"', 'changelog-to-blog-post' ) . '</h4>'
+				. '<p>' . esc_html__( 'If image blocks show a validation warning in the editor, click "Attempt recovery" — this usually resolves the issue. The plugin rebuilds image blocks from AI output, and minor formatting differences can occasionally trigger this warning.', 'changelog-to-blog-post' ) . '</p>'
+				. '<h4>' . esc_html__( 'Posts are empty or very short', 'changelog-to-blog-post' ) . '</h4>'
+				. '<p>' . esc_html__( 'This usually means the GitHub release has no release notes (just a tag with no body text). The plugin generates content from the release notes — if there are none, the AI has little to work with. Check the release on GitHub to confirm it has a description.', 'changelog-to-blog-post' ) . '</p>'
+				. '<h4>' . esc_html__( 'Scheduled checks are not running', 'changelog-to-blog-post' ) . '</h4>'
+				. '<p>' . esc_html__( 'The plugin relies on WP-Cron, which requires regular site traffic to trigger. On low-traffic sites, consider setting up a real server cron job to call wp-cron.php. Check Tools → Site Health for WP-Cron status.', 'changelog-to-blog-post' ) . '</p>',
+		] );
+
 		$screen->set_help_sidebar(
 			'<p><strong>' . esc_html__( 'For more information:', 'changelog-to-blog-post' ) . '</strong></p>'
 			. '<p>' . esc_html__( 'Posts are generated as native Gutenberg blocks and can be edited in the block editor like any other post.', 'changelog-to-blog-post' ) . '</p>'

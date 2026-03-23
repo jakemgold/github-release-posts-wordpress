@@ -132,6 +132,7 @@ class Repository_List_Table extends \WP_List_Table {
 				'tag'      => get_post_meta( $post->ID, Plugin_Constants::META_RELEASE_TAG, true ),
 				'date'     => get_the_date( 'Y/m/d', $post->ID ),
 				'edit_url' => get_edit_post_link( $post->ID, 'raw' ),
+				'status'   => $post->post_status,
 			];
 		}
 	}
@@ -198,9 +199,13 @@ class Repository_List_Table extends \WP_List_Table {
 	 */
 	protected function column_github( array $item ): string {
 		$identifier = $item['identifier'] ?? '';
+		$releases_url = 'https://github.com/' . $identifier . '/releases';
 		return sprintf(
-			'<code>%s</code>',
-			esc_html( $identifier )
+			'<code>%s</code> <a href="%s" target="_blank" rel="noopener" title="%s"><span class="dashicons dashicons-external" style="font-size:14px;width:14px;height:14px;text-decoration:none;"></span><span class="screen-reader-text">%s</span></a>',
+			esc_html( $identifier ),
+			esc_url( $releases_url ),
+			esc_attr__( 'View releases on GitHub', 'changelog-to-blog-post' ),
+			esc_html__( 'View releases on GitHub', 'changelog-to-blog-post' )
 		);
 	}
 
@@ -245,10 +250,19 @@ class Repository_List_Table extends \WP_List_Table {
 		$data  = $this->last_posts[ $identifier ];
 		$label = $data['tag'] ? $data['tag'] . ' ' . __( 'on', 'changelog-to-blog-post' ) . ' ' . $data['date'] : $data['date'];
 
+		// Show post status for non-published posts.
+		$status_label = '';
+		if ( 'draft' === $data['status'] ) {
+			$status_label = ' <em>(' . esc_html__( 'Draft', 'changelog-to-blog-post' ) . ')</em>';
+		} elseif ( 'pending' === $data['status'] ) {
+			$status_label = ' <em>(' . esc_html__( 'Pending', 'changelog-to-blog-post' ) . ')</em>';
+		}
+
 		return sprintf(
-			'<a href="%s">%s</a>',
+			'<a href="%s">%s</a>%s',
 			esc_url( $data['edit_url'] ),
-			esc_html( $label )
+			esc_html( $label ),
+			$status_label
 		);
 	}
 
