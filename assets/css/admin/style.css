@@ -25,7 +25,11 @@
 }
 
 .wp-list-table .column-last_post {
-	width: 120px;
+	width: 200px;
+}
+
+.wp-list-table .column-status {
+	width: 80px;
 }
 
 .ctbp-generate-spinner {
