@@ -114,10 +114,9 @@ class Plugin {
 	 * @return void
 	 */
 	public function init(): void {
-		// Admin page — always needed in admin for menu registration.
-		if ( is_admin() ) {
-			( new \TenUp\ChangelogToBlogPost\Admin\Admin_Page() )->setup();
-		}
+		// Admin page — registers menu, REST routes, post meta, and editor assets.
+		// Must run outside is_admin() because REST API requests need the routes.
+		( new \TenUp\ChangelogToBlogPost\Admin\Admin_Page() )->setup();
 
 		// Shared instances — reused across the pipeline.
 		$global_settings = new Global_Settings();
