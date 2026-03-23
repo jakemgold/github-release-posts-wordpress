@@ -14,6 +14,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+// phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound -- Template included from admin-page.php.
+
 use TenUp\ChangelogToBlogPost\Admin\Repository_List_Table;
 use TenUp\ChangelogToBlogPost\Settings\Repository_Settings;
 

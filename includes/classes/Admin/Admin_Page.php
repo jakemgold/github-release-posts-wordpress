@@ -486,7 +486,6 @@ class Admin_Page {
 		$action = sanitize_key( $_POST['ctbp_action'] );
 
 		if ( 'repositories' === $action ) {
-			check_admin_referer( 'ctbp_save_repositories', 'ctbp_nonce' );
 			$this->handle_repositories_save();
 		}
 	}
@@ -497,6 +496,8 @@ class Admin_Page {
 	 * @return void
 	 */
 	private function handle_repositories_save(): void {
+		check_admin_referer( 'ctbp_save_repositories', 'ctbp_nonce' );
+
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_die( esc_html__( 'Insufficient permissions.', 'changelog-to-blog-post' ) );
 		}
