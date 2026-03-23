@@ -28,7 +28,20 @@ foreach ( array_keys( Plugin_Constants::get_defaults() ) as $option_key ) {
 	delete_option( $option_key );
 }
 
-// Clean up legacy option keys from earlier plugin versions.
+// Delete per-repo state options (ctbp_repo_state_{hash}).
+global $wpdb;
+$wpdb->query( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+	$wpdb->prepare(
+		"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s",
+		'ctbp_repo_state_%'
+	)
+);
+
+// Clean up deprecated/legacy option keys from earlier plugin versions.
+delete_option( 'ctbp_default_post_status' );
+delete_option( 'ctbp_default_category' );
+delete_option( 'ctbp_default_tags' );
+delete_option( 'ctbp_check_interval' );
 delete_option( 'ctbp_notification_email' );
 delete_option( 'ctbp_notification_email_secondary' );
 delete_option( 'ctbp_notification_trigger' );
@@ -64,8 +77,6 @@ wp_clear_scheduled_hook( Plugin_Constants::CRON_HOOK_RATE_LIMIT_RETRY );
 //    Delete by prefix using a direct database query since WordPress does
 //    not provide a wildcard delete API for transients.
 // -------------------------------------------------------------------------
-global $wpdb;
-
 $wpdb->query( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 	$wpdb->prepare(
 		"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s",

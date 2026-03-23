@@ -54,7 +54,11 @@ class UninstallTest extends TestCase {
 				->once();
 		}
 
-		// Legacy option cleanup.
+		// Legacy/deprecated option cleanup.
+		\WP_Mock::userFunction( 'delete_option' )->with( 'ctbp_default_post_status' )->once();
+		\WP_Mock::userFunction( 'delete_option' )->with( 'ctbp_default_category' )->once();
+		\WP_Mock::userFunction( 'delete_option' )->with( 'ctbp_default_tags' )->once();
+		\WP_Mock::userFunction( 'delete_option' )->with( 'ctbp_check_interval' )->once();
 		\WP_Mock::userFunction( 'delete_option' )->with( 'ctbp_notification_email' )->once();
 		\WP_Mock::userFunction( 'delete_option' )->with( 'ctbp_notification_email_secondary' )->once();
 		\WP_Mock::userFunction( 'delete_option' )->with( 'ctbp_notification_trigger' )->once();

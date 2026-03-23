@@ -233,13 +233,16 @@ class Plugin_Constants {
 			self::OPTION_REPOSITORIES                => [],
 			self::OPTION_AI_PROVIDER                 => '',
 			self::OPTION_AI_API_KEYS                 => [],
+			self::OPTION_AI_CUSTOM_MODELS            => [],
+			self::OPTION_AUDIENCE_LEVEL              => 'mixed',
+			self::OPTION_CUSTOM_PROMPT_INSTRUCTIONS  => '',
+			self::OPTION_AI_DISCLOSURE               => false,
 			self::OPTION_LAST_RUN_AT                 => 0,
 			self::OPTION_NOTIFY_SITE_OWNER           => true,
 			self::OPTION_ADDITIONAL_EMAILS           => '',
 			self::OPTION_GITHUB_PAT                  => '',
 			self::OPTION_RELEASE_QUEUE               => [],
-			self::OPTION_CUSTOM_PROMPT_INSTRUCTIONS  => '',
-			self::OPTION_AI_DISCLOSURE               => false,
+			self::OPTION_AI_FAILURE_COUNTS           => [],
 		];
 	}
 }
