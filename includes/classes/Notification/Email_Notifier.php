@@ -221,7 +221,14 @@ class Email_Notifier {
 
 			$sig_label = ucfirst( $entry['significance'] );
 
-			$lines[] = sprintf( '• %s %s (%s) — %s', $entry['display_name'], $entry['tag'], $sig_label, $status_label );
+			$lines[] = sprintf(
+				/* translators: 1: project display name, 2: version tag, 3: significance level, 4: post status */
+				__( '• %1$s %2$s (%3$s) — %4$s', 'changelog-to-blog-post' ),
+				$entry['display_name'],
+				$entry['tag'],
+				$sig_label,
+				$status_label
+			);
 			$lines[] = sprintf( '  %s: %s', __( 'Edit', 'changelog-to-blog-post' ), $this->get_edit_url( $entry['post_id'] ) );
 
 			if ( 'publish' === $entry['status'] ) {

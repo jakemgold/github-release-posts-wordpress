@@ -19,6 +19,11 @@ use TenUp\ChangelogToBlogPost\Settings\Repository_Settings;
  *
  * Prompt template version: 2.0 (introduced in plugin v1.1.0)
  *
+ * Note: Prompt strings are intentionally kept in English and not wrapped
+ * in __() translation functions. AI language models produce the best
+ * results with English system prompts regardless of the site's locale.
+ * The generated post content respects the site's language context.
+ *
  * @see AI_Processor — fires ctbp_generate_prompt with ReleaseData as 2nd arg.
  */
 class Prompt_Builder {
