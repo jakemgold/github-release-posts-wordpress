@@ -6,7 +6,7 @@
  * Version:           1.0.0
  * Requires at least: 6.9
  * Requires PHP:      8.2
- * Author:            Jake Goldman, Fueled / 10up
+ * Author:            Jake Goldman, Fueled (formerly 10up)
  * Author URI:        https://www.linkedin.com/in/jacobgoldman/
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
