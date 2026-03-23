@@ -203,6 +203,9 @@ class Admin_Page {
 					)
 				. '</li>'
 				. '</ul>'
+				. '<h4>' . esc_html__( 'AI Models', 'changelog-to-blog-post' ) . '</h4>'
+				. '<p>' . esc_html__( 'The plugin uses advanced reasoning models to produce high-quality, editorial blog posts: OpenAI o3 and Anthropic Claude Opus 4.6. These models are slower and more expensive per request than standard models, but produce significantly better writing with more nuanced understanding of release notes.', 'changelog-to-blog-post' ) . '</p>'
+				. '<p>' . esc_html__( 'Developers can override the model via the ctbp_openai_model and ctbp_anthropic_model filters, or set a custom model in the plugin settings. For example, switching to a faster model like GPT-4o or Claude Sonnet will reduce costs and generation time at the expense of output quality.', 'changelog-to-blog-post' ) . '</p>'
 				. '<h4>' . esc_html__( 'Post Audience', 'changelog-to-blog-post' ) . '</h4>'
 				. '<p>' . esc_html__( 'Controls the technical depth of generated posts. "Site owners & managers" avoids all jargon; "Engineering teams" includes hook signatures, code examples, and architecture details.', 'changelog-to-blog-post' ) . '</p>'
 				. '<h4>' . esc_html__( 'Custom Prompt Instructions', 'changelog-to-blog-post' ) . '</h4>'

@@ -290,8 +290,8 @@ class Settings_Page {
 		<select id="<?php echo esc_attr( Plugin_Constants::OPTION_AI_PROVIDER ); ?>" name="<?php echo esc_attr( Plugin_Constants::OPTION_AI_PROVIDER ); ?>">
 			<option value="" <?php selected( $provider, '' ); ?>><?php echo esc_html__( '— Select a provider —', 'changelog-to-blog-post' ); ?></option>
 			<option value="wp_ai_client" <?php selected( $provider, 'wp_ai_client' ); ?>><?php echo esc_html__( 'WordPress AI Services (recommended)', 'changelog-to-blog-post' ); ?></option>
-			<option value="openai" <?php selected( $provider, 'openai' ); ?>><?php echo esc_html__( 'OpenAI', 'changelog-to-blog-post' ); ?></option>
-			<option value="anthropic" <?php selected( $provider, 'anthropic' ); ?>><?php echo esc_html__( 'Anthropic', 'changelog-to-blog-post' ); ?></option>
+			<option value="openai" <?php selected( $provider, 'openai' ); ?>><?php echo esc_html__( 'OpenAI — o3', 'changelog-to-blog-post' ); ?></option>
+			<option value="anthropic" <?php selected( $provider, 'anthropic' ); ?>><?php echo esc_html__( 'Anthropic — Claude Opus 4.6', 'changelog-to-blog-post' ); ?></option>
 		</select>
 		<?php
 	}
