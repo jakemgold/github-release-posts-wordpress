@@ -46,7 +46,7 @@ class Taxonomy_Assigner {
 	 * @param array         $context Generation context flags.
 	 * @return void
 	 */
-	public function handle( int $post_id, GeneratedPost $post, ReleaseData $data, array $context ): void {
+	public function handle( int $post_id, GeneratedPost $post, ReleaseData $data, array $context ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed
 		$terms = $this->resolve_terms( $data->identifier );
 
 		/**

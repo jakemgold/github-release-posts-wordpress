@@ -317,9 +317,9 @@ class Post_Creator {
 		$figure_placeholders = [];
 		$html                = preg_replace_callback(
 			'%<figure[\s>].*?</figure>%si',
-			function ( $match ) use ( &$figure_placeholders ) {
+			function ( $matches ) use ( &$figure_placeholders ) {
 				$key                         = '<!--CTBP_FIGURE_' . count( $figure_placeholders ) . '-->';
-				$figure_placeholders[ $key ] = $match[0];
+				$figure_placeholders[ $key ] = $matches[0];
 				return $key;
 			},
 			$html

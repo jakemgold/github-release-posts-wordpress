@@ -50,11 +50,11 @@ class Prompt_Builder {
 	 *
 	 * Hooked to the ctbp_generate_prompt filter.
 	 *
-	 * @param string      $default Unused default (empty string from AI_Processor).
+	 * @param string      $existing_prompt Unused default (empty string from AI_Processor).
 	 * @param ReleaseData $data    Structured release data.
 	 * @return string The fully assembled prompt.
 	 */
-	public function build( string $default, ReleaseData $data ): string {
+	public function build( string $existing_prompt, ReleaseData $data ): string {
 		$config        = $this->get_repo_config( $data->identifier );
 		$display_name  = $config['display_name'] ?? $this->derive_display_name( $data->identifier );
 		$significance  = $this->significance->classify( $data );

@@ -102,8 +102,8 @@ class Repository_Settings {
 			throw new \InvalidArgumentException(
 				sprintf(
 					/* translators: %s: user-provided repository identifier */
-					__( '"%s" is not a valid GitHub repository. Use owner/repo format or a full GitHub URL.', 'changelog-to-blog-post' ),
-					$input
+					__( '"%s" is not a valid GitHub repository. Use owner/repo format or a full GitHub URL.', 'changelog-to-blog-post' ), // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+					$input // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
 				)
 			);
 		}

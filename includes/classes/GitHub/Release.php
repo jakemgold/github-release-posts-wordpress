@@ -46,7 +46,7 @@ class Release {
 
 		return new self(
 			tag:          $tag,
-			name:         $name !== '' ? $name : $tag,
+			name:         '' !== $name ? $name : $tag,
 			body:         (string) ( $data['body'] ?? '' ),
 			published_at: (string) ( $data['published_at'] ?? '' ),
 			html_url:     (string) ( $data['html_url'] ?? '' ),

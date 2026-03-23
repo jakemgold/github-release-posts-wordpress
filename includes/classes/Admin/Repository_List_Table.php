@@ -150,7 +150,7 @@ class Repository_List_Table extends \WP_List_Table {
 		echo ' data-repo="' . esc_attr( $identifier ) . '"';
 		echo ' data-display-name="' . esc_attr( $item['display_name'] ?? $identifier ) . '"';
 		echo ' data-plugin-link="' . esc_attr( $item['plugin_link'] ?? '' ) . '"';
-		echo ' data-post-status="' . esc_attr( $item['post_status'] ?: 'draft' ) . '"';
+		echo ' data-post-status="' . esc_attr( ! empty( $item['post_status'] ) ? $item['post_status'] : 'draft' ) . '"';
 		echo ' data-categories="' . esc_attr( wp_json_encode( array_map( 'intval', (array) ( $item['categories'] ?? [] ) ) ) ) . '"';
 		echo ' data-tags="' . esc_attr( Admin_Page::tag_ids_to_names( (array) ( $item['tags'] ?? [] ) ) ) . '"';
 		echo ' data-author="' . esc_attr( $item['author'] ?? 0 ) . '"';

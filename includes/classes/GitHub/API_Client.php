@@ -169,7 +169,7 @@ class API_Client {
 
 		set_transient( Plugin_Constants::TRANSIENT_RATE_LIMIT_REMAINING, (int) $remaining, HOUR_IN_SECONDS );
 
-		if ( (int) $remaining === 0 ) {
+		if ( 0 === (int) $remaining ) {
 			// Log as warning — never fatal (AC-011).
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 			error_log( '[changelog-to-blog-post] GitHub API rate limit exhausted. A retry has been scheduled.' );

@@ -745,7 +745,7 @@ class Admin_Page {
 
 		if ( ! empty( $override_key ) && Global_Settings::MASKED_PLACEHOLDER !== $override_key ) {
 			$saved_keys    = get_option( Plugin_Constants::OPTION_AI_API_KEYS );
-			$provider_slug = $override_provider ?: $this->global_settings->get_ai_provider();
+			$provider_slug = ! empty( $override_provider ) ? $override_provider : $this->global_settings->get_ai_provider();
 			$this->global_settings->save_api_keys( [ $provider_slug => $override_key ] );
 		}
 
