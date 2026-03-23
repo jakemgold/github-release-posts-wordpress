@@ -12,3 +12,9 @@
 .idea/
 .vscode/
 *.log
+
+# Test artifacts
+.phpunit.result.cache
+
+# Build artifacts
+changelog-to-blog-post.zip
