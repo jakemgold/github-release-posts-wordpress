@@ -178,7 +178,7 @@ class Post_Creator {
 	 * @param ReleaseData $data Release data.
 	 * @return string Block markup or empty string.
 	 */
-	private function build_disclosure_block( ReleaseData $data ): string {
+	public static function build_disclosure_block( ReleaseData $data ): string {
 		if ( ! get_option( Plugin_Constants::OPTION_AI_DISCLOSURE, false ) ) {
 			return '';
 		}

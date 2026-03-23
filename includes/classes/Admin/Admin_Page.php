@@ -922,8 +922,9 @@ class Admin_Page {
 		$full_title = "{$display_name} {$data->tag} — {$result->title}";
 
 		// Convert HTML to blocks and update the existing post (creates a revision).
-		$block_content = Post_Creator::convert_html_to_blocks( $result->content );
-		$update_args   = [
+		$block_content  = Post_Creator::convert_html_to_blocks( $result->content );
+		$block_content .= Post_Creator::build_disclosure_block( $data );
+		$update_args    = [
 			'ID'           => $post_id,
 			'post_title'   => $full_title,
 			'post_content' => $block_content,
