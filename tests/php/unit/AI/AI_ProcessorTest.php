@@ -105,6 +105,14 @@ class AI_ProcessorTest extends TestCase {
 			->once()
 			->with( 'ctbp_ai_failure_notice', \WP_Mock\Functions::type( 'array' ), DAY_IN_SECONDS );
 
+		// send_failure_email() calls get_option('admin_email', '') and get_option for additional emails.
+		\WP_Mock::userFunction( 'get_option' )
+			->with( 'admin_email', '' )
+			->andReturn( '' );
+		\WP_Mock::userFunction( 'get_option' )
+			->with( Plugin_Constants::OPTION_ADDITIONAL_EMAILS, '' )
+			->andReturn( '' );
+
 		$this->processor->handle( $this->base_entry, [] );
 
 		$this->assertConditionsMet();
@@ -123,8 +131,10 @@ class AI_ProcessorTest extends TestCase {
 		$this->provider->method( 'get_slug' )->willReturn( 'anthropic' );
 		$this->factory->method( 'get_provider' )->willReturn( $this->provider );
 
-		// Let the prompt filter pass through (returns '' from default).
-		// The test verifies caching and failure counts, not prompt content.
+		// The prompt filter must return a non-empty string for generation to proceed.
+		\WP_Mock::onFilter( 'ctbp_generate_prompt' )
+			->withAnyArgs()
+			->reply( 'Test prompt content' );
 
 		// Cache should be set with 4h TTL.
 		\WP_Mock::userFunction( 'set_transient' )

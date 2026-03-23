@@ -41,6 +41,10 @@ class Global_SettingsTest extends TestCase {
 	 * encrypt() then decrypt() returns the original plaintext.
 	 */
 	public function test_encrypt_decrypt_round_trip(): void {
+		if ( ! defined( 'AUTH_KEY' ) ) {
+			define( 'AUTH_KEY', 'test-key-for-unit-tests' );
+		}
+
 		$settings   = new Global_Settings();
 		$original   = 'sk-test-api-key-12345';
 		$encrypted  = $settings->encrypt( $original );

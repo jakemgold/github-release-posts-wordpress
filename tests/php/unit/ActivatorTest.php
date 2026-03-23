@@ -68,7 +68,7 @@ class ActivatorTest extends TestCase {
 
 		foreach ( $defaults as $key => $value ) {
 			\WP_Mock::userFunction( 'add_option' )
-				->with( $key, $value )
+				->with( $key, $value, '', false )
 				->once();
 		}
 

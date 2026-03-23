@@ -41,7 +41,9 @@ class Admin_PageTest extends TestCase {
 		\WP_Mock::expectActionAdded( 'admin_enqueue_scripts', [ $page, 'enqueue_assets' ] );
 		\WP_Mock::expectActionAdded( 'enqueue_block_editor_assets', [ $page, 'enqueue_editor_assets' ] );
 		\WP_Mock::expectActionAdded( 'rest_api_init', [ $page, 'register_rest_routes' ] );
-		\WP_Mock::expectActionAdded( 'init', [ $page, 'register_post_meta' ] );
+
+		// register_post_meta() is called directly in setup(), not hooked to init.
+		\WP_Mock::userFunction( 'register_post_meta' )->andReturn( true );
 
 		$page->setup();
 
@@ -81,6 +83,7 @@ class Admin_PageTest extends TestCase {
 		\WP_Mock::userFunction( 'admin_url' )->andReturn( 'http://example.com/wp-admin/admin-ajax.php' );
 		\WP_Mock::userFunction( 'get_rest_url' )->andReturn( 'https://example.com/wp-json/' );
 		\WP_Mock::userFunction( '__' )->andReturnArg( 0 );
+		\WP_Mock::userFunction( 'wp_enqueue_media' )->once();
 
 		// Use reflection to set the private page_hook property.
 		$page = new Admin_Page();

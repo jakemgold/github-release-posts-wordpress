@@ -48,6 +48,23 @@ class Post_CreatorTest extends TestCase {
 			$post->post_content = '<!-- wp:paragraph --><p>Post body here.</p><!-- /wp:paragraph -->';
 			return $post;
 		} )->byDefault();
+
+		// build_disclosure_block() checks the AI disclosure option.
+		\WP_Mock::userFunction( 'get_option' )
+			->with( Plugin_Constants::OPTION_AI_DISCLOSURE, false )
+			->andReturn( false )
+			->byDefault();
+
+		// resolve_author() calls get_userdata() and get_users().
+		\WP_Mock::userFunction( 'get_userdata' )->andReturn( false )->byDefault();
+		\WP_Mock::userFunction( 'get_users' )->andReturn( [ 1 ] )->byDefault();
+
+		// set_featured_image() calls apply_filters() and set_post_thumbnail().
+		\WP_Mock::userFunction( 'apply_filters' )->andReturnUsing( function () {
+			$args = func_get_args();
+			return $args[1] ?? '';
+		} )->byDefault();
+		\WP_Mock::userFunction( 'set_post_thumbnail' )->andReturn( true )->byDefault();
 	}
 
 	public function tearDown(): void {

@@ -173,7 +173,7 @@ $this->significance->shouldReceive( 'classify' )->andReturn( 'minor' );
 
 		$result = $this->builder->build( '', $data );
 
-		$this->assertStringContainsString( 'Image suggestion', $result );
+		$this->assertStringContainsString( 'Do not include any image placeholders or suggestions.', $result );
 	}
 
 	public function test_build_includes_actual_images_when_present(): void {
