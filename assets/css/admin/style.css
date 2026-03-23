@@ -184,6 +184,8 @@
 }
 
 #ctbp-connection-result {
+	display: inline-block;
 	margin-left: 4px;
 	vertical-align: middle;
+	line-height: 28px;
 }
