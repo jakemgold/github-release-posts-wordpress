@@ -358,8 +358,10 @@ TITLE INSTRUCTIONS:
 
 RESPONSE FORMAT:
 - Line 1: Your subtitle ONLY (not the full title — just the subtitle portion).
-- Line 2: Blank line.
-- Line 3 onwards: The post body formatted as HTML.
+- Line 2: Slug keywords — 3 to 5 lowercase hyphenated words capturing the most important topics in this release. These will be appended to the project name and version in the URL. Example: "ai-usage-tracking-security" or "block-editor-performance". Do NOT include the project name or version number.
+- Line 3: Post excerpt — a compelling 150–160 character summary suitable as a meta description. Write it as a standalone sentence that makes sense out of context and encourages clicks from search results.
+- Line 4: Blank line.
+- Line 5 onwards: The post body formatted as HTML.
 
 Use HTML tags for formatting: <p>, <ul>, <li>, <ol>, <strong>, <em>, <h2>, <h3>.
 Do NOT use Markdown. Do NOT include an <h1> or full post title in the body.

@@ -213,7 +213,9 @@ class Admin_Page {
 				. '<h4>' . esc_html__( 'AI Disclosure', 'changelog-to-blog-post' ) . '</h4>'
 				. '<p>' . esc_html__( 'When enabled, the following note is appended to the end of each generated post in small italic text:', 'changelog-to-blog-post' ) . '</p>'
 				. '<blockquote><em>' . esc_html__( 'This post was generated from release notes with the help of AI using GitHub Release Posts plugin for WordPress.', 'changelog-to-blog-post' ) . '</em></blockquote>'
-				. '<p>' . esc_html__( 'This text is part of the post content and can be edited or removed. Developers can customize it with the ctbp_ai_disclosure_text filter.', 'changelog-to-blog-post' ) . '</p>',
+				. '<p>' . esc_html__( 'This text is part of the post content and can be edited or removed. Developers can customize it with the ctbp_ai_disclosure_text filter.', 'changelog-to-blog-post' ) . '</p>'
+				. '<h4>' . esc_html__( 'SEO: Excerpts & Slugs', 'changelog-to-blog-post' ) . '</h4>'
+				. '<p>' . esc_html__( 'Each generated post includes an AI-written excerpt (150–160 characters, optimized as a meta description) and an SEO-friendly URL slug based on the project name, version, and key topics. Published posts keep their existing slug when regenerated to preserve live URLs.', 'changelog-to-blog-post' ) . '</p>',
 			]
 		);
 
@@ -921,14 +923,29 @@ class Admin_Page {
 
 		// Convert HTML to blocks and update the existing post (creates a revision).
 		$block_content = Post_Creator::convert_html_to_blocks( $result->content );
-		$update_result = wp_update_post(
-			[
-				'ID'           => $post_id,
-				'post_title'   => $full_title,
-				'post_content' => $block_content,
-			],
-			true
-		);
+		$update_args   = [
+			'ID'           => $post_id,
+			'post_title'   => $full_title,
+			'post_content' => $block_content,
+		];
+
+		// Always update the excerpt.
+		if ( '' !== $result->excerpt ) {
+			$update_args['post_excerpt'] = $result->excerpt;
+		}
+
+		// Only update the slug if the post is not yet published (preserve live URLs).
+		if ( '' !== $result->slug_keywords && ! in_array( $post->post_status, [ 'publish', 'private' ], true ) ) {
+			$repo_config  = $this->repo_settings->get_repository( $identifier );
+			$display_name = ! empty( $repo_config['display_name'] )
+				? (string) $repo_config['display_name']
+				: $this->repo_settings->derive_display_name( explode( '/', $identifier )[1] ?? $identifier );
+			$version      = strtolower( ltrim( $data->tag, 'vV' ) );
+			$version      = str_replace( '.', '-', $version );
+			$update_args['post_name'] = sanitize_title( $display_name . '-' . $version . '-' . $result->slug_keywords );
+		}
+
+		$update_result = wp_update_post( $update_args, true );
 
 		if ( is_wp_error( $update_result ) ) {
 			return new \WP_Error(

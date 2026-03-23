@@ -31,6 +31,7 @@ You can also generate a post on demand at any time from the Repositories tab.
   * **OpenAI** — direct API key connection
   * **Anthropic** — direct API key connection
 * Significance-aware content — patch, minor, major, and security releases get tailored tone and structure
+* SEO-friendly post slugs and excerpts generated automatically by AI
 * Configurable publish/draft workflow with per-repository overrides
 * Per-repository post defaults (categories, tags, post status)
 * Custom prompt instructions to guide AI writing style, tone, and voice

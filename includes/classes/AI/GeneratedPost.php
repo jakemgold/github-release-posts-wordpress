@@ -15,21 +15,31 @@ readonly class GeneratedPost {
 	/**
 	 * Constructor.
 	 *
-	 * @param string $title         Generated post title.
-	 * @param string $content       Generated post body (HTML).
-	 * @param string $provider_slug Provider slug that produced this post (e.g. 'openai').
+	 * @param string $title          Generated post subtitle.
+	 * @param string $content        Generated post body (HTML).
+	 * @param string $provider_slug  Provider slug that produced this post (e.g. 'openai').
+	 * @param string $slug_keywords  Hyphenated slug keywords (e.g. 'ai-usage-tracking-security').
+	 * @param string $excerpt        Post excerpt / meta description (150-160 chars).
 	 */
 	public function __construct(
 		public string $title,
 		public string $content,
 		public string $provider_slug,
+		public string $slug_keywords = '',
+		public string $excerpt = '',
 	) {}
 
 	/**
 	 * Parses a raw AI response into a GeneratedPost.
 	 *
-	 * Expected format: line 1 = subtitle, blank line, then HTML body.
-	 * Falls back to a generic title if the subtitle line is empty.
+	 * Expected format:
+	 *   Line 1: subtitle
+	 *   Line 2: slug keywords
+	 *   Line 3: excerpt
+	 *   Line 4: blank
+	 *   Line 5+: HTML body
+	 *
+	 * Falls back gracefully if slug/excerpt lines are missing.
 	 *
 	 * @param string      $raw           Raw text response from the AI provider.
 	 * @param ReleaseData $data          Source release data (for fallback title).
@@ -38,9 +48,34 @@ readonly class GeneratedPost {
 	 */
 	public static function from_raw_text( string $raw, ReleaseData $data, string $provider_slug ): self {
 		$raw   = trim( $raw );
-		$parts = explode( "\n", $raw, 2 );
-		$title = trim( $parts[0] ?? '' );
-		$body  = trim( $parts[1] ?? '' );
+		$lines = explode( "\n", $raw );
+
+		$title         = trim( $lines[0] ?? '' );
+		$slug_keywords = trim( $lines[1] ?? '' );
+		$excerpt       = trim( $lines[2] ?? '' );
+
+		// Find the body — skip blank lines after the metadata lines.
+		$body_start = 3;
+		while ( isset( $lines[ $body_start ] ) && '' === trim( $lines[ $body_start ] ) ) {
+			$body_start++;
+		}
+		$body = trim( implode( "\n", array_slice( $lines, $body_start ) ) );
+
+		// Validate slug keywords — should be lowercase hyphenated words, no HTML.
+		if ( preg_match( '/</', $slug_keywords ) || strlen( $slug_keywords ) > 80 ) {
+			// AI returned HTML or something too long — likely body content shifted up.
+			// Fall back: treat lines 2+ as body.
+			$body          = trim( implode( "\n", array_slice( $lines, 1 ) ) );
+			$slug_keywords = '';
+			$excerpt       = '';
+		}
+
+		// Validate excerpt — should be plain text, not HTML tags.
+		if ( preg_match( '/^<[a-z]/', $excerpt ) ) {
+			// Excerpt looks like HTML body — shift down.
+			$body    = trim( $excerpt . "\n" . $body );
+			$excerpt = '';
+		}
 
 		if ( '' === $title ) {
 			$title = sprintf(
@@ -55,6 +90,8 @@ readonly class GeneratedPost {
 			title:         $title,
 			content:       $body,
 			provider_slug: $provider_slug,
+			slug_keywords: $slug_keywords,
+			excerpt:       $excerpt,
 		);
 	}
 }

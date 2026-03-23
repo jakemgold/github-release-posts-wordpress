@@ -73,16 +73,25 @@ class Post_Creator {
 		$block_content  = $this->convert_html_to_blocks( $post->content );
 		$block_content .= $this->build_disclosure_block( $data );
 		$author_id      = $this->resolve_author( $data->identifier );
-		$post_id        = wp_insert_post(
-			[
-				'post_title'   => $title,
-				'post_content' => $block_content,
-				'post_status'  => 'draft',
-				'post_type'    => 'post',
-				'post_author'  => $author_id,
-			],
-			true
-		);
+		$slug           = $this->build_slug( $data->identifier, $data->tag, $post->slug_keywords );
+
+		$insert_args = [
+			'post_title'   => $title,
+			'post_content' => $block_content,
+			'post_status'  => 'draft',
+			'post_type'    => 'post',
+			'post_author'  => $author_id,
+		];
+
+		if ( '' !== $post->excerpt ) {
+			$insert_args['post_excerpt'] = $post->excerpt;
+		}
+
+		if ( '' !== $slug ) {
+			$insert_args['post_name'] = $slug;
+		}
+
+		$post_id = wp_insert_post( $insert_args, true );
 
 		if ( is_wp_error( $post_id ) ) {
 			if ( defined( 'WP_DEBUG' ) && WP_DEBUG && defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
@@ -279,6 +288,33 @@ class Post_Creator {
 		$display_name = $this->resolve_display_name( $identifier );
 		$tag          = self::format_version_tag( $tag );
 		return "{$display_name} {$tag} — {$subtitle}";
+	}
+
+	/**
+	 * Builds an SEO-friendly post slug from the display name, version tag,
+	 * and AI-generated slug keywords.
+	 *
+	 * Example: "ClassifAI", "v3.8.0", "ai-usage-tracking-security"
+	 *       → "classifai-3-8-0-ai-usage-tracking-security"
+	 *
+	 * @param string $identifier    Repository identifier (owner/repo).
+	 * @param string $tag           Release tag.
+	 * @param string $slug_keywords AI-generated slug keywords.
+	 * @return string Sanitized slug, or empty string if no keywords.
+	 */
+	private function build_slug( string $identifier, string $tag, string $slug_keywords ): string {
+		if ( '' === $slug_keywords ) {
+			return '';
+		}
+
+		$display_name = $this->resolve_display_name( $identifier );
+
+		// Strip 'v' prefix and dots → hyphens for the version.
+		$version = strtolower( ltrim( $tag, 'vV' ) );
+		$version = str_replace( '.', '-', $version );
+
+		$raw_slug = $display_name . '-' . $version . '-' . $slug_keywords;
+		return sanitize_title( $raw_slug );
 	}
 
 	/**

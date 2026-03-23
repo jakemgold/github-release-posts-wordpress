@@ -71,6 +71,7 @@ rsync -av --delete \
 - **Regeneration creates revisions** — no replace/duplicate pattern. Both the repo table "Generate post" button and the editor "Regenerate" button use the same `/releases/regenerate` REST endpoint.
 - **AI connectors**: OpenAI (o3), Anthropic (claude-opus-4-6), WordPress AI Services. 120s timeout with timeout detection.
 - **Image blocks rebuilt from scratch** — AI HTML is parsed for src/alt/figcaption, then reconstructed as exact Gutenberg `wp:image` block markup to pass validation.
+- **AI-generated excerpt and slug** — the AI returns slug keywords and a meta description alongside the post content. Post slug combines display name + version + keywords. Published posts preserve their slug on regeneration.
 
 ### Assets (`assets/`)
 - Source: `assets/js/admin/index.js`, `assets/js/editor/index.js`, `assets/css/admin/style.css`
