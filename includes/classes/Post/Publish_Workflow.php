@@ -26,8 +26,9 @@ class Publish_Workflow {
 	const TRANSIENT_CRON_RESULTS = Plugin_Constants::TRANSIENT_CRON_RESULTS;
 
 	/**
-	 * @param Repository_Settings $repo_settings   Per-repo configuration.
-	 * @param Global_Settings     $global_settings Global defaults.
+	 * Constructor.
+	 *
+	 * @param Repository_Settings $repo_settings Per-repo configuration.
 	 */
 	public function __construct(
 		private readonly Repository_Settings $repo_settings,

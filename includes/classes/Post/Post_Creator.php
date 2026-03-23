@@ -20,6 +20,8 @@ use TenUp\ChangelogToBlogPost\Settings\Repository_Settings;
 class Post_Creator {
 
 	/**
+	 * Constructor.
+	 *
 	 * @param Repository_Settings $repo_settings Per-repo configuration (display name lookup).
 	 */
 	public function __construct(

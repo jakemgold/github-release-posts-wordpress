@@ -13,13 +13,15 @@ namespace TenUp\ChangelogToBlogPost\AI;
 readonly class ReleaseData {
 
 	/**
-	 * @param string $identifier  Repository identifier (owner/repo).
-	 * @param string $tag         Release tag (e.g. 'v2.3.1').
-	 * @param string $name        Release name.
-	 * @param string $body        Raw changelog body (Markdown).
-	 * @param string $html_url    URL to the release page on GitHub.
+	 * Constructor.
+	 *
+	 * @param string $identifier   Repository identifier (owner/repo).
+	 * @param string $tag          Release tag (e.g. 'v2.3.1').
+	 * @param string $name         Release name.
+	 * @param string $body         Raw changelog body (Markdown).
+	 * @param string $html_url     URL to the release page on GitHub.
 	 * @param string $published_at ISO 8601 publish timestamp.
-	 * @param array  $assets      Release asset list.
+	 * @param array  $assets       Release asset list.
 	 */
 	public function __construct(
 		public string $identifier,

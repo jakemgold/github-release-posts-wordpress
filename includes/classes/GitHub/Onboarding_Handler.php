@@ -17,6 +17,8 @@ namespace TenUp\ChangelogToBlogPost\GitHub;
 class Onboarding_Handler {
 
 	/**
+	 * Constructor.
+	 *
 	 * @param API_Client    $api_client GitHub HTTP client.
 	 * @param Release_State $state      Per-repo state storage.
 	 */

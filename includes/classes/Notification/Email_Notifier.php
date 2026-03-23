@@ -36,6 +36,8 @@ class Email_Notifier {
 	private bool $shutdown_registered = false;
 
 	/**
+	 * Constructor.
+	 *
 	 * @param Global_Settings      $global_settings Global settings (notification prefs).
 	 * @param Release_Significance $significance    Significance classifier for email body.
 	 * @param Repository_Settings  $repo_settings   Per-repo config (display name lookup).

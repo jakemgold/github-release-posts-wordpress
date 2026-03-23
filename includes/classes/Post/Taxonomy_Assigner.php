@@ -20,8 +20,9 @@ use TenUp\ChangelogToBlogPost\Settings\Repository_Settings;
 class Taxonomy_Assigner {
 
 	/**
-	 * @param Repository_Settings $repo_settings   Per-repo configuration.
-	 * @param Global_Settings     $global_settings Global defaults.
+	 * Constructor.
+	 *
+	 * @param Repository_Settings $repo_settings Per-repo configuration.
 	 */
 	public function __construct(
 		private readonly Repository_Settings $repo_settings,

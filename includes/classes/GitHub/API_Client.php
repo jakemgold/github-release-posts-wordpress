@@ -25,6 +25,8 @@ class API_Client {
 	const API_BASE = 'https://api.github.com';
 
 	/**
+	 * Constructor.
+	 *
 	 * @param Global_Settings $settings Plugin settings service (provides PAT and version).
 	 */
 	public function __construct(

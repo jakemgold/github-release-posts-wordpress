@@ -24,10 +24,12 @@ use TenUp\ChangelogToBlogPost\Settings\Repository_Settings;
 class Release_Monitor {
 
 	/**
-	 * @param API_Client          $api_client   GitHub HTTP client.
-	 * @param Release_State       $state        Per-repo state storage.
-	 * @param Version_Comparator  $comparator   Release comparison logic.
-	 * @param Release_Queue       $queue        In-process release queue.
+	 * Constructor.
+	 *
+	 * @param API_Client          $api_client    GitHub HTTP client.
+	 * @param Release_State       $state         Per-repo state storage.
+	 * @param Version_Comparator  $comparator    Release comparison logic.
+	 * @param Release_Queue       $queue         In-process release queue.
 	 * @param Repository_Settings $repo_settings Tracked repository list.
 	 */
 	public function __construct(

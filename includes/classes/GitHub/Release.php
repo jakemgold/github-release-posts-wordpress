@@ -16,6 +16,8 @@ namespace TenUp\ChangelogToBlogPost\GitHub;
 class Release {
 
 	/**
+	 * Constructor.
+	 *
 	 * @param string  $tag          The release tag (e.g. 'v2.3.1').
 	 * @param string  $name         The release title.
 	 * @param string  $body         The release notes / changelog body.

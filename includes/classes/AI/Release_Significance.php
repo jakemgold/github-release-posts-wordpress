@@ -76,7 +76,7 @@ class Release_Significance {
 	/**
 	 * Performs the actual significance detection without the filter.
 	 *
-	 * @param ReleaseData $data
+	 * @param ReleaseData $data Structured release data to classify.
 	 * @return string
 	 */
 	private function detect_significance( ReleaseData $data ): string {

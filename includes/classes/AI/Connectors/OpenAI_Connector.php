@@ -32,6 +32,8 @@ class OpenAI_Connector implements AIProviderInterface {
 	const API_ENDPOINT = 'https://api.openai.com/v1/chat/completions';
 
 	/**
+	 * Constructor.
+	 *
 	 * @param Global_Settings $settings Plugin settings service.
 	 */
 	public function __construct( private readonly Global_Settings $settings ) {}
@@ -83,6 +85,9 @@ class OpenAI_Connector implements AIProviderInterface {
 
 	/**
 	 * {@inheritDoc}
+	 *
+	 * @param ReleaseData $data   Structured release data.
+	 * @param string      $prompt Fully assembled prompt string.
 	 */
 	public function generate_post( ReleaseData $data, string $prompt ): GeneratedPost|\WP_Error {
 		$key = $this->get_api_key();
@@ -182,7 +187,7 @@ class OpenAI_Connector implements AIProviderInterface {
 	/**
 	 * Checks a wp_remote_* response for transport or HTTP errors.
 	 *
-	 * @param array|\WP_Error $response
+	 * @param array|\WP_Error $response The wp_remote_* response or WP_Error on transport failure.
 	 * @return true|\WP_Error
 	 */
 	private function check_response_error( array|\WP_Error $response ): true|\WP_Error {

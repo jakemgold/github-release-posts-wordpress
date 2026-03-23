@@ -85,11 +85,15 @@ class Plugin_Constants {
 	const OPTION_AUDIENCE_LEVEL = 'ctbp_audience_level';
 
 	/**
+	 * Legacy notification trigger option key.
+	 *
 	 * @deprecated Use OPTION_NOTIFY_SITE_OWNER and OPTION_ADDITIONAL_EMAILS instead.
 	 */
 	const OPTION_NOTIFICATION_TRIGGER = 'ctbp_notification_trigger';
 
 	/**
+	 * Legacy notifications enabled option key.
+	 *
 	 * @deprecated Use OPTION_NOTIFY_SITE_OWNER instead.
 	 */
 	const OPTION_NOTIFICATIONS_ENABLED = 'ctbp_notifications_enabled';

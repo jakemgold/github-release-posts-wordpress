@@ -67,6 +67,9 @@ class WP_AI_Client_Connector implements AIProviderInterface {
 
 	/**
 	 * {@inheritDoc}
+	 *
+	 * @param ReleaseData $data   Structured release data.
+	 * @param string      $prompt Fully assembled prompt string.
 	 */
 	public function generate_post( ReleaseData $data, string $prompt ): GeneratedPost|\WP_Error {
 		if ( ! $this->is_available() ) {

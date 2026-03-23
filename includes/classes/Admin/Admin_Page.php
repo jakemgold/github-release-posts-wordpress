@@ -165,22 +165,22 @@ class Admin_Page {
 				. '<p>' . esc_html__( 'The plugin supports three AI providers:', 'changelog-to-blog-post' ) . '</p>'
 				. '<ul>'
 				. '<li><strong>' . esc_html__( 'WordPress AI Services', 'changelog-to-blog-post' ) . '</strong> — '
-					/* translators: %s: link to AI Services plugin documentation */
 					. sprintf(
+						/* translators: %s: link to AI Services plugin documentation */
 						esc_html__( 'Uses %s to manage API keys centrally. Recommended if you use AI features across multiple plugins.', 'changelog-to-blog-post' ),
 						'<a href="https://developer.wordpress.org/plugins/ai-services/" target="_blank" rel="noopener">' . esc_html__( 'the AI Services plugin', 'changelog-to-blog-post' ) . '</a>'
 					)
 				. '</li>'
 				. '<li><strong>' . esc_html__( 'OpenAI', 'changelog-to-blog-post' ) . '</strong> — '
-					/* translators: %s: link to OpenAI API keys page */
 					. sprintf(
+						/* translators: %s: link to OpenAI API keys page */
 						esc_html__( 'Direct integration with OpenAI. %s.', 'changelog-to-blog-post' ),
 						'<a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">' . esc_html__( 'Requires an API key', 'changelog-to-blog-post' ) . '</a>'
 					)
 				. '</li>'
 				. '<li><strong>' . esc_html__( 'Anthropic', 'changelog-to-blog-post' ) . '</strong> — '
-					/* translators: %s: link to Anthropic API keys page */
 					. sprintf(
+						/* translators: %s: link to Anthropic API keys page */
 						esc_html__( 'Direct integration with Anthropic (Claude). %s.', 'changelog-to-blog-post' ),
 						'<a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">' . esc_html__( 'Requires an API key', 'changelog-to-blog-post' ) . '</a>'
 					)
@@ -207,8 +207,8 @@ class Admin_Page {
 				. '<h4>' . esc_html__( 'Creating a Token', 'changelog-to-blog-post' ) . '</h4>'
 				. '<ol>'
 				. '<li>'
-					/* translators: %s: link to GitHub token settings */
 					. sprintf(
+						/* translators: %s: link to GitHub token settings */
 						esc_html__( 'Visit %s on GitHub.', 'changelog-to-blog-post' ),
 						'<a href="https://github.com/settings/tokens" target="_blank" rel="noopener">' . esc_html__( 'Settings &rarr; Personal access tokens', 'changelog-to-blog-post' ) . '</a>'
 					)
@@ -644,7 +644,7 @@ class Admin_Page {
 	 * Returns conflict data when a post already exists for the tag (BR-003),
 	 * otherwise fires ctbp_process_release and returns the created post.
 	 *
-	 * @param \WP_REST_Request $request
+	 * @param \WP_REST_Request $request REST request containing the repo identifier.
 	 * @return \WP_REST_Response|\WP_Error
 	 */
 	public function rest_generate_draft( \WP_REST_Request $request ): \WP_REST_Response|\WP_Error {
@@ -727,7 +727,7 @@ class Admin_Page {
 	/**
 	 * REST handler: tests the active AI provider connection.
 	 *
-	 * @param \WP_REST_Request $request
+	 * @param \WP_REST_Request $request REST request with optional provider and api_key overrides.
 	 * @return \WP_REST_Response|\WP_Error
 	 */
 	public function rest_test_ai_connection( \WP_REST_Request $request ): \WP_REST_Response|\WP_Error {
@@ -793,7 +793,7 @@ class Admin_Page {
 	/**
 	 * REST handler: validates a plugin link (URL or WP.org slug).
 	 *
-	 * @param \WP_REST_Request $request
+	 * @param \WP_REST_Request $request REST request containing the plugin link value.
 	 * @return \WP_REST_Response
 	 */
 	public function rest_validate_plugin_link( \WP_REST_Request $request ): \WP_REST_Response {
@@ -807,7 +807,7 @@ class Admin_Page {
 	 * Re-fetches the release from GitHub, re-runs AI generation with optional
 	 * user feedback appended to the prompt, and updates the post content.
 	 *
-	 * @param \WP_REST_Request $request
+	 * @param \WP_REST_Request $request REST request with post_id and optional feedback.
 	 * @return \WP_REST_Response|\WP_Error
 	 */
 	public function rest_regenerate_post( \WP_REST_Request $request ): \WP_REST_Response|\WP_Error {

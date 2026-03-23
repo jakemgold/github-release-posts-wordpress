@@ -25,6 +25,8 @@ class Release_Enricher {
 	const MAX_REFERENCES = 10;
 
 	/**
+	 * Constructor.
+	 *
 	 * @param API_Client $api_client GitHub API client.
 	 */
 	public function __construct(

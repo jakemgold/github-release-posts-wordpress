@@ -24,8 +24,10 @@ use TenUp\ChangelogToBlogPost\Settings\Repository_Settings;
 class Prompt_Builder {
 
 	/**
+	 * Constructor.
+	 *
 	 * @param Repository_Settings  $repo_settings   Per-repo configuration service.
-	 * @param Release_Significance $significance   Release significance classifier.
+	 * @param Release_Significance $significance    Release significance classifier.
 	 * @param Global_Settings      $global_settings Global settings (custom prompt instructions).
 	 */
 	public function __construct(
@@ -163,6 +165,7 @@ EOT;
 	 * @param string[] $images         Image URLs extracted from the release body.
 	 * @param string   $download_link  Resolved download / changelog link (custom URL or WP.org or GitHub).
 	 * @param string   $changelog_url  GitHub release URL (always points to the full changelog).
+	 * @param string   $display_name   Plugin display name for link text.
 	 * @param string   $audience_level One of: 'general', 'mixed', 'developer', 'engineering'.
 	 * @return string
 	 */
@@ -302,13 +305,13 @@ EOT
 	/**
 	 * Assembles the full prompt string from its components.
 	 *
-	 * @param string $display_name
-	 * @param string $tag
-	 * @param string $significance
-	 * @param string $body
-	 * @param string $title_guidance
-	 * @param string $content_guidance
-	 * @param string $custom_instructions
+	 * @param string $display_name       Plugin display name.
+	 * @param string $tag                Release tag.
+	 * @param string $significance       Classified significance level.
+	 * @param string $body               Release body text.
+	 * @param string $title_guidance     Title guidance instructions.
+	 * @param string $content_guidance   Content guidance instructions.
+	 * @param string $custom_instructions Custom prompt instructions from settings.
 	 * @return string
 	 */
 	private function assemble_prompt(
@@ -372,7 +375,7 @@ EOT;
 	/**
 	 * Returns the per-repo configuration for a given identifier.
 	 *
-	 * @param string $identifier owner/repo
+	 * @param string $identifier Repository identifier (owner/repo).
 	 * @return array<string, mixed> Repo config array, or empty array if not found.
 	 */
 	private function get_repo_config( string $identifier ): array {
@@ -438,12 +441,12 @@ EOT;
 	public function extract_images( string $body ): array {
 		$urls = [];
 
-		// Markdown image syntax: ![alt text](url)
+		// Markdown image syntax: ![alt text](url).
 		if ( preg_match_all( '/!\[.*?\]\((https?:\/\/[^)]+)\)/', $body, $matches ) ) {
 			$urls = array_merge( $urls, $matches[1] );
 		}
 
-		// HTML img tags: <img src="url" ...>
+		// HTML img tags: <img src="url" ...>.
 		if ( preg_match_all( '/<img[^>]+src=["\']?(https?:\/\/[^"\'>\s]+)["\']?/i', $body, $matches ) ) {
 			$urls = array_merge( $urls, $matches[1] );
 		}
@@ -454,7 +457,7 @@ EOT;
 	/**
 	 * Derives a display name from a repo identifier when no display name is configured.
 	 *
-	 * @param string $identifier owner/repo
+	 * @param string $identifier Repository identifier (owner/repo).
 	 * @return string
 	 */
 	private function derive_display_name( string $identifier ): string {

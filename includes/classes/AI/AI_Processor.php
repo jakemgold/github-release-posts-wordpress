@@ -35,6 +35,8 @@ class AI_Processor {
 	private static ?\WP_Error $last_error = null;
 
 	/**
+	 * Constructor.
+	 *
 	 * @param AI_Provider_Factory $factory Provider factory.
 	 */
 	public function __construct( private readonly AI_Provider_Factory $factory ) {}

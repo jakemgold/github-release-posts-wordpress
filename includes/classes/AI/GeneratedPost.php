@@ -13,6 +13,8 @@ namespace TenUp\ChangelogToBlogPost\AI;
 readonly class GeneratedPost {
 
 	/**
+	 * Constructor.
+	 *
 	 * @param string $title         Generated post title.
 	 * @param string $content       Generated post body (HTML).
 	 * @param string $provider_slug Provider slug that produced this post (e.g. 'openai').

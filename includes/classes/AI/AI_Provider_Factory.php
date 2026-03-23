@@ -21,6 +21,8 @@ use TenUp\ChangelogToBlogPost\Settings\Global_Settings;
 class AI_Provider_Factory {
 
 	/**
+	 * Constructor.
+	 *
 	 * @param Global_Settings $settings Plugin settings service.
 	 */
 	public function __construct( private readonly Global_Settings $settings ) {}

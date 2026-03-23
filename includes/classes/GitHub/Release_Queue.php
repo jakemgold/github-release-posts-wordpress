@@ -74,7 +74,7 @@ class Release_Queue {
 	/**
 	 * Persists the queue to options.
 	 *
-	 * @param array<int, array<string, mixed>> $queue
+	 * @param array<int, array<string, mixed>> $queue Queue entries to persist.
 	 * @return void
 	 */
 	private function save( array $queue ): void {
