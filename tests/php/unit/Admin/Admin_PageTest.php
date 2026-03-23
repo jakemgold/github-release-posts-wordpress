@@ -45,6 +45,9 @@ class Admin_PageTest extends TestCase {
 		// register_post_meta() is called directly in setup(), not hooked to init.
 		\WP_Mock::userFunction( 'register_post_meta' )->andReturn( true );
 
+		// plugin_action_links filter uses plugin_basename.
+		\WP_Mock::userFunction( 'plugin_basename' )->andReturn( 'changelog-to-blog-post/changelog-to-blog-post.php' );
+
 		$page->setup();
 
 		$this->assertConditionsMet();

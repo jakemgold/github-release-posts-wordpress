@@ -79,6 +79,7 @@ class Admin_Page {
 		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_assets' ] );
 		add_action( 'enqueue_block_editor_assets', [ $this, 'enqueue_editor_assets' ] );
 		add_action( 'rest_api_init', [ $this, 'register_rest_routes' ] );
+		add_filter( 'plugin_action_links_' . plugin_basename( CHANGELOG_TO_BLOG_POST_PATH . 'changelog-to-blog-post.php' ), [ $this, 'add_action_links' ] );
 
 		// Register meta immediately — setup() is called during 'init',
 		// so hooking 'init' again would be too late.
@@ -86,6 +87,22 @@ class Admin_Page {
 
 		// Settings API registration (handles the Settings tab form).
 		( new Settings_Page( $this->global_settings ) )->setup();
+	}
+
+	/**
+	 * Adds a "Configure" link to the plugin's row on the Plugins screen.
+	 *
+	 * @param array $links Existing action links.
+	 * @return array Modified action links.
+	 */
+	public function add_action_links( array $links ): array {
+		$configure_link = sprintf(
+			'<a href="%s">%s</a>',
+			esc_url( admin_url( 'tools.php?page=changelog-to-blog-post' ) ),
+			esc_html__( 'Configure', 'changelog-to-blog-post' )
+		);
+		array_unshift( $links, $configure_link );
+		return $links;
 	}
 
 	/**
