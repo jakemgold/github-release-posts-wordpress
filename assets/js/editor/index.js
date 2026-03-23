@@ -160,7 +160,7 @@ function ReleaseAttribution() {
 			) }
 
 			{ resultMessage && (
-				<p style={ { marginTop: '8px', color: '#00a32a', fontSize: '13px' } }>
+				<p role="status" style={ { marginTop: '8px', color: '#00a32a', fontSize: '13px' } }>
 					{ resultMessage }
 				</p>
 			) }

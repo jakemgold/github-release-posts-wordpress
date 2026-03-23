@@ -162,7 +162,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 				spinner.classList.add( 'is-active' );
 			}
 			if ( resultEl ) {
-				resultEl.innerHTML = '';
+				resultEl.textContent = ctbpAdmin.i18n.validating || 'Testing...';
 			}
 
 			// Read currently selected provider and key from the form (not saved values).
@@ -190,7 +190,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 						spinner.style.display = 'none';
 					}
 					if ( resultEl ) {
-						resultEl.innerHTML = '<span class="dashicons dashicons-yes-alt" style="color: #00a32a; vertical-align: middle;"></span>';
+						resultEl.innerHTML = validIcon( ctbpAdmin.i18n.connectionSuccess || 'Connection successful' );
 					}
 				},
 				function ( data ) {
@@ -200,7 +200,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 					}
 					if ( resultEl ) {
 						var msg = ( data && data.message ) ? data.message : ctbpAdmin.i18n.notImplemented;
-						resultEl.innerHTML = '<span class="dashicons dashicons-warning" style="color: #dba617; vertical-align: middle;"></span> ' + msg;
+						resultEl.innerHTML = warningIcon( msg ) + ' ' + msg;
 					}
 				}
 			);
@@ -225,6 +225,8 @@ document.addEventListener( 'DOMContentLoaded', function () {
 		const spacer  = activeEdit.previousElementSibling;
 		const dataRow = spacer ? spacer.previousElementSibling : null;
 
+		var editLink = dataRow ? dataRow.querySelector( '.ctbp-edit-repo-btn' ) : null;
+
 		if ( dataRow ) {
 			dataRow.style.display = '';
 		}
@@ -232,6 +234,10 @@ document.addEventListener( 'DOMContentLoaded', function () {
 			spacer.remove();
 		}
 		activeEdit.remove();
+
+		if ( editLink ) {
+			editLink.focus();
+		}
 	}
 
 	/**
@@ -340,6 +346,11 @@ document.addEventListener( 'DOMContentLoaded', function () {
 		dataRow.style.display = 'none';
 		dataRow.parentNode.insertBefore( spacer, dataRow.nextSibling );
 		spacer.parentNode.insertBefore( editRow, spacer.nextSibling );
+
+		var firstInput = editRow.querySelector( 'input, select, textarea' );
+		if ( firstInput ) {
+			firstInput.focus();
+		}
 	}
 
 	// Open edit row from row-action "Edit" link.
@@ -487,17 +498,25 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	var warningTooltip = ctbpAdmin.i18n.pluginLinkHint || 'Enter a valid URL or WordPress.org plugin slug';
 
 	/**
-	 * Returns a green check dashicon.
+	 * Returns a green check dashicon with screen reader text.
+	 *
+	 * @param {string} [label] Accessible label. Defaults to "Valid".
 	 */
-	function validIcon() {
-		return '<span class="dashicons dashicons-yes-alt" style="color: #00a32a;"></span>';
+	function validIcon( label ) {
+		var text = label || ctbpAdmin.i18n.valid || 'Valid';
+		return '<span class="dashicons dashicons-yes-alt" style="color: #00a32a;" aria-hidden="true"></span>' +
+			'<span class="screen-reader-text">' + text + '</span>';
 	}
 
 	/**
-	 * Returns a yellow warning dashicon with tooltip.
+	 * Returns a yellow warning dashicon with screen reader text.
+	 *
+	 * @param {string} [label] Accessible label. Defaults to warning tooltip.
 	 */
-	function warningIcon() {
-		return '<span class="dashicons dashicons-warning" style="color: #dba617;" title="' + warningTooltip + '"></span>';
+	function warningIcon( label ) {
+		var text = label || warningTooltip;
+		return '<span class="dashicons dashicons-warning" style="color: #dba617;" aria-hidden="true"></span>' +
+			'<span class="screen-reader-text">' + text + '</span>';
 	}
 
 	/**
@@ -625,12 +644,11 @@ document.addEventListener( 'DOMContentLoaded', function () {
 		}
 
 		if ( post ) {
-			statusEl.innerHTML = '<span class="dashicons dashicons-yes-alt" style="color: #00a32a; vertical-align: middle;"></span>';
+			statusEl.innerHTML = validIcon( ctbpAdmin.i18n.draftCreated || 'Post created' );
 			updateLastPostColumn( btn, post );
 		} else {
 			var msg = error || ctbpAdmin.i18n.notImplemented;
-			statusEl.innerHTML = '<span class="dashicons dashicons-warning" style="color: #dba617; vertical-align: middle;" title="' +
-				msg.replace( /"/g, '&quot;' ) + '"></span>';
+			statusEl.innerHTML = warningIcon( msg );
 		}
 	}
 
@@ -649,6 +667,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 		if ( conflictDialog ) {
 			conflictDialog.close();
 		}
+		btn.focus();
 
 		btn.disabled = true;
 		btn.textContent = ctbpAdmin.i18n.generating;
@@ -690,6 +709,11 @@ document.addEventListener( 'DOMContentLoaded', function () {
 				spinner.classList.add( 'is-active' );
 			}
 
+			var statusEl = btn.closest( 'td' ).querySelector( '.ctbp-generate-status' );
+			if ( statusEl ) {
+				statusEl.textContent = ctbpAdmin.i18n.generating;
+			}
+
 			window.ctbpFetch(
 				'POST',
 				'/releases/generate-draft',
@@ -722,6 +746,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 								conflictDialog.close();
 							}
 							btn.textContent = ctbpAdmin.i18n.generatePost || 'Generate post';
+							btn.focus();
 						}
 						function cleanup() {
 							if ( conflictConfirm ) { conflictConfirm.removeEventListener( 'click', onConfirm ); }

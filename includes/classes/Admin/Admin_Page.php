@@ -290,6 +290,8 @@ class Admin_Page {
 					'draftCreated'      => __( 'Draft created.', 'changelog-to-blog-post' ),
 					'viewDraft'         => __( 'View draft', 'changelog-to-blog-post' ),
 					'regenerateConfirm' => __( 'A post already exists for this release. Regenerate it?', 'changelog-to-blog-post' ),
+					'valid'              => __( 'Valid', 'changelog-to-blog-post' ),
+					'connectionSuccess'  => __( 'Connection successful.', 'changelog-to-blog-post' ),
 				],
 			]
 		);

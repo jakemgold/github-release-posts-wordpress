@@ -272,7 +272,7 @@ class Repository_List_Table extends \WP_List_Table {
 
 		if ( empty( $provider ) ) {
 			return sprintf(
-				'<button type="button" class="button button-small" disabled title="%s">%s</button>',
+				'<button type="button" class="button button-small" disabled aria-label="%s">%s</button>',
 				esc_attr__( 'Configure an AI provider in the Settings tab first.', 'changelog-to-blog-post' ),
 				esc_html__( 'Generate post', 'changelog-to-blog-post' )
 			);
