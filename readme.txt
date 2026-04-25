@@ -5,7 +5,7 @@ Tags:              github, releases, blog post, ai, automation
 Requires at least: 7.0
 Tested up to:      7.0
 Requires PHP:      8.2
-Stable tag:        0.8.0
+Stable tag:        0.8.1
 License:           GPL-2.0-or-later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -13,12 +13,12 @@ Automatically generate blog posts from GitHub releases using AI.
 
 == Description ==
 
-GitHub Release Posts monitors GitHub repositories for new releases and uses AI to generate human-readable blog posts from release notes. Posts can be automatically published or held as drafts for review, with email notifications when new posts are ready.
+GitHub Release Posts monitors GitHub repositories for new releases and uses AI to research each release and generate a human-readable blog post about it. Posts can be automatically published or held as drafts for review, with email notifications when new posts are ready.
 
 **How it works:**
 
 1. **Monitor** — Add any GitHub repository and the plugin checks for new releases daily via WP-Cron.
-2. **Generate** — When a new release is detected, the AI reads the release notes and writes a blog post tailored to your audience.
+2. **Generate** — When a new release is detected, the AI researches the release and writes a blog post tailored to your audience.
 3. **Publish** — Posts are created as drafts for review, or published automatically based on your per-repository settings.
 
 You can also generate a post on demand at any time from the Repositories tab.
@@ -28,6 +28,7 @@ You can also generate a post on demand at any time from the Repositories tab.
 * Monitor multiple GitHub repositories for new releases
 * AI-powered post generation via WordPress Connectors — works with Anthropic, OpenAI, Google, and any other configured connector
 * Significance-aware content — patch, minor, major, and security releases get tailored tone and structure
+* Choose the research depth — Standard reviews release notes, linked issues and PRs, metadata, and the README; Deep adds commit messages and file changes since the last release
 * SEO-friendly post slugs and excerpts generated automatically by AI
 * Configurable publish/draft workflow with per-repository overrides
 * Per-repository post defaults (categories, tags, post status)
@@ -96,6 +97,14 @@ A Release Attribution panel appears in the document sidebar, showing which GitHu
 
 == Changelog ==
 
+= 0.8.1 =
+* New: Deep research depth — optionally fetches commit messages and file change summaries between releases for richer AI context. Useful when release notes are sparse.
+* New: Research Depth setting (Standard / Deep) in the Post Creation section of Settings.
+* Tweak: Post Audience changed from a dropdown to radio buttons for clearer scanning.
+* Tweak: Post Creation section now appears before GitHub on the Settings tab.
+* Tweak: Cleaner page header copy on Tools → Release Posts.
+* Tweak: Updated readme phrasing — describes researching releases, not just reading notes.
+
 = 0.8.0 =
 * Requires WordPress 7.0+ with Connectors API.
 * AI generation via WordPress Connectors — supports Anthropic, OpenAI, Google, and any configured connector.
@@ -105,6 +114,9 @@ A Release Attribution panel appears in the document sidebar, showing which GitHu
 * Test notification email feature.
 
 == Upgrade Notice ==
+
+= 0.8.1 =
+Adds optional Deep research mode (commit history and file changes) and minor settings UI polish.
 
 = 0.8.0 =
 Pre-release. Requires WordPress 7.0 RC or later.

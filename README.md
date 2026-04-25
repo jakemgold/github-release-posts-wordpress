@@ -2,14 +2,14 @@
 
 **Automatically generate blog posts from GitHub releases using AI.**
 
-A WordPress plugin that monitors GitHub repositories for new releases and uses AI to generate human-readable blog posts from release notes. Posts can be automatically published or held as drafts for review, with email notifications when new posts are ready.
+A WordPress plugin that monitors GitHub repositories for new releases and uses AI to research each release and generate a human-readable blog post about it. Posts can be automatically published or held as drafts for review, with email notifications when new posts are ready.
 
 Built by [Jake Goldman](https://www.linkedin.com/in/jacobgoldman/), founder of [10up](https://10up.com), and now a Partner / Advisor at [Fueled](https://fueled.com) since the [merger with 10up](https://10up.com/blog/2025/new-fueled-brand-10up-becomes-wordpress-practice/).
 
 ## How it works
 
 1. **Monitor** — Add any GitHub repository and the plugin checks for new releases daily via WP-Cron.
-2. **Generate** — When a new release is detected, the AI reads the release notes and writes a blog post tailored to your audience.
+2. **Generate** — When a new release is detected, the AI researches the release and writes a blog post tailored to your audience.
 3. **Publish** — Posts are created as drafts for review, or published automatically based on your per-repository settings.
 
 You can also generate a post on demand at any time from the Repositories tab.
@@ -41,6 +41,7 @@ AI-written content with embedded images, plus the GitHub Release sidebar panel f
 - Monitor multiple GitHub repositories for new releases
 - AI-powered post generation via WordPress Connectors — works with Anthropic, OpenAI, Google, and any other configured connector
 - Significance-aware content — patch, minor, major, and security releases get tailored tone and structure
+- Choose the research depth — Standard reviews release notes, linked issues and PRs, metadata, and the README; Deep adds commit messages and file changes since the last release
 - SEO-friendly post slugs and excerpts generated automatically by AI
 - Configurable publish/draft workflow with per-repository overrides
 - Per-repository post defaults (categories, tags, post status, author, featured image)

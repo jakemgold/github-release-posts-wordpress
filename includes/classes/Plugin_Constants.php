@@ -79,6 +79,12 @@ class Plugin_Constants {
 	const OPTION_AUDIENCE_LEVEL = 'ctbp_audience_level';
 
 	/**
+	 * Research depth: 'standard' or 'deep'.
+	 * Controls how much context is gathered from GitHub before AI generation.
+	 */
+	const OPTION_RESEARCH_DEPTH = 'ctbp_research_depth';
+
+	/**
 	 * Legacy notification trigger option key.
 	 *
 	 * @deprecated Use OPTION_NOTIFY_SITE_OWNER and OPTION_ADDITIONAL_EMAILS instead.
@@ -225,6 +231,7 @@ class Plugin_Constants {
 			self::OPTION_REPOSITORIES               => [],
 			self::OPTION_AI_PROVIDER                => 'wp_ai_client',
 			self::OPTION_AUDIENCE_LEVEL             => 'mixed',
+			self::OPTION_RESEARCH_DEPTH             => 'standard',
 			self::OPTION_CUSTOM_PROMPT_INSTRUCTIONS => '',
 			self::OPTION_AI_DISCLOSURE              => false,
 			self::OPTION_LAST_RUN_AT                => 0,

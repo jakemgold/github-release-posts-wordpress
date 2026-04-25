@@ -64,8 +64,8 @@ class Settings_Page {
 	 * @return void
 	 */
 	public function register_settings(): void {
-		$this->register_github_section();
 		$this->register_ai_provider_section();
+		$this->register_github_section();
 		$this->register_notifications_section();
 		$this->register_schedule_section();
 	}
@@ -173,6 +173,25 @@ class Settings_Page {
 			'ctbp_connector_status',
 			__( 'AI Connector', 'changelog-to-blog-post' ),
 			[ $this, 'render_connector_status' ],
+			self::PAGE_SLUG,
+			'ctbp_section_ai_provider'
+		);
+
+		// Research depth.
+		register_setting(
+			self::OPTION_GROUP,
+			Plugin_Constants::OPTION_RESEARCH_DEPTH,
+			[
+				'type'              => 'string',
+				'sanitize_callback' => [ $this, 'sanitize_research_depth' ],
+				'autoload'          => false,
+			]
+		);
+
+		add_settings_field(
+			Plugin_Constants::OPTION_RESEARCH_DEPTH,
+			__( 'Research Depth', 'changelog-to-blog-post' ),
+			[ $this, 'render_research_depth_field' ],
 			self::PAGE_SLUG,
 			'ctbp_section_ai_provider'
 		);
@@ -422,23 +441,77 @@ class Settings_Page {
 	 *
 	 * @return void
 	 */
+	/**
+	 * Renders the research depth radio buttons.
+	 *
+	 * @return void
+	 */
+	public function render_research_depth_field(): void {
+		$depth = $this->global_settings->get_research_depth();
+		?>
+		<fieldset>
+			<label>
+				<input type="radio" name="<?php echo esc_attr( Plugin_Constants::OPTION_RESEARCH_DEPTH ); ?>" value="standard" <?php checked( $depth, 'standard' ); ?>>
+				<strong><?php echo esc_html__( 'Standard', 'changelog-to-blog-post' ); ?></strong> —
+				<?php echo esc_html__( 'Reviews release notes, linked issues and PRs, metadata, and README.', 'changelog-to-blog-post' ); ?>
+			</label>
+			<br>
+			<label>
+				<input type="radio" name="<?php echo esc_attr( Plugin_Constants::OPTION_RESEARCH_DEPTH ); ?>" value="deep" <?php checked( $depth, 'deep' ); ?>>
+				<strong><?php echo esc_html__( 'Deep', 'changelog-to-blog-post' ); ?></strong> —
+				<?php echo esc_html__( 'Adds a review of commit messages and file changes since the last release.', 'changelog-to-blog-post' ); ?>
+			</label>
+		</fieldset>
+		<p class="description">
+			<?php echo esc_html__( 'Deep research may increase API usage and generation time, especially for repositories with many commits between releases.', 'changelog-to-blog-post' ); ?>
+		</p>
+		<?php
+	}
+
+	/**
+	 * Sanitizes the research depth value.
+	 *
+	 * @param mixed $value Submitted value.
+	 * @return string Validated research depth.
+	 */
+	public function sanitize_research_depth( $value ): string {
+		$allowed = [ 'standard', 'deep' ];
+		return in_array( $value, $allowed, true ) ? $value : 'standard';
+	}
+
+	/**
+	 * Renders the audience level select dropdown.
+	 *
+	 * @return void
+	 */
 	public function render_audience_level_field(): void {
 		$level = $this->global_settings->get_audience_level();
 		?>
-		<select id="<?php echo esc_attr( Plugin_Constants::OPTION_AUDIENCE_LEVEL ); ?>" name="<?php echo esc_attr( Plugin_Constants::OPTION_AUDIENCE_LEVEL ); ?>">
-			<option value="general" <?php selected( $level, 'general' ); ?>>
-				<?php echo esc_html__( 'Site owners & managers — plain language, no jargon', 'changelog-to-blog-post' ); ?>
-			</option>
-			<option value="mixed" <?php selected( $level, 'mixed' ); ?>>
-				<?php echo esc_html__( 'Mixed audience — accessible language, developer section when relevant (default)', 'changelog-to-blog-post' ); ?>
-			</option>
-			<option value="developer" <?php selected( $level, 'developer' ); ?>>
-				<?php echo esc_html__( 'Developers & builders — technical details woven throughout', 'changelog-to-blog-post' ); ?>
-			</option>
-			<option value="engineering" <?php selected( $level, 'engineering' ); ?>>
-				<?php echo esc_html__( 'Engineering teams — full technical depth, API and hook details', 'changelog-to-blog-post' ); ?>
-			</option>
-		</select>
+		<fieldset>
+			<label>
+				<input type="radio" name="<?php echo esc_attr( Plugin_Constants::OPTION_AUDIENCE_LEVEL ); ?>" value="general" <?php checked( $level, 'general' ); ?>>
+				<strong><?php echo esc_html__( 'Site owners & managers', 'changelog-to-blog-post' ); ?></strong> —
+				<?php echo esc_html__( 'Plain language, no jargon.', 'changelog-to-blog-post' ); ?>
+			</label>
+			<br>
+			<label>
+				<input type="radio" name="<?php echo esc_attr( Plugin_Constants::OPTION_AUDIENCE_LEVEL ); ?>" value="mixed" <?php checked( $level, 'mixed' ); ?>>
+				<strong><?php echo esc_html__( 'Mixed audience', 'changelog-to-blog-post' ); ?></strong> —
+				<?php echo esc_html__( 'Accessible language, developer section when relevant (default).', 'changelog-to-blog-post' ); ?>
+			</label>
+			<br>
+			<label>
+				<input type="radio" name="<?php echo esc_attr( Plugin_Constants::OPTION_AUDIENCE_LEVEL ); ?>" value="developer" <?php checked( $level, 'developer' ); ?>>
+				<strong><?php echo esc_html__( 'Developers & builders', 'changelog-to-blog-post' ); ?></strong> —
+				<?php echo esc_html__( 'Technical details woven throughout.', 'changelog-to-blog-post' ); ?>
+			</label>
+			<br>
+			<label>
+				<input type="radio" name="<?php echo esc_attr( Plugin_Constants::OPTION_AUDIENCE_LEVEL ); ?>" value="engineering" <?php checked( $level, 'engineering' ); ?>>
+				<strong><?php echo esc_html__( 'Engineering teams', 'changelog-to-blog-post' ); ?></strong> —
+				<?php echo esc_html__( 'Full technical depth, API and hook details.', 'changelog-to-blog-post' ); ?>
+			</label>
+		</fieldset>
 		<p class="description">
 			<?php echo esc_html__( 'Controls how technical the generated posts are and who they are written for.', 'changelog-to-blog-post' ); ?>
 		</p>

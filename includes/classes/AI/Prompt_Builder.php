@@ -90,6 +90,14 @@ class Prompt_Builder {
 		$title_guidance   = $this->build_title_guidance( $display_name, $data->tag );
 		$content_guidance = $this->build_content_guidance( $images, $project_link, $changelog_url, $display_name, $audience_level );
 
+		// When deep research adds commit history, instruct the AI to synthesize it.
+		if ( str_contains( $body, 'COMMIT HISTORY (since ' ) ) {
+			$content_guidance .= "\n\nCOMMIT HISTORY GUIDANCE:\n"
+				. 'A commit history section is included after the release notes. Use it to identify changes not mentioned in the release notes, '
+				. 'but do not list individual commits in the post — synthesize them into the narrative. '
+				. 'The file change summary shows which areas of the codebase were most affected; use this to gauge the scope of changes.';
+		}
+
 		/**
 		 * Filters the title guidance portion of the prompt.
 		 *

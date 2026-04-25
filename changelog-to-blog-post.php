@@ -3,7 +3,7 @@
  * Plugin Name:       GitHub Release Posts
  * Plugin URI:        https://github.com/10up/changelog-to-blog-post
  * Description:       Automatically generate blog posts from GitHub releases using AI.
- * Version:           0.8.0
+ * Version:           0.8.1
  * Requires at least: 7.0
  * Requires PHP:      8.2
  * Author:            Jake Goldman, Fueled (formerly 10up)
@@ -24,7 +24,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! defined( 'CHANGELOG_TO_BLOG_POST_VERSION' ) ) {
-	define( 'CHANGELOG_TO_BLOG_POST_VERSION', '0.8.0' );
+	define( 'CHANGELOG_TO_BLOG_POST_VERSION', '0.8.1' );
 }
 
 if ( ! defined( 'CHANGELOG_TO_BLOG_POST_URL' ) ) {

@@ -231,6 +231,99 @@ class API_Client {
 	}
 
 	/**
+	 * Fetches the comparison between two tags (commits and file changes).
+	 *
+	 * Uses the GitHub Compare API to retrieve commit messages and a file
+	 * change summary between two release tags. Results are structured for
+	 * inclusion in the AI prompt during deep research.
+	 *
+	 * @param string $identifier Repository identifier (owner/repo).
+	 * @param string $base_tag   Previous release tag.
+	 * @param string $head_tag   Current release tag.
+	 * @return array{commits: array<int, array{sha: string, message: string}>, files_changed: int, top_files: array<int, array{filename: string, status: string, additions: int, deletions: int}>}|\WP_Error
+	 */
+	public function fetch_compare( string $identifier, string $base_tag, string $head_tag ): array|\WP_Error {
+		[ $owner, $repo ] = explode( '/', $identifier, 2 );
+		$url              = sprintf(
+			'%s/repos/%s/%s/compare/%s...%s',
+			self::API_BASE,
+			$owner,
+			$repo,
+			rawurlencode( $base_tag ),
+			rawurlencode( $head_tag )
+		);
+		$args             = $this->build_request_args();
+
+		$response = wp_remote_get( $url, $args );
+
+		if ( is_wp_error( $response ) ) {
+			return $response;
+		}
+
+		$this->handle_rate_limit( $response );
+
+		$code = (int) wp_remote_retrieve_response_code( $response );
+		if ( 200 !== $code ) {
+			return new \WP_Error(
+				'github_compare_failed',
+				sprintf(
+					/* translators: 1: base tag, 2: head tag, 3: HTTP status code */
+					__( 'GitHub compare %1$s...%2$s returned HTTP %3$d.', 'changelog-to-blog-post' ),
+					$base_tag,
+					$head_tag,
+					$code
+				)
+			);
+		}
+
+		$data = json_decode( wp_remote_retrieve_body( $response ), true );
+		if ( ! is_array( $data ) ) {
+			return new \WP_Error( 'github_compare_parse_error', __( 'Failed to parse compare response.', 'changelog-to-blog-post' ) );
+		}
+
+		// Extract commit subject lines (first line of each message), capped at 100.
+		$commits = [];
+		foreach ( array_slice( (array) ( $data['commits'] ?? [] ), 0, 100 ) as $commit ) {
+			$full_message = (string) ( $commit['commit']['message'] ?? '' );
+			$subject      = strtok( $full_message, "\n" );
+			$sha          = substr( (string) ( $commit['sha'] ?? '' ), 0, 7 );
+
+			if ( '' !== $sha && '' !== $subject ) {
+				$commits[] = [
+					'sha'     => $sha,
+					'message' => $subject,
+				];
+			}
+		}
+
+		// Extract file change summary, sorted by most changes, capped at 20.
+		$files     = (array) ( $data['files'] ?? [] );
+		$top_files = [];
+
+		usort(
+			$files,
+			function ( $a, $b ) {
+				return ( ( $b['additions'] ?? 0 ) + ( $b['deletions'] ?? 0 ) ) - ( ( $a['additions'] ?? 0 ) + ( $a['deletions'] ?? 0 ) );
+			}
+		);
+
+		foreach ( array_slice( $files, 0, 20 ) as $file ) {
+			$top_files[] = [
+				'filename'  => (string) ( $file['filename'] ?? '' ),
+				'status'    => (string) ( $file['status'] ?? '' ),
+				'additions' => (int) ( $file['additions'] ?? 0 ),
+				'deletions' => (int) ( $file['deletions'] ?? 0 ),
+			];
+		}
+
+		return [
+			'commits'       => $commits,
+			'files_changed' => count( (array) ( $data['files'] ?? [] ) ),
+			'top_files'     => $top_files,
+		];
+	}
+
+	/**
 	 * Normalises a repository identifier to `owner/repo` format.
 	 *
 	 * Delegates to Repository_Settings for consistent normalisation logic (BR-002).

@@ -188,6 +188,8 @@ class Admin_Page {
 				. '<li>' . esc_html__( 'Google — Gemini 2.5 Pro', 'changelog-to-blog-post' ) . '</li>'
 				. '</ul>'
 				. '<p>' . esc_html__( 'If none of these models are available, the plugin falls back to whatever model your connector provides. Developers can customize the preferred model list via the ctbp_wp_ai_client_model_preferences filter.', 'changelog-to-blog-post' ) . '</p>'
+				. '<h4>' . esc_html__( 'Research Depth', 'changelog-to-blog-post' ) . '</h4>'
+				. '<p>' . esc_html__( 'Controls how much context the AI gathers before writing. "Standard" uses the release notes, linked issues/PRs, and README. "Deep" also fetches commit messages and file change summaries between the previous and current release, giving the AI more detail to work with — especially useful for releases with sparse notes.', 'changelog-to-blog-post' ) . '</p>'
 				. '<h4>' . esc_html__( 'Post Audience', 'changelog-to-blog-post' ) . '</h4>'
 				. '<p>' . esc_html__( 'Controls the technical depth of generated posts. "Site owners & managers" avoids all jargon; "Engineering teams" includes hook signatures, code examples, and architecture details.', 'changelog-to-blog-post' ) . '</p>'
 				. '<h4>' . esc_html__( 'Custom Prompt Instructions', 'changelog-to-blog-post' ) . '</h4>'

@@ -82,6 +82,26 @@ class Global_SettingsTest extends TestCase {
 	}
 
 	// -------------------------------------------------------------------------
+	// Research Depth
+	// -------------------------------------------------------------------------
+
+	public function test_get_research_depth_returns_default(): void {
+		\WP_Mock::userFunction( 'get_option' )
+			->with( Plugin_Constants::OPTION_RESEARCH_DEPTH, 'standard' )
+			->andReturn( 'standard' );
+
+		$this->assertSame( 'standard', ( new Global_Settings() )->get_research_depth() );
+	}
+
+	public function test_get_research_depth_rejects_invalid_value(): void {
+		\WP_Mock::userFunction( 'get_option' )
+			->with( Plugin_Constants::OPTION_RESEARCH_DEPTH, 'standard' )
+			->andReturn( 'invalid' );
+
+		$this->assertSame( 'standard', ( new Global_Settings() )->get_research_depth() );
+	}
+
+	// -------------------------------------------------------------------------
 	// Notification settings
 	// -------------------------------------------------------------------------
 

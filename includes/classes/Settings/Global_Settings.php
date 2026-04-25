@@ -154,6 +154,27 @@ class Global_Settings {
 	}
 
 	// -------------------------------------------------------------------------
+	// Research Depth
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Supported research depth identifiers.
+	 *
+	 * @var string[]
+	 */
+	const SUPPORTED_RESEARCH_DEPTHS = [ 'standard', 'deep' ];
+
+	/**
+	 * Returns the configured research depth for AI generation.
+	 *
+	 * @return string One of: 'standard', 'deep'. Defaults to 'standard'.
+	 */
+	public function get_research_depth(): string {
+		$depth = (string) get_option( Plugin_Constants::OPTION_RESEARCH_DEPTH, 'standard' );
+		return in_array( $depth, self::SUPPORTED_RESEARCH_DEPTHS, true ) ? $depth : 'standard';
+	}
+
+	// -------------------------------------------------------------------------
 	// Check Frequency
 	// -------------------------------------------------------------------------
 

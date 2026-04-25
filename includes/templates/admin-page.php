@@ -41,7 +41,7 @@ if ( $admin_notice ) {
 ?>
 <div class="wrap">
 	<h1><?php echo esc_html__( 'GitHub Release Posts', 'changelog-to-blog-post' ); ?></h1>
-	<p class="description"><?php echo esc_html__( 'Monitor GitHub repositories for new releases and automatically generate blog posts using AI. Set up a connector under Settings → Connectors, then add a repository to get started.', 'changelog-to-blog-post' ); ?></p>
+	<p class="description"><?php echo esc_html__( 'Monitor GitHub repositories for new releases and automatically generate blog posts using AI.', 'changelog-to-blog-post' ); ?></p>
 
 	<?php if ( $show_saved || $settings_updated ) : ?>
 		<div class="notice notice-success is-dismissible">
