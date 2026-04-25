@@ -377,9 +377,28 @@ class Post_Creator {
 				continue;
 			}
 
-			// Restore figure placeholders.
-			if ( isset( $figure_placeholders[ $part ] ) ) {
-				$blocks[] = self::wrap_in_block( 'figure', $figure_placeholders[ $part ] );
+			// Restore figure placeholders. A single part may contain multiple
+			// adjacent placeholders (e.g. two <figure> elements with no content
+			// between them), so split on each one individually.
+			if ( ! empty( $figure_placeholders ) && str_contains( $part, '<!--CTBP_FIGURE_' ) ) {
+				$sub_parts = preg_split(
+					'/(<!--CTBP_FIGURE_\d+-->)/',
+					$part,
+					-1,
+					PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY
+				);
+
+				foreach ( $sub_parts as $sub ) {
+					$sub = trim( $sub );
+					if ( '' === $sub ) {
+						continue;
+					}
+					if ( isset( $figure_placeholders[ $sub ] ) ) {
+						$blocks[] = self::wrap_in_block( 'figure', $figure_placeholders[ $sub ] );
+					} else {
+						$blocks[] = "<!-- wp:paragraph -->\n<p>" . $sub . "</p>\n<!-- /wp:paragraph -->";
+					}
+				}
 				continue;
 			}
 

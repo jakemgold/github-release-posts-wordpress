@@ -515,7 +515,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	 */
 	function warningIcon( label ) {
 		var text = label || warningTooltip;
-		return '<span class="dashicons dashicons-warning" style="color: #dba617;" aria-hidden="true"></span>' +
+		return '<span class="dashicons dashicons-warning" style="color: #dba617; cursor: help;" title="' + text + '" aria-hidden="true"></span>' +
 			'<span class="screen-reader-text">' + text + '</span>';
 	}
 

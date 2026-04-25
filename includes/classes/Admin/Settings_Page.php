@@ -289,7 +289,7 @@ class Settings_Page {
 		?>
 		<select id="<?php echo esc_attr( Plugin_Constants::OPTION_AI_PROVIDER ); ?>" name="<?php echo esc_attr( Plugin_Constants::OPTION_AI_PROVIDER ); ?>">
 			<option value="" <?php selected( $provider, '' ); ?>><?php echo esc_html__( '— Select a provider —', 'changelog-to-blog-post' ); ?></option>
-			<option value="wp_ai_client" <?php selected( $provider, 'wp_ai_client' ); ?>><?php echo esc_html__( 'WordPress AI Client (experimental)', 'changelog-to-blog-post' ); ?></option>
+			<option value="wp_ai_client" <?php selected( $provider, 'wp_ai_client' ); ?>><?php echo esc_html__( 'WordPress Connectors', 'changelog-to-blog-post' ); ?></option>
 			<option value="openai" <?php selected( $provider, 'openai' ); ?>><?php echo esc_html__( 'OpenAI — o3', 'changelog-to-blog-post' ); ?></option>
 			<option value="anthropic" <?php selected( $provider, 'anthropic' ); ?>><?php echo esc_html__( 'Anthropic — Claude Opus 4.6', 'changelog-to-blog-post' ); ?></option>
 		</select>
@@ -336,7 +336,7 @@ class Settings_Page {
 				<?php echo $provider !== $p ? 'hidden' : ''; ?>
 			>
 				<p class="description">
-					<?php echo esc_html__( 'WordPress AI Services manages its own API keys. Configure your preferred AI provider in Settings → AI Services.', 'changelog-to-blog-post' ); ?>
+					<?php echo esc_html__( 'WordPress Connectors manages its own API keys. Configure your preferred AI connector under Settings → AI Credentials.', 'changelog-to-blog-post' ); ?>
 				</p>
 			</div>
 			<?php

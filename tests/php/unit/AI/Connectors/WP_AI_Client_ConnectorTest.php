@@ -42,6 +42,10 @@ class WP_AI_Client_ConnectorTest extends TestCase {
 		$this->assertSame( 'wp_ai_client', $this->connector->get_slug() );
 	}
 
+	public function test_get_label_returns_wordpress_connectors(): void {
+		$this->assertSame( 'WordPress Connectors', $this->connector->get_label() );
+	}
+
 	public function test_requires_api_key_returns_false(): void {
 		$this->assertFalse( $this->connector->requires_api_key() );
 	}
