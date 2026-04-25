@@ -140,7 +140,7 @@ class Post_CreatorTest extends TestCase {
 
 		\WP_Mock::userFunction( 'update_post_meta' )
 			->once()
-			->with( 42, Plugin_Constants::META_GENERATED_BY, 'openai' );
+			->with( 42, Plugin_Constants::META_GENERATED_BY, 'wp_ai_client' );
 
 		\WP_Mock::expectAction( 'ctbp_post_created', 42, $post, $data, [] );
 
@@ -278,7 +278,7 @@ class Post_CreatorTest extends TestCase {
 		return new GeneratedPost(
 			title:         'Improved performance and stability',
 			content:       '<p>Post body here.</p>',
-			provider_slug: 'openai',
+			provider_slug: 'wp_ai_client',
 		);
 	}
 

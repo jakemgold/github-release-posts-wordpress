@@ -71,60 +71,14 @@ class Global_SettingsTest extends TestCase {
 	}
 
 	// -------------------------------------------------------------------------
-	// API key masking
+	// AI Provider
 	// -------------------------------------------------------------------------
 
 	/**
-	 * get_masked_key() returns the placeholder when a key is stored, never the real key.
+	 * get_ai_provider() always returns 'wp_ai_client' now.
 	 */
-	public function test_get_masked_key_returns_placeholder_not_actual_key(): void {
-		$fake_encrypted = base64_encode( 'fake-encrypted-value' ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
-
-		\WP_Mock::userFunction( 'get_option' )
-			->with( Plugin_Constants::OPTION_AI_API_KEYS, [] )
-			->andReturn( [ 'openai' => $fake_encrypted ] );
-
-		$masked = ( new Global_Settings() )->get_masked_key( 'openai' );
-
-		$this->assertSame( Global_Settings::MASKED_PLACEHOLDER, $masked );
-		$this->assertStringNotContainsString( 'fake', $masked );
-	}
-
-	/**
-	 * get_masked_key() returns empty string when no key is stored.
-	 */
-	public function test_get_masked_key_returns_empty_when_no_key(): void {
-		\WP_Mock::userFunction( 'get_option' )
-			->with( Plugin_Constants::OPTION_AI_API_KEYS, [] )
-			->andReturn( [] );
-
-		$this->assertSame( '', ( new Global_Settings() )->get_masked_key( 'openai' ) );
-	}
-
-	// -------------------------------------------------------------------------
-	// save_api_keys() — masked placeholder skipped
-	// -------------------------------------------------------------------------
-
-	/**
-	 * save_api_keys() preserves the existing key when the submitted value is the masked placeholder.
-	 */
-	public function test_save_api_key_skips_masked_placeholder(): void {
-		$existing = [ 'openai' => 'previously-encrypted-value' ];
-
-		\WP_Mock::userFunction( 'get_option' )
-			->with( Plugin_Constants::OPTION_AI_API_KEYS, [] )
-			->andReturn( $existing );
-
-		\WP_Mock::userFunction( 'update_option' )
-			->andReturnUsing( function ( $option, $value ) use ( $existing ) {
-				// The openai key should be unchanged (still the original encrypted value).
-				$this->assertSame( $existing['openai'], $value['openai'] );
-				return true;
-			} );
-
-		( new Global_Settings() )->save_api_keys( [ 'openai' => Global_Settings::MASKED_PLACEHOLDER ] );
-
-		$this->assertConditionsMet();
+	public function test_get_ai_provider_returns_wp_ai_client(): void {
+		$this->assertSame( 'wp_ai_client', ( new Global_Settings() )->get_ai_provider() );
 	}
 
 	// -------------------------------------------------------------------------

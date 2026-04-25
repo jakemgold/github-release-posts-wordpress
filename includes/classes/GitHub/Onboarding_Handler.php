@@ -92,9 +92,9 @@ class Onboarding_Handler {
 			];
 		}
 
-		// AC-014: generation not available yet (no AI provider configured).
+		// AC-014: generation not available yet (no AI connector configured).
 		return $this->failure_notice(
-			__( 'Repository saved. To generate a preview draft, configure an AI provider in the Settings tab, then use "Generate post".', 'changelog-to-blog-post' )
+			__( 'Repository saved. To generate a preview draft, set up an AI connector under Settings → Connectors, then use "Generate post".', 'changelog-to-blog-post' )
 		);
 	}
 

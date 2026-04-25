@@ -41,7 +41,7 @@ if ( $admin_notice ) {
 ?>
 <div class="wrap">
 	<h1><?php echo esc_html__( 'GitHub Release Posts', 'changelog-to-blog-post' ); ?></h1>
-	<p class="description"><?php echo esc_html__( 'Monitor GitHub repositories for new releases and automatically generate blog posts using AI. Add a repository and configure an AI provider to get started.', 'changelog-to-blog-post' ); ?></p>
+	<p class="description"><?php echo esc_html__( 'Monitor GitHub repositories for new releases and automatically generate blog posts using AI. Set up a connector under Settings → Connectors, then add a repository to get started.', 'changelog-to-blog-post' ); ?></p>
 
 	<?php if ( $show_saved || $settings_updated ) : ?>
 		<div class="notice notice-success is-dismissible">
@@ -93,23 +93,15 @@ if ( $admin_notice ) {
 	<?php endif; ?>
 
 	<?php
-	$onboarding_settings = new \TenUp\ChangelogToBlogPost\Settings\Global_Settings();
-	$onboarding_repos    = new \TenUp\ChangelogToBlogPost\Settings\Repository_Settings();
-	$has_provider        = ! empty( $onboarding_settings->get_ai_provider() );
-	$has_repos           = ! empty( $onboarding_repos->get_repositories() );
+	$onboarding_repos = new \TenUp\ChangelogToBlogPost\Settings\Repository_Settings();
+	$has_repos        = ! empty( $onboarding_repos->get_repositories() );
 
-	if ( ! $has_provider || ! $has_repos ) :
+	if ( ! $has_repos ) :
 		?>
 		<div class="notice notice-info">
 			<p>
 				<strong><?php echo esc_html__( 'Getting started:', 'changelog-to-blog-post' ); ?></strong>
-				<?php if ( ! $has_provider && ! $has_repos ) : ?>
-					<?php echo esc_html__( 'Configure your AI provider in the Settings tab, then add your first GitHub repository below.', 'changelog-to-blog-post' ); ?>
-				<?php elseif ( ! $has_provider ) : ?>
-					<?php echo esc_html__( 'Configure your AI provider in the Settings tab to start generating posts.', 'changelog-to-blog-post' ); ?>
-				<?php else : ?>
-					<?php echo esc_html__( 'Add your first GitHub repository below to start monitoring for releases.', 'changelog-to-blog-post' ); ?>
-				<?php endif; ?>
+				<?php echo esc_html__( 'Add your first GitHub repository below to start monitoring for releases.', 'changelog-to-blog-post' ); ?>
 			</p>
 		</div>
 	<?php endif; ?>

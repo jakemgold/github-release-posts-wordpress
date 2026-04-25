@@ -25,6 +25,12 @@ class Email_NotifierTest extends TestCase {
 
 	public function setUp(): void {
 		parent::setUp();
+		\WP_Mock::setUp();
+
+		\WP_Mock::userFunction( 'get_the_title' )->andReturn( 'Test Post Title' )->byDefault();
+		\WP_Mock::userFunction( 'home_url' )->andReturn( 'https://example.com' )->byDefault();
+		\WP_Mock::userFunction( 'wp_parse_url' )->andReturn( 'example.com' )->byDefault();
+		\WP_Mock::userFunction( 'get_bloginfo' )->andReturn( 'Test Site' )->byDefault();
 
 		$this->global_settings = \Mockery::mock( Global_Settings::class );
 		$this->significance    = \Mockery::mock( Release_Significance::class );
@@ -35,6 +41,11 @@ class Email_NotifierTest extends TestCase {
 		$repo_settings->shouldReceive( 'derive_display_name' )->andReturn( 'Repo' )->byDefault();
 
 		$this->notifier = new Email_Notifier( $this->global_settings, $this->significance, $repo_settings );
+	}
+
+	public function tearDown(): void {
+		\WP_Mock::tearDown();
+		parent::tearDown();
 	}
 
 	// -------------------------------------------------------------------------
@@ -184,9 +195,9 @@ class Email_NotifierTest extends TestCase {
 				'admin@example.com',
 				\Mockery::type( 'string' ),
 				\Mockery::on( function ( $body ) {
-					// Both edit and view links should be present.
-					return str_contains( $body, 'Edit post' )
-						&& str_contains( $body, 'View post' );
+					// Published posts show View and Edit links.
+					return str_contains( $body, 'View post' )
+						&& str_contains( $body, 'Edit' );
 				} ),
 				\Mockery::type( 'array' )
 			)
@@ -203,7 +214,6 @@ class Email_NotifierTest extends TestCase {
 
 		$this->notifier->collect( 42, 'draft', $this->make_data(), [] );
 
-		\WP_Mock::userFunction( 'get_bloginfo' )->with( 'name' )->andReturn( 'Test Site' );
 		\WP_Mock::userFunction( 'get_edit_post_link' )->andReturn( 'https://example.com/wp-admin/post.php?post=42' );
 
 		\WP_Mock::userFunction( 'wp_mail' )
@@ -212,7 +222,8 @@ class Email_NotifierTest extends TestCase {
 				'admin@example.com',
 				\Mockery::type( 'string' ),
 				\Mockery::on( function ( $body ) {
-					return str_contains( $body, 'Edit post' )
+					// Draft posts show Review draft, not View post.
+					return str_contains( $body, 'Review draft' )
 						&& ! str_contains( $body, 'View post' );
 				} ),
 				\Mockery::type( 'array' )

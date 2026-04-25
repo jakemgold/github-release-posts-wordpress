@@ -26,15 +26,9 @@ class Plugin_Constants {
 	const OPTION_REPOSITORIES = 'ctbp_repositories';
 
 	/**
-	 * Active AI provider slug (e.g. 'openai', 'anthropic', 'gemini', 'classifai').
+	 * Active AI provider slug. Always 'wp_ai_client' since 2.0.
 	 */
 	const OPTION_AI_PROVIDER = 'ctbp_ai_provider';
-
-	/**
-	 * Encrypted API keys, keyed by provider slug.
-	 * Stored as a serialised array; each value is a libsodium-encrypted string.
-	 */
-	const OPTION_AI_API_KEYS = 'ctbp_ai_api_keys';
 
 	/**
 	 * Global default post status: 'draft' or 'publish'.
@@ -154,12 +148,6 @@ class Plugin_Constants {
 	// -------------------------------------------------------------------------
 
 	/**
-	 * Per-provider custom model IDs set by the site owner.
-	 * Stored as a serialised array keyed by provider slug.
-	 */
-	const OPTION_AI_CUSTOM_MODELS = 'ctbp_ai_custom_models';
-
-	/**
 	 * Free-text custom prompt instructions entered by the site owner.
 	 * Appended to the AI prompt to influence voice, style, and tone.
 	 */
@@ -235,9 +223,7 @@ class Plugin_Constants {
 	public static function get_defaults(): array {
 		return [
 			self::OPTION_REPOSITORIES               => [],
-			self::OPTION_AI_PROVIDER                => '',
-			self::OPTION_AI_API_KEYS                => [],
-			self::OPTION_AI_CUSTOM_MODELS           => [],
+			self::OPTION_AI_PROVIDER                => 'wp_ai_client',
 			self::OPTION_AUDIENCE_LEVEL             => 'mixed',
 			self::OPTION_CUSTOM_PROMPT_INSTRUCTIONS => '',
 			self::OPTION_AI_DISCLOSURE              => false,

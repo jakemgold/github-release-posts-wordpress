@@ -57,7 +57,7 @@ readonly class GeneratedPost {
 		// Find the body — skip blank lines after the metadata lines.
 		$body_start = 3;
 		while ( isset( $lines[ $body_start ] ) && '' === trim( $lines[ $body_start ] ) ) {
-			$body_start++;
+			++$body_start;
 		}
 		$body = trim( implode( "\n", array_slice( $lines, $body_start ) ) );
 

@@ -26,11 +26,11 @@ class GeneratedPostTest extends TestCase {
 		$post = new GeneratedPost(
 			title:         'Test Post Title',
 			content:       '<p>Content here.</p>',
-			provider_slug: 'openai',
+			provider_slug: 'wp_ai_client',
 		);
 
 		$this->assertSame( 'Test Post Title', $post->title );
 		$this->assertSame( '<p>Content here.</p>', $post->content );
-		$this->assertSame( 'openai', $post->provider_slug );
+		$this->assertSame( 'wp_ai_client', $post->provider_slug );
 	}
 }

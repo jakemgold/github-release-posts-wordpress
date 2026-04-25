@@ -164,59 +164,17 @@ class Settings_Page {
 	private function register_ai_provider_section(): void {
 		add_settings_section(
 			'ctbp_section_ai_provider',
-			__( 'AI Provider', 'changelog-to-blog-post' ),
+			__( 'Post Creation', 'changelog-to-blog-post' ),
 			'__return_null',
 			self::PAGE_SLUG
 		);
 
-		// AI provider select.
-		register_setting(
-			self::OPTION_GROUP,
-			Plugin_Constants::OPTION_AI_PROVIDER,
-			[
-				'type'              => 'string',
-				'sanitize_callback' => [ $this, 'sanitize_ai_provider' ],
-				'autoload'          => false,
-			]
-		);
-
 		add_settings_field(
-			Plugin_Constants::OPTION_AI_PROVIDER,
-			__( 'AI Service', 'changelog-to-blog-post' ),
-			[ $this, 'render_ai_provider_field' ],
+			'ctbp_connector_status',
+			__( 'AI Connector', 'changelog-to-blog-post' ),
+			[ $this, 'render_connector_status' ],
 			self::PAGE_SLUG,
-			'ctbp_section_ai_provider',
-			[ 'label_for' => Plugin_Constants::OPTION_AI_PROVIDER ]
-		);
-
-		// API keys (stored as a single serialized option).
-		register_setting(
-			self::OPTION_GROUP,
-			Plugin_Constants::OPTION_AI_API_KEYS,
-			[
-				'type'              => 'array',
-				'sanitize_callback' => [ $this, 'sanitize_api_keys' ],
-				'autoload'          => false,
-			]
-		);
-
-		add_settings_field(
-			Plugin_Constants::OPTION_AI_API_KEYS,
-			__( 'API Key', 'changelog-to-blog-post' ),
-			[ $this, 'render_api_keys_field' ],
-			self::PAGE_SLUG,
-			'ctbp_section_ai_provider',
-			[ 'class' => 'ctbp-api-keys-row' ]
-		);
-
-		// Connection test (rendered as a field so it sits below the API key).
-		add_settings_field(
-			'ctbp_connection_test',
-			'',
-			[ $this, 'render_connection_test_field' ],
-			self::PAGE_SLUG,
-			'ctbp_section_ai_provider',
-			[ 'class' => 'ctbp-connection-test-row' ]
+			'ctbp_section_ai_provider'
 		);
 
 		// Audience level.
@@ -280,67 +238,183 @@ class Settings_Page {
 	}
 
 	/**
-	 * Renders the AI provider select dropdown.
+	 * Renders the WordPress Connectors status panel.
+	 *
+	 * Checks the AI Client registry for configured providers and models,
+	 * then displays the current status with appropriate guidance. Results
+	 * are cached for 1 minute to avoid hammering provider APIs on refresh.
 	 *
 	 * @return void
 	 */
-	public function render_ai_provider_field(): void {
-		$provider = $this->global_settings->get_ai_provider();
-		?>
-		<select id="<?php echo esc_attr( Plugin_Constants::OPTION_AI_PROVIDER ); ?>" name="<?php echo esc_attr( Plugin_Constants::OPTION_AI_PROVIDER ); ?>">
-			<option value="" <?php selected( $provider, '' ); ?>><?php echo esc_html__( '— Select a provider —', 'changelog-to-blog-post' ); ?></option>
-			<option value="wp_ai_client" <?php selected( $provider, 'wp_ai_client' ); ?>><?php echo esc_html__( 'WordPress Connectors', 'changelog-to-blog-post' ); ?></option>
-			<option value="openai" <?php selected( $provider, 'openai' ); ?>><?php echo esc_html__( 'OpenAI — o3', 'changelog-to-blog-post' ); ?></option>
-			<option value="anthropic" <?php selected( $provider, 'anthropic' ); ?>><?php echo esc_html__( 'Anthropic — Claude Opus 4.6', 'changelog-to-blog-post' ); ?></option>
-		</select>
-		<?php
+	public function render_connector_status(): void {
+		$status          = $this->get_connector_status();
+		$connectors_url  = admin_url( 'options-connectors.php' );
+		$connectors_link = '<a href="' . esc_url( $connectors_url ) . '">' . esc_html__( 'WordPress Connectors', 'changelog-to-blog-post' ) . '</a>';
+
+		if ( ! $status['configured'] ) {
+			printf(
+				'<p>&#10007; %s</p>',
+				sprintf(
+					/* translators: %s: link to WordPress Connectors settings */
+					esc_html__( 'No AI connector configured. Set one up in %s.', 'changelog-to-blog-post' ),
+					$connectors_link // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+				)
+			);
+			return;
+		}
+
+		// Connected — show provider and model.
+		// Both labels are pre-escaped via esc_html() for safe use in printf().
+		$provider_label = esc_html( $status['provider_name'] );
+		$model_label    = esc_html( $status['model_id'] );
+
+		// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- $provider_label and $model_label are esc_html()'d above; $connectors_link is built from esc_url() + esc_html().
+		if ( $status['is_preferred_model'] ) {
+			printf(
+				'<p>&#10003; %s</p>',
+				sprintf(
+					/* translators: 1: link to WordPress Connectors settings, 2: provider name, 3: model ID */
+					esc_html__( 'Using %1$s for %2$s (%3$s)', 'changelog-to-blog-post' ),
+					$connectors_link,
+					$provider_label,
+					'<code>' . $model_label . '</code>'
+				)
+			);
+		} elseif ( $status['is_preferred_provider'] ) {
+			// Right provider, wrong model tier.
+			printf(
+				'<p>&#9888; %s</p>',
+				sprintf(
+					/* translators: 1: link to WordPress Connectors settings, 2: provider name, 3: model ID */
+					esc_html__( 'Using %1$s for %2$s (%3$s)', 'changelog-to-blog-post' ),
+					$connectors_link,
+					$provider_label,
+					'<code>' . $model_label . '</code>'
+				)
+			);
+			printf(
+				'<p class="description">%s</p>',
+				sprintf(
+					/* translators: 1: provider name, 2: recommended model */
+					esc_html__( 'For best results, your %1$s account should support %2$s.', 'changelog-to-blog-post' ),
+					$provider_label,
+					esc_html( $status['recommended_model'] )
+				)
+			);
+		} else {
+			// Unknown / untested provider.
+			printf(
+				'<p>&#9888; %s</p>',
+				sprintf(
+					/* translators: 1: link to WordPress Connectors settings, 2: provider name, 3: model ID */
+					esc_html__( 'Using %1$s for %2$s (%3$s)', 'changelog-to-blog-post' ),
+					$connectors_link,
+					$provider_label,
+					'<code>' . $model_label . '</code>'
+				)
+			);
+			echo '<p class="description">' . esc_html__( 'We recommend the Anthropic, OpenAI, or Google connector.', 'changelog-to-blog-post' ) . '</p>';
+		}
+		// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
 	}
 
 	/**
-	 * Renders the API key fields for key-based providers and the wp_ai_client note.
+	 * Returns the current connector status, cached for 1 minute.
 	 *
-	 * @return void
+	 * @return array{configured: bool, provider_name: string, provider_id: string, model_id: string, is_preferred_model: bool, is_preferred_provider: bool, recommended_model: string}
 	 */
-	public function render_api_keys_field(): void {
-		$provider            = $this->global_settings->get_ai_provider();
-		$key_based_providers = [ 'openai', 'anthropic' ];
-		$no_key_providers    = [ 'wp_ai_client' ];
+	private function get_connector_status(): array {
+		$cached = get_transient( 'ctbp_connector_status' );
+		if ( is_array( $cached ) ) {
+			return $cached;
+		}
 
-		foreach ( $key_based_providers as $p ) :
-			?>
-			<div
-				class="ctbp-api-key-row"
-				data-provider="<?php echo esc_attr( $p ); ?>"
-				<?php echo $provider !== $p ? 'hidden' : ''; ?>
-			>
-				<input
-					type="password"
-					id="ctbp_api_key_<?php echo esc_attr( $p ); ?>"
-					name="<?php echo esc_attr( Plugin_Constants::OPTION_AI_API_KEYS ); ?>[<?php echo esc_attr( $p ); ?>]"
-					value="<?php echo esc_attr( $this->global_settings->get_masked_key( $p ) ); ?>"
-					class="regular-text"
-					autocomplete="new-password"
-				>
-				<p class="description">
-					<?php echo esc_html__( 'Leave unchanged to keep the existing key. Clear the field to remove the key.', 'changelog-to-blog-post' ); ?>
-				</p>
-			</div>
-			<?php
-		endforeach;
+		$status = $this->detect_connector_status();
+		set_transient( 'ctbp_connector_status', $status, MINUTE_IN_SECONDS );
 
-		foreach ( $no_key_providers as $p ) :
-			?>
-			<div
-				class="ctbp-provider-note"
-				data-provider="<?php echo esc_attr( $p ); ?>"
-				<?php echo $provider !== $p ? 'hidden' : ''; ?>
-			>
-				<p class="description">
-					<?php echo esc_html__( 'WordPress Connectors manages its own API keys. Configure your preferred AI connector under Settings → AI Credentials.', 'changelog-to-blog-post' ); ?>
-				</p>
-			</div>
-			<?php
-		endforeach;
+		return $status;
+	}
+
+	/**
+	 * Detects the active connector, provider name, and model from the AI Client registry.
+	 *
+	 * @return array{configured: bool, provider_name: string, provider_id: string, model_id: string, is_preferred_model: bool, is_preferred_provider: bool, recommended_model: string}
+	 */
+	private function detect_connector_status(): array {
+		$default = [
+			'configured'            => false,
+			'provider_name'         => '',
+			'provider_id'           => '',
+			'model_id'              => '',
+			'is_preferred_model'    => false,
+			'is_preferred_provider' => false,
+			'recommended_model'     => '',
+		];
+
+		if ( ! class_exists( 'WordPress\AiClient\AiClient' ) ) {
+			return $default;
+		}
+
+		$registry     = \WordPress\AiClient\AiClient::defaultRegistry();
+		$provider_ids = $registry->getRegisteredProviderIds();
+
+		// Preferred providers and their recommended models.
+		$preferred_providers = [
+			'anthropic' => 'Claude Opus 4.7',
+			'openai'    => 'GPT-5.5',
+			'google'    => 'Gemini 2.5 Pro',
+		];
+
+		// Preferred model IDs (from the connector's preference list).
+		$preferred_models = [
+			'claude-opus-4-7',
+			'gpt-5.5',
+			'gemini-2.5-pro',
+		];
+
+		// Find the first configured provider.
+		foreach ( $provider_ids as $id ) {
+			if ( ! $registry->isProviderConfigured( $id ) ) {
+				continue;
+			}
+
+			$class_name    = $registry->getProviderClassName( $id );
+			$metadata      = $class_name::metadata();
+			$provider_name = $metadata->getName();
+
+			// Get the first available model from this provider.
+			$model_dir = $class_name::modelMetadataDirectory();
+			$models    = $model_dir->listModelMetadata();
+			$model_id  = ! empty( $models ) ? $models[0]->getId() : '';
+
+			// Check if this is a preferred provider.
+			$is_preferred_provider = false;
+			$recommended_model     = '';
+			foreach ( $preferred_providers as $pref_id => $pref_model ) {
+				if ( str_contains( $id, $pref_id ) ) {
+					$is_preferred_provider = true;
+					$recommended_model     = $pref_model;
+					break;
+				}
+			}
+
+			// Check if the model is in our preferred list.
+			$is_preferred_model = in_array( $model_id, $preferred_models, true );
+
+			$status = [
+				'configured'            => true,
+				'provider_name'         => $provider_name,
+				'provider_id'           => $id,
+				'model_id'              => $model_id,
+				'is_preferred_model'    => $is_preferred_model,
+				'is_preferred_provider' => $is_preferred_provider,
+				'recommended_model'     => $recommended_model,
+			];
+
+			return $status;
+		}
+
+		return $default;
 	}
 
 	/**
@@ -423,64 +497,6 @@ class Settings_Page {
 		<?php
 	}
 
-	/**
-	 * Sanitizes the AI provider value.
-	 *
-	 * @param mixed $value Submitted value.
-	 * @return string Validated provider slug or empty string.
-	 */
-	public function sanitize_ai_provider( $value ): string {
-		$value = sanitize_key( (string) $value );
-
-		if ( '' !== $value && ! in_array( $value, Global_Settings::SUPPORTED_PROVIDERS, true ) ) {
-			return '';
-		}
-
-		return $value;
-	}
-
-	/**
-	 * Sanitizes the API keys array before saving.
-	 *
-	 * Handles encryption of new keys, preservation of masked placeholders,
-	 * and removal of cleared keys.
-	 *
-	 * @param mixed $value Submitted array of provider => key values.
-	 * @return array<string, string> Encrypted API keys array.
-	 */
-	public function sanitize_api_keys( $value ): array {
-		if ( ! is_array( $value ) ) {
-			$value = [];
-		}
-
-		$existing = get_option( Plugin_Constants::OPTION_AI_API_KEYS, [] );
-		if ( ! is_array( $existing ) ) {
-			$existing = [];
-		}
-
-		foreach ( [ 'openai', 'anthropic' ] as $provider ) {
-			if ( ! isset( $value[ $provider ] ) ) {
-				continue;
-			}
-
-			$submitted = wp_unslash( (string) $value[ $provider ] );
-
-			if ( Global_Settings::MASKED_PLACEHOLDER === $submitted ) {
-				// User left the masked placeholder — preserve existing encrypted key.
-				continue;
-			}
-
-			if ( '' === $submitted ) {
-				// User cleared the field — remove the key.
-				unset( $existing[ $provider ] );
-			} else {
-				$existing[ $provider ] = $this->global_settings->encrypt( $submitted );
-			}
-		}
-
-		return $existing;
-	}
-
 	// -------------------------------------------------------------------------
 	// Post Defaults Section
 	// -------------------------------------------------------------------------
@@ -542,6 +558,15 @@ class Settings_Page {
 			'ctbp_section_notifications',
 			[ 'label_for' => Plugin_Constants::OPTION_ADDITIONAL_EMAILS ]
 		);
+
+		add_settings_field(
+			'ctbp_test_notification',
+			'',
+			[ $this, 'render_test_notification_field' ],
+			self::PAGE_SLUG,
+			'ctbp_section_notifications',
+			[ 'class' => 'ctbp-test-notification-row' ]
+		);
 	}
 
 	/**
@@ -590,6 +615,21 @@ class Settings_Page {
 		<p class="description">
 			<?php echo esc_html__( 'Comma-separated list of email addresses (up to 5).', 'changelog-to-blog-post' ); ?>
 		</p>
+		<?php
+	}
+
+	/**
+	 * Renders the test notification button.
+	 *
+	 * @return void
+	 */
+	public function render_test_notification_field(): void {
+		?>
+		<button type="button" id="ctbp-test-notification" class="button">
+			<?php echo esc_html__( 'Send Test Email', 'changelog-to-blog-post' ); ?>
+		</button>
+		<span class="spinner ctbp-test-notification-spinner"></span>
+		<span id="ctbp-test-notification-result" style="vertical-align: middle;" aria-live="polite"></span>
 		<?php
 	}
 
@@ -762,20 +802,5 @@ class Settings_Page {
 		}
 
 		return $ids;
-	}
-
-	/**
-	 * Renders the connection test button as an inline settings field.
-	 *
-	 * @return void
-	 */
-	public function render_connection_test_field(): void {
-		?>
-		<button type="button" id="ctbp-test-connection" class="button">
-			<?php echo esc_html__( 'Test Connection', 'changelog-to-blog-post' ); ?>
-		</button>
-		<span class="spinner ctbp-connection-spinner"></span>
-		<span id="ctbp-connection-result" aria-live="polite"></span>
-		<?php
 	}
 }

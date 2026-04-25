@@ -133,64 +133,33 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	};
 
 	// -------------------------------------------------------------------------
-	// AI provider field visibility.
+	// Test notification email.
 	// -------------------------------------------------------------------------
-	const providerSelect = document.getElementById( 'ctbp_ai_provider' );
-
-	function updateProviderVisibility() {
-		const selected = providerSelect ? providerSelect.value : '';
-
-		document.querySelectorAll( '.ctbp-api-key-row, .ctbp-provider-note' ).forEach( function ( el ) {
-			el.hidden = el.dataset.provider !== selected;
-		} );
-	}
-
-	if ( providerSelect ) {
-		providerSelect.addEventListener( 'change', updateProviderVisibility );
-		updateProviderVisibility();
-	}
-
-	// Test connection.
-	const testBtn = document.getElementById( 'ctbp-test-connection' );
-	if ( testBtn ) {
-		testBtn.addEventListener( 'click', function () {
-			const resultEl = document.getElementById( 'ctbp-connection-result' );
-			const spinner  = testBtn.parentNode.querySelector( '.ctbp-connection-spinner' );
+	const testNotifBtn = document.getElementById( 'ctbp-test-notification' );
+	if ( testNotifBtn ) {
+		testNotifBtn.addEventListener( 'click', function () {
+			const resultEl = document.getElementById( 'ctbp-test-notification-result' );
+			const spinner = testNotifBtn.parentNode.querySelector( '.ctbp-test-notification-spinner' );
 
 			if ( spinner ) {
 				spinner.style.display = 'inline-block';
 				spinner.classList.add( 'is-active' );
 			}
 			if ( resultEl ) {
-				resultEl.textContent = ctbpAdmin.i18n.validating || 'Testing...';
-			}
-
-			// Read currently selected provider and key from the form (not saved values).
-			var selectedProvider = providerSelect ? providerSelect.value : '';
-			var keyInput = selectedProvider
-				? document.getElementById( 'ctbp_api_key_' + selectedProvider )
-				: null;
-			var apiKey = keyInput ? keyInput.value : '';
-
-			var params = {};
-			if ( selectedProvider ) {
-				params.provider = selectedProvider;
-			}
-			if ( apiKey ) {
-				params.api_key = apiKey;
+				resultEl.textContent = '';
 			}
 
 			window.ctbpFetch(
-				'GET',
-				'/ai/test-connection',
-				params,
-				function () {
+				'POST',
+				'/notifications/test',
+				{},
+				function ( data ) {
 					if ( spinner ) {
 						spinner.classList.remove( 'is-active' );
 						spinner.style.display = 'none';
 					}
 					if ( resultEl ) {
-						resultEl.innerHTML = validIcon( ctbpAdmin.i18n.connectionSuccess || 'Connection successful' );
+						resultEl.innerHTML = validIcon( data.message || 'Sent!' ) + ' ' + ( data.message || 'Sent!' );
 					}
 				},
 				function ( data ) {
@@ -199,7 +168,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 						spinner.style.display = 'none';
 					}
 					if ( resultEl ) {
-						var msg = ( data && data.message ) ? data.message : ctbpAdmin.i18n.notImplemented;
+						var msg = ( data && data.message ) ? data.message : 'Failed to send test email.';
 						resultEl.innerHTML = warningIcon( msg ) + ' ' + msg;
 					}
 				}

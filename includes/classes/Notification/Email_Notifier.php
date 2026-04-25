@@ -24,7 +24,7 @@ class Email_Notifier {
 	/**
 	 * Posts collected during this request for the batched email.
 	 *
-	 * @var array<int, array{post_id: int, status: string, identifier: string, tag: string, html_url: string}>
+	 * @var array<int, array{post_id: int, status: string, identifier: string, display_name: string, tag: string, html_url: string, significance: string, post_title: string}>
 	 */
 	private array $entries = [];
 
@@ -91,6 +91,7 @@ class Email_Notifier {
 			'tag'          => $data->tag,
 			'html_url'     => $data->html_url,
 			'significance' => $significance,
+			'post_title'   => get_the_title( $post_id ),
 		];
 
 		// Register shutdown hook once to send the batched email.
@@ -119,14 +120,10 @@ class Email_Notifier {
 		}
 
 		$site_name = get_bloginfo( 'name' );
-		$subject   = sprintf(
-			/* translators: %s: site name */
-			__( 'New plugin update post(s) ready — %s', 'changelog-to-blog-post' ),
-			$site_name
-		);
+		$subject   = $this->build_subject( $eligible, $site_name );
 
-		$text_body = $this->build_text_body( $eligible, $site_name );
-		$html_body = $this->build_html_body( $eligible, $site_name );
+		$text_body = $this->build_text_body( $eligible );
+		$html_body = $this->build_html_body( $eligible );
 
 		$headers = [
 			'Content-Type: text/html; charset=UTF-8',
@@ -199,43 +196,66 @@ class Email_Notifier {
 	}
 
 	/**
-	 * Builds the plain text email body.
+	 * Builds a contextual subject line.
+	 *
+	 * Single entry: "Gutenberg 19.0 — draft ready for review"
+	 * Multiple:     "[Site Name] 2 release posts ready"
 	 *
 	 * @param array  $entries   Post entries.
 	 * @param string $site_name Site name.
 	 * @return string
 	 */
-	private function build_text_body( array $entries, string $site_name ): string {
-		$lines   = [];
+	private function build_subject( array $entries, string $site_name ): string {
+		if ( 1 === count( $entries ) ) {
+			$entry  = $entries[0];
+			$prefix = $entry['display_name'] . ' ' . $entry['tag'];
+
+			if ( 'publish' === $entry['status'] ) {
+				/* translators: %s: project name and version, e.g. "Gutenberg 19.0" */
+				return sprintf( __( '%s — release post published', 'changelog-to-blog-post' ), $prefix );
+			}
+
+			/* translators: %s: project name and version, e.g. "Gutenberg 19.0" */
+			return sprintf( __( '%s — draft ready for review', 'changelog-to-blog-post' ), $prefix );
+		}
+
+		return sprintf(
+			/* translators: 1: site name, 2: number of posts */
+			__( '[%1$s] %2$d release posts ready', 'changelog-to-blog-post' ),
+			$site_name,
+			count( $entries )
+		);
+	}
+
+	/**
+	 * Builds the plain text email body.
+	 *
+	 * @param array $entries Post entries.
+	 * @return string
+	 */
+	private function build_text_body( array $entries ): string {
+		$site_url = home_url();
+		$lines    = [];
+
 		$lines[] = sprintf(
-			/* translators: %s: site name */
-			__( 'New plugin update posts on %s:', 'changelog-to-blog-post' ),
-			$site_name
+			/* translators: 1: site URL, 2: plugin name */
+			__( 'New posts have been generated from GitHub releases on %1$s, via the %2$s plugin.', 'changelog-to-blog-post' ),
+			$site_url,
+			'GitHub Release Posts'
 		);
 		$lines[] = '';
 
 		foreach ( $entries as $entry ) {
-			$status_label = 'publish' === $entry['status']
-				? __( 'Published', 'changelog-to-blog-post' )
-				: __( 'Draft', 'changelog-to-blog-post' );
-
-			$sig_label = ucfirst( $entry['significance'] );
-
-			$lines[] = sprintf(
-				/* translators: 1: project display name, 2: version tag, 3: significance level, 4: post status */
-				__( '• %1$s %2$s (%3$s) — %4$s', 'changelog-to-blog-post' ),
-				$entry['display_name'],
-				$entry['tag'],
-				$sig_label,
-				$status_label
-			);
-			$lines[] = sprintf( '  %s: %s', __( 'Edit', 'changelog-to-blog-post' ), $this->get_edit_url( $entry['post_id'] ) );
+			$title   = ! empty( $entry['post_title'] ) ? $entry['post_title'] : $entry['display_name'] . ' ' . $entry['tag'];
+			$lines[] = sprintf( '• %s', $title );
 
 			if ( 'publish' === $entry['status'] ) {
-				$lines[] = sprintf( '  %s: %s', __( 'View', 'changelog-to-blog-post' ), get_permalink( $entry['post_id'] ) );
+				$lines[] = sprintf( '  %s: %s', __( 'View post', 'changelog-to-blog-post' ), get_permalink( $entry['post_id'] ) );
+			} else {
+				$lines[] = sprintf( '  %s: %s', __( 'Review draft', 'changelog-to-blog-post' ), $this->get_edit_url( $entry['post_id'] ) );
 			}
 
-			$lines[] = sprintf( '  %s: %s', __( 'GitHub Release', 'changelog-to-blog-post' ), $entry['html_url'] );
+			$lines[] = sprintf( '  %s: %s', __( 'GitHub release', 'changelog-to-blog-post' ), $entry['html_url'] );
 			$lines[] = '';
 		}
 
@@ -245,42 +265,46 @@ class Email_Notifier {
 	/**
 	 * Builds the HTML email body.
 	 *
-	 * @param array  $entries   Post entries.
-	 * @param string $site_name Site name.
+	 * @param array $entries Post entries.
 	 * @return string
 	 */
-	private function build_html_body( array $entries, string $site_name ): string {
+	private function build_html_body( array $entries ): string {
+		$site_url    = esc_url( home_url() );
+		$site_host   = wp_parse_url( home_url(), PHP_URL_HOST );
+		$plugin_url  = 'https://github.com/jakemgold/github-release-posts-wordpress';
+		$plugin_name = 'GitHub Release Posts';
+
 		$html  = '<div style="font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif; max-width: 600px;">';
-		$html .= '<h2>' . sprintf(
-			/* translators: %s: site name */
-			esc_html__( 'New plugin update posts on %s', 'changelog-to-blog-post' ),
-			esc_html( $site_name )
-		) . '</h2>';
+		$html .= '<p>' . sprintf(
+			/* translators: 1: linked site URL, 2: linked plugin name */
+			esc_html__( 'New posts have been generated from GitHub releases on %1$s, via the %2$s plugin.', 'changelog-to-blog-post' ),
+			'<a href="' . $site_url . '">' . esc_html( $site_host ) . '</a>',
+			'<a href="' . esc_url( $plugin_url ) . '">' . esc_html( $plugin_name ) . '</a>'
+		) . '</p>';
 
 		$html .= '<table style="width: 100%; border-collapse: collapse;">';
 
 		foreach ( $entries as $entry ) {
-			$status_label = 'publish' === $entry['status']
-				? esc_html__( 'Published', 'changelog-to-blog-post' )
-				: esc_html__( 'Draft', 'changelog-to-blog-post' );
-
-			$sig_label = esc_html( ucfirst( $entry['significance'] ) );
-			$edit_url  = esc_url( $this->get_edit_url( $entry['post_id'] ) );
+			$title = ! empty( $entry['post_title'] )
+				? $entry['post_title']
+				: $entry['display_name'] . ' ' . $entry['tag'];
 
 			$html .= '<tr style="border-bottom: 1px solid #eee;">';
 			$html .= '<td style="padding: 12px 0;">';
-			$html .= '<strong>' . esc_html( $entry['display_name'] ) . ' ' . esc_html( $entry['tag'] ) . '</strong>';
-			$html .= ' <span style="color: #666;">(' . $sig_label . ')</span>';
-			$html .= ' — ' . $status_label;
+			$html .= '<strong>' . esc_html( $title ) . '</strong>';
+			$html .= ' <span style="color: #666;">(' . esc_html( $entry['display_name'] ) . ' ' . esc_html( $entry['tag'] ) . ')</span>';
 			$html .= '<br>';
-			$html .= '<a href="' . $edit_url . '">' . esc_html__( 'Edit post', 'changelog-to-blog-post' ) . '</a>';
 
 			if ( 'publish' === $entry['status'] ) {
 				$view_url = esc_url( get_permalink( $entry['post_id'] ) );
-				$html    .= ' · <a href="' . $view_url . '">' . esc_html__( 'View post', 'changelog-to-blog-post' ) . '</a>';
+				$html    .= '<a href="' . $view_url . '">' . esc_html__( 'View post', 'changelog-to-blog-post' ) . '</a>';
+				$html    .= ' · <a href="' . esc_url( $this->get_edit_url( $entry['post_id'] ) ) . '">' . esc_html__( 'Edit', 'changelog-to-blog-post' ) . '</a>';
+			} else {
+				$edit_url = esc_url( $this->get_edit_url( $entry['post_id'] ) );
+				$html    .= '<a href="' . $edit_url . '"><strong>' . esc_html__( 'Review draft', 'changelog-to-blog-post' ) . '</strong></a>';
 			}
 
-			$html .= ' · <a href="' . esc_url( $entry['html_url'] ) . '">' . esc_html__( 'GitHub Release', 'changelog-to-blog-post' ) . '</a>';
+			$html .= ' · <a href="' . esc_url( $entry['html_url'] ) . '">' . esc_html__( 'GitHub release', 'changelog-to-blog-post' ) . '</a>';
 			$html .= '</td>';
 			$html .= '</tr>';
 		}

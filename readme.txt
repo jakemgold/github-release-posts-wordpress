@@ -2,10 +2,10 @@
 
 Contributors:      jakemgold, 10up
 Tags:              github, releases, blog post, ai, automation
-Requires at least: 6.9
-Tested up to:      6.9
+Requires at least: 7.0
+Tested up to:      7.0
 Requires PHP:      8.2
-Stable tag:        1.0.0
+Stable tag:        0.8.0
 License:           GPL-2.0-or-later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -26,10 +26,7 @@ You can also generate a post on demand at any time from the Repositories tab.
 **Features:**
 
 * Monitor multiple GitHub repositories for new releases
-* AI-powered post generation with three provider options:
-  * **WordPress AI Services** (recommended) — use your existing AI Services configuration
-  * **OpenAI** — direct API key connection
-  * **Anthropic** — direct API key connection
+* AI-powered post generation via WordPress Connectors — works with Anthropic, OpenAI, Google, and any other configured connector
 * Significance-aware content — patch, minor, major, and security releases get tailored tone and structure
 * SEO-friendly post slugs and excerpts generated automatically by AI
 * Configurable publish/draft workflow with per-repository overrides
@@ -44,15 +41,15 @@ You can also generate a post on demand at any time from the Repositories tab.
 **For developers:**
 
 * Extensible via filter hooks at every stage of the pipeline
-* Register custom AI providers via the `ctbp_register_ai_providers` filter
+* Customize preferred AI models via the `ctbp_wp_ai_client_model_preferences` filter
 * Override significance classification, prompt content, post terms, and post status per-release
 * All prompt templates defined in code, versioned with the plugin
 
 **Requirements:**
 
-* WordPress 6.9 or later
+* WordPress 7.0 or later
 * PHP 8.2 or later
-* An AI provider: WordPress AI Services plugin, an OpenAI API key, or an Anthropic API key
+* At least one AI connector configured under Settings → Connectors (Anthropic, OpenAI, or Google recommended)
 
 == Installation ==
 
@@ -64,7 +61,7 @@ You can also generate a post on demand at any time from the Repositories tab.
 
 = Which AI providers are supported? =
 
-WordPress AI Services (recommended for most users), OpenAI, and Anthropic are supported in v1. WordPress AI Services lets you configure your preferred AI provider once in Settings → AI Services and use it across all compatible plugins. Additional providers can be registered via the `ctbp_register_ai_providers` filter hook.
+The plugin uses WordPress Connectors (built into WordPress 7.0+) to communicate with AI providers. Any connector installed on your site will work. We recommend Anthropic (Claude Opus 4.7), OpenAI (GPT-5.5), or Google (Gemini 2.5 Pro) for best results. Configure your connector under Settings → Connectors.
 
 = Do I need a GitHub API key? =
 
@@ -93,16 +90,21 @@ A Release Attribution panel appears in the document sidebar, showing which GitHu
 == Screenshots ==
 
 1. Repositories tab — monitor multiple GitHub repos with last post version, status, and one-click post generation.
-2. Settings tab — configure your AI provider, API key, audience level, custom prompt instructions, and notifications.
+2. Settings tab — view your AI connector status and configure audience level, custom prompt instructions, and notifications.
 3. Inline editing — per-repo settings including name, project link, post status, author, categories, tags, and featured image, following the familiar WordPress Quick Edit pattern.
 4. Generated post in the block editor — AI-written content with embedded images, plus the GitHub Release sidebar panel for source attribution and regeneration.
 
 == Changelog ==
 
-= 1.0.0 =
-* Initial release.
+= 0.8.0 =
+* Requires WordPress 7.0+ with Connectors API.
+* AI generation via WordPress Connectors — supports Anthropic, OpenAI, Google, and any configured connector.
+* Preferred model list with automatic fallback (Claude Opus 4.7, GPT-5.5, Gemini 2.5 Pro).
+* Connector status panel replaces manual provider/API key configuration.
+* Improved notification emails with contextual subject lines and post titles.
+* Test notification email feature.
 
 == Upgrade Notice ==
 
-= 1.0.0 =
-Initial release.
+= 0.8.0 =
+Pre-release. Requires WordPress 7.0 RC or later.

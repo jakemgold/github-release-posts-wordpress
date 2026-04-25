@@ -221,7 +221,7 @@ class AI_Processor {
 
 Last error: %4$s
 
-This may be caused by an issue with your AI provider configuration, insufficient API credits, or server timeout limits. You can try generating the post manually from Tools → Release Posts, or check your AI provider settings.
+This may be caused by an issue with your AI connector configuration, insufficient API credits, or server timeout limits. You can try generating the post manually from Tools → Release Posts, or check your connector setup under Settings → Connectors.
 
 This notification will not be sent again for this release unless the issue is resolved and a new failure streak occurs.',
 				'changelog-to-blog-post'

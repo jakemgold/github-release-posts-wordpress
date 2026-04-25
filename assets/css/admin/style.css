@@ -28,8 +28,8 @@
 	width: 200px;
 }
 
-.wp-list-table .column-github {
-	white-space: nowrap;
+.wp-list-table .column-github code {
+	word-break: break-all;
 }
 
 .wp-list-table .column-status {

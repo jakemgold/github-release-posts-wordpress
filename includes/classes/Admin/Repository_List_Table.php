@@ -198,7 +198,7 @@ class Repository_List_Table extends \WP_List_Table {
 	 * @return string Column HTML.
 	 */
 	protected function column_github( array $item ): string {
-		$identifier = $item['identifier'] ?? '';
+		$identifier   = $item['identifier'] ?? '';
 		$releases_url = 'https://github.com/' . $identifier . '/releases';
 		return sprintf(
 			'<code>%s</code> <a href="%s" target="_blank" rel="noopener" title="%s"><span class="dashicons dashicons-external" style="font-size:14px;width:14px;height:14px;text-decoration:none;"></span><span class="screen-reader-text">%s</span></a>',
@@ -279,15 +279,24 @@ class Repository_List_Table extends \WP_List_Table {
 
 		$identifier = $item['identifier'] ?? '';
 
-		static $provider = null;
-		if ( null === $provider ) {
-			$provider = ( new \TenUp\ChangelogToBlogPost\Settings\Global_Settings() )->get_ai_provider();
+		static $has_connector = null;
+		if ( null === $has_connector ) {
+			$has_connector = false;
+			if ( class_exists( 'WordPress\AiClient\AiClient' ) ) {
+				$registry = \WordPress\AiClient\AiClient::defaultRegistry();
+				foreach ( $registry->getRegisteredProviderIds() as $id ) {
+					if ( $registry->isProviderConfigured( $id ) ) {
+						$has_connector = true;
+						break;
+					}
+				}
+			}
 		}
 
-		if ( empty( $provider ) ) {
+		if ( ! $has_connector ) {
 			return sprintf(
 				'<button type="button" class="button button-small" disabled aria-label="%s">%s</button>',
-				esc_attr__( 'Configure an AI provider in the Settings tab first.', 'changelog-to-blog-post' ),
+				esc_attr__( 'No AI connector configured. Set one up under Settings → Connectors.', 'changelog-to-blog-post' ),
 				esc_html__( 'Generate post', 'changelog-to-blog-post' )
 			);
 		}

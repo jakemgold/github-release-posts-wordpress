@@ -50,7 +50,7 @@ class AI_ProcessorTest extends TestCase {
 	// -------------------------------------------------------------------------
 
 	public function test_handle_returns_cached_result_without_api_call(): void {
-		$cached = new GeneratedPost( 'Cached Title', '<p>body</p>', 'openai' );
+		$cached = new GeneratedPost( 'Cached Title', '<p>body</p>', 'wp_ai_client' );
 
 		\WP_Mock::userFunction( 'get_transient' )->andReturn( $cached );
 
@@ -125,10 +125,10 @@ class AI_ProcessorTest extends TestCase {
 	public function test_handle_caches_result_and_clears_failure_count_on_success(): void {
 		\WP_Mock::userFunction( 'get_transient' )->andReturn( false );
 
-		$generated = new GeneratedPost( 'New Title', '<p>body</p>', 'anthropic' );
+		$generated = new GeneratedPost( 'New Title', '<p>body</p>', 'wp_ai_client' );
 
 		$this->provider->method( 'generate_post' )->willReturn( $generated );
-		$this->provider->method( 'get_slug' )->willReturn( 'anthropic' );
+		$this->provider->method( 'get_slug' )->willReturn( 'wp_ai_client' );
 		$this->factory->method( 'get_provider' )->willReturn( $this->provider );
 
 		// The prompt filter must return a non-empty string for generation to proceed.

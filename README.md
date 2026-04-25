@@ -22,7 +22,7 @@ Monitor multiple GitHub repos with last post version, status, and one-click post
 ![Repositories tab](.wordpress-org/screenshot-1.png)
 
 ### Settings tab
-Configure your AI provider, API key, audience level, custom prompt instructions, and notifications.
+View your AI connector status and configure audience level, custom prompt instructions, and notifications.
 
 ![Settings tab](.wordpress-org/screenshot-2.png)
 
@@ -39,10 +39,7 @@ AI-written content with embedded images, plus the GitHub Release sidebar panel f
 ## Features
 
 - Monitor multiple GitHub repositories for new releases
-- AI-powered post generation with three provider options:
-  - **OpenAI** (o3) — direct API key connection
-  - **Anthropic** (Claude Opus 4.6) — direct API key connection
-  - **WordPress AI Client** (experimental) — uses the WordPress core AI infrastructure
+- AI-powered post generation via WordPress Connectors — works with Anthropic, OpenAI, Google, and any other configured connector
 - Significance-aware content — patch, minor, major, and security releases get tailored tone and structure
 - SEO-friendly post slugs and excerpts generated automatically by AI
 - Configurable publish/draft workflow with per-repository overrides
@@ -57,9 +54,9 @@ AI-written content with embedded images, plus the GitHub Release sidebar panel f
 
 ## Requirements
 
-- WordPress 6.9 or later
+- WordPress 7.0 or later
 - PHP 8.2 or later
-- An AI provider: an OpenAI API key, an Anthropic API key, or the WordPress AI Client (WordPress 7.0+)
+- At least one AI connector configured under Settings → Connectors (Anthropic, OpenAI, or Google recommended)
 
 ## Installation
 
@@ -88,8 +85,8 @@ The plugin is extensible via filter hooks at every stage of the pipeline:
 | `ctbp_sideload_allowed_domains` | Domains allowed for image sideloading |
 | `ctbp_check_frequency` | WP-Cron schedule (default: `daily`) |
 | `ctbp_register_ai_providers` | Register custom AI provider connectors |
-| `ctbp_openai_model` | Override OpenAI model ID |
-| `ctbp_anthropic_model` | Override Anthropic model ID |
+| `ctbp_wp_ai_client_model_preferences` | Ordered list of preferred model IDs for WordPress Connectors |
+| `ctbp_openai_reasoning_effort` | Reasoning effort level for OpenAI models (default: `high`) |
 | `ctbp_generate_prompt` | Full prompt customization |
 | `ctbp_release_body` | Filter release body before prompt building |
 

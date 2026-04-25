@@ -53,7 +53,6 @@ class AI_Provider_FactoryTest extends TestCase {
 		\WP_Mock::onFilter( 'ctbp_register_ai_providers' )
 			->with( \Mockery::type( 'array' ) )
 			->reply( [] );
-		\WP_Mock::userFunction( 'get_option' )->andReturn( [] );
 
 		$result = $this->factory->get_provider();
 
@@ -61,9 +60,8 @@ class AI_Provider_FactoryTest extends TestCase {
 		$this->assertSame( 'ctbp_unknown_provider', $result->get_error_code() );
 	}
 
-	public function test_get_provider_returns_connector_for_known_slug(): void {
-		$this->settings->method( 'get_ai_provider' )->willReturn( 'openai' );
-		$this->settings->method( 'get_api_keys' )->willReturn( [ 'openai' => 'sk-test' ] );
+	public function test_get_provider_returns_connector_for_wp_ai_client(): void {
+		$this->settings->method( 'get_ai_provider' )->willReturn( 'wp_ai_client' );
 
 		// Let the filter pass through so built-in providers are kept.
 		\WP_Mock::userFunction( 'apply_filters' )
@@ -73,7 +71,7 @@ class AI_Provider_FactoryTest extends TestCase {
 		$result = $this->factory->get_provider();
 
 		$this->assertInstanceOf( AIProviderInterface::class, $result );
-		$this->assertSame( 'openai', $result->get_slug() );
+		$this->assertSame( 'wp_ai_client', $result->get_slug() );
 	}
 
 	// -------------------------------------------------------------------------
@@ -87,7 +85,7 @@ class AI_Provider_FactoryTest extends TestCase {
 	}
 
 	public function test_is_configured_returns_true_when_provider_set(): void {
-		$this->settings->method( 'get_ai_provider' )->willReturn( 'openai' );
+		$this->settings->method( 'get_ai_provider' )->willReturn( 'wp_ai_client' );
 
 		$this->assertTrue( $this->factory->is_configured() );
 	}
@@ -104,11 +102,6 @@ class AI_Provider_FactoryTest extends TestCase {
 			->with( \Mockery::type( 'array' ) )
 			->reply( [ 'bad_provider' => new \stdClass() ] );
 
-		\WP_Mock::userFunction( 'get_option' )->andReturn( [] );
-
-		// error_log is a native PHP function — cannot be mocked.
-		// It will be called when the bad provider is removed, but we can't prevent it.
-
 		$result = $this->factory->get_provider();
 
 		// Provider rejected → unknown provider error.
@@ -119,7 +112,7 @@ class AI_Provider_FactoryTest extends TestCase {
 	// get_available_providers()
 	// -------------------------------------------------------------------------
 
-	public function test_get_available_providers_returns_all_built_in_slugs(): void {
+	public function test_get_available_providers_returns_wp_ai_client(): void {
 		$this->settings->method( 'get_ai_provider' )->willReturn( '' );
 
 		// Let the filter pass through so built-in providers are kept.
@@ -130,7 +123,6 @@ class AI_Provider_FactoryTest extends TestCase {
 		$providers = $this->factory->get_available_providers();
 
 		$this->assertArrayHasKey( 'wp_ai_client', $providers );
-		$this->assertArrayHasKey( 'openai', $providers );
-		$this->assertArrayHasKey( 'anthropic', $providers );
+		$this->assertCount( 1, $providers );
 	}
 }

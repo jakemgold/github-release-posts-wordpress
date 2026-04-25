@@ -39,7 +39,7 @@ interface AIProviderInterface {
 	 *
 	 * Must match the value stored in OPTION_AI_PROVIDER.
 	 *
-	 * @return string Provider slug (e.g. 'openai', 'wp_ai_client').
+	 * @return string Provider slug (e.g. 'wp_ai_client').
 	 */
 	public function get_slug(): string;
 
@@ -48,7 +48,7 @@ interface AIProviderInterface {
 	 *
 	 * Shown in the provider selector in plugin settings.
 	 *
-	 * @return string Display label (e.g. 'OpenAI').
+	 * @return string Display label (e.g. 'WordPress Connectors').
 	 */
 	public function get_label(): string;
 

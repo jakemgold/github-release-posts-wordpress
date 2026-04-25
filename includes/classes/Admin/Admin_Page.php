@@ -150,7 +150,7 @@ class Admin_Page {
 				'title'   => __( 'Getting Started', 'changelog-to-blog-post' ),
 				'content' => '<h3>' . esc_html__( 'Getting Started', 'changelog-to-blog-post' ) . '</h3>'
 					. '<ol>'
-					. '<li>' . esc_html__( 'Configure an AI provider in the Settings tab. You can use WordPress AI Services (recommended), OpenAI, or Anthropic.', 'changelog-to-blog-post' ) . '</li>'
+					. '<li>' . esc_html__( 'Set up an AI connector under Settings → Connectors (Anthropic, OpenAI, or Google recommended).', 'changelog-to-blog-post' ) . '</li>'
 					. '<li>' . esc_html__( 'Add a GitHub repository in the Repositories tab using the format "owner/repo" (e.g. "WordPress/gutenberg").', 'changelog-to-blog-post' ) . '</li>'
 					. '<li>' . esc_html__( 'When you add a repository, the plugin automatically checks for the latest release and generates a draft post if one is found. You can also generate a post manually at any time.', 'changelog-to-blog-post' ) . '</li>'
 					. '</ol>'
@@ -178,34 +178,16 @@ class Admin_Page {
 			[
 				'id'      => 'ctbp-help-ai-settings',
 				'title'   => __( 'AI & Prompts', 'changelog-to-blog-post' ),
-				'content' => '<h3>' . esc_html__( 'AI Provider Settings', 'changelog-to-blog-post' ) . '</h3>'
-				. '<p>' . esc_html__( 'The plugin supports three AI providers:', 'changelog-to-blog-post' ) . '</p>'
+				'content' => '<h3>' . esc_html__( 'Post Creation Settings', 'changelog-to-blog-post' ) . '</h3>'
+				. '<p>' . esc_html__( 'This plugin uses WordPress Connectors to communicate with AI providers. Configure your preferred connector (Anthropic, OpenAI, or Google) under Settings → Connectors.', 'changelog-to-blog-post' ) . '</p>'
+				. '<h4>' . esc_html__( 'Recommended Models', 'changelog-to-blog-post' ) . '</h4>'
+				. '<p>' . esc_html__( 'The plugin specifies a list of preferred models and automatically uses the best available one via your configured connector. For best results, your AI provider account should support one of these models:', 'changelog-to-blog-post' ) . '</p>'
 				. '<ul>'
-				. '<li><strong>' . esc_html__( 'WordPress AI Services', 'changelog-to-blog-post' ) . '</strong> — '
-					. sprintf(
-						/* translators: %s: link to AI Services plugin documentation */
-						esc_html__( 'Uses %s to manage API keys centrally. Recommended if you use AI features across multiple plugins.', 'changelog-to-blog-post' ),
-						'<a href="https://developer.wordpress.org/plugins/ai-services/" target="_blank" rel="noopener">' . esc_html__( 'the AI Services plugin', 'changelog-to-blog-post' ) . '</a>'
-					)
-				. '</li>'
-				. '<li><strong>' . esc_html__( 'OpenAI', 'changelog-to-blog-post' ) . '</strong> — '
-					. sprintf(
-						/* translators: %s: link to OpenAI API keys page */
-						esc_html__( 'Direct integration with OpenAI. %s.', 'changelog-to-blog-post' ),
-						'<a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">' . esc_html__( 'Requires an API key', 'changelog-to-blog-post' ) . '</a>'
-					)
-				. '</li>'
-				. '<li><strong>' . esc_html__( 'Anthropic', 'changelog-to-blog-post' ) . '</strong> — '
-					. sprintf(
-						/* translators: %s: link to Anthropic API keys page */
-						esc_html__( 'Direct integration with Anthropic (Claude). %s.', 'changelog-to-blog-post' ),
-						'<a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">' . esc_html__( 'Requires an API key', 'changelog-to-blog-post' ) . '</a>'
-					)
-				. '</li>'
+				. '<li>' . esc_html__( 'Anthropic — Claude Opus 4.7', 'changelog-to-blog-post' ) . '</li>'
+				. '<li>' . esc_html__( 'OpenAI — GPT-5.5', 'changelog-to-blog-post' ) . '</li>'
+				. '<li>' . esc_html__( 'Google — Gemini 2.5 Pro', 'changelog-to-blog-post' ) . '</li>'
 				. '</ul>'
-				. '<h4>' . esc_html__( 'AI Models', 'changelog-to-blog-post' ) . '</h4>'
-				. '<p>' . esc_html__( 'The plugin uses advanced reasoning models to produce high-quality, editorial blog posts: OpenAI o3 and Anthropic Claude Opus 4.6. These models are slower and more expensive per request than standard models, but produce significantly better writing with more nuanced understanding of release notes.', 'changelog-to-blog-post' ) . '</p>'
-				. '<p>' . esc_html__( 'Developers can override the model via the ctbp_openai_model and ctbp_anthropic_model filters, or set a custom model in the plugin settings. For example, switching to a faster model like GPT-4o or Claude Sonnet will reduce costs and generation time at the expense of output quality.', 'changelog-to-blog-post' ) . '</p>'
+				. '<p>' . esc_html__( 'If none of these models are available, the plugin falls back to whatever model your connector provides. Developers can customize the preferred model list via the ctbp_wp_ai_client_model_preferences filter.', 'changelog-to-blog-post' ) . '</p>'
 				. '<h4>' . esc_html__( 'Post Audience', 'changelog-to-blog-post' ) . '</h4>'
 				. '<p>' . esc_html__( 'Controls the technical depth of generated posts. "Site owners & managers" avoids all jargon; "Engineering teams" includes hook signatures, code examples, and architecture details.', 'changelog-to-blog-post' ) . '</p>'
 				. '<h4>' . esc_html__( 'Custom Prompt Instructions', 'changelog-to-blog-post' ) . '</h4>'
@@ -242,26 +224,22 @@ class Admin_Page {
 			]
 		);
 
-		$screen->add_help_tab( [
-			'id'      => 'ctbp-help-troubleshooting',
-			'title'   => __( 'Troubleshooting', 'changelog-to-blog-post' ),
-			'content' => '<h3>' . esc_html__( 'Troubleshooting', 'changelog-to-blog-post' ) . '</h3>'
-				. '<h4>' . esc_html__( 'Post generation fails or times out', 'changelog-to-blog-post' ) . '</h4>'
-				. '<p>' . esc_html__( 'AI generation can take 30–60 seconds for complex releases. If your hosting environment has a short PHP execution time limit, the request may time out before the AI responds. Contact your host about increasing the limit, or try generating again — some releases take longer than others.', 'changelog-to-blog-post' ) . '</p>'
-				. '<h4>' . esc_html__( 'API credits or billing error', 'changelog-to-blog-post' ) . '</h4>'
-				. '<p>' . esc_html__( 'If you see a billing or credits error, verify that your API key was created in the same account where you purchased credits. OpenAI and Anthropic have separate billing systems for different products — ensure credits are loaded for the API, not just a chat subscription.', 'changelog-to-blog-post' ) . '</p>'
-				. '<h4>' . esc_html__( 'Images show "unexpected or invalid content"', 'changelog-to-blog-post' ) . '</h4>'
-				. '<p>' . esc_html__( 'If image blocks show a validation warning in the editor, click "Attempt recovery" — this usually resolves the issue. The plugin rebuilds image blocks from AI output, and minor formatting differences can occasionally trigger this warning.', 'changelog-to-blog-post' ) . '</p>'
-				. '<h4>' . esc_html__( 'Posts are empty or very short', 'changelog-to-blog-post' ) . '</h4>'
-				. '<p>' . esc_html__( 'This usually means the GitHub release has no release notes (just a tag with no body text). The plugin generates content from the release notes — if there are none, the AI has little to work with. Check the release on GitHub to confirm it has a description.', 'changelog-to-blog-post' ) . '</p>'
-				. '<h4>' . esc_html__( 'Scheduled checks are not running', 'changelog-to-blog-post' ) . '</h4>'
-				. '<p>' . esc_html__( 'The plugin relies on WP-Cron, which requires regular site traffic to trigger. On low-traffic sites, consider setting up a real server cron job to call wp-cron.php. Check Tools → Site Health for WP-Cron status.', 'changelog-to-blog-post' ) . '</p>',
-		] );
-
-		$screen->set_help_sidebar(
-			'<p><strong>' . esc_html__( 'For more information:', 'changelog-to-blog-post' ) . '</strong></p>'
-			. '<p>' . esc_html__( 'Posts are generated as native Gutenberg blocks and can be edited in the block editor like any other post.', 'changelog-to-blog-post' ) . '</p>'
-			. '<p>' . esc_html__( 'Images from GitHub release notes are automatically imported into the WordPress media library.', 'changelog-to-blog-post' ) . '</p>'
+		$screen->add_help_tab(
+			[
+				'id'      => 'ctbp-help-troubleshooting',
+				'title'   => __( 'Troubleshooting', 'changelog-to-blog-post' ),
+				'content' => '<h3>' . esc_html__( 'Troubleshooting', 'changelog-to-blog-post' ) . '</h3>'
+					. '<h4>' . esc_html__( 'Post generation fails or times out', 'changelog-to-blog-post' ) . '</h4>'
+					. '<p>' . esc_html__( 'AI generation can take 30–60 seconds for complex releases. If your hosting environment has a short PHP execution time limit, the request may time out before the AI responds. Contact your host about increasing the limit, or try generating again — some releases take longer than others.', 'changelog-to-blog-post' ) . '</p>'
+					. '<h4>' . esc_html__( 'API credits or billing error', 'changelog-to-blog-post' ) . '</h4>'
+					. '<p>' . esc_html__( 'If you see a billing or credits error, verify that your AI provider account has API credits loaded. Some providers have separate billing for API usage and chat subscriptions.', 'changelog-to-blog-post' ) . '</p>'
+					. '<h4>' . esc_html__( 'Images show "unexpected or invalid content"', 'changelog-to-blog-post' ) . '</h4>'
+					. '<p>' . esc_html__( 'If image blocks show a validation warning in the editor, click "Attempt recovery" — this usually resolves the issue. The plugin rebuilds image blocks from AI output, and minor formatting differences can occasionally trigger this warning.', 'changelog-to-blog-post' ) . '</p>'
+					. '<h4>' . esc_html__( 'Posts are empty or very short', 'changelog-to-blog-post' ) . '</h4>'
+					. '<p>' . esc_html__( 'This usually means the GitHub release has no release notes (just a tag with no body text). The plugin generates content from the release notes — if there are none, the AI has little to work with. Check the release on GitHub to confirm it has a description.', 'changelog-to-blog-post' ) . '</p>'
+					. '<h4>' . esc_html__( 'Scheduled checks are not running', 'changelog-to-blog-post' ) . '</h4>'
+					. '<p>' . esc_html__( 'The plugin relies on WP-Cron, which requires regular site traffic to trigger. On low-traffic sites, consider setting up a real server cron job to call wp-cron.php. Check Tools → Site Health for WP-Cron status.', 'changelog-to-blog-post' ) . '</p>',
+			]
 		);
 	}
 
@@ -328,8 +306,8 @@ class Admin_Page {
 					'draftCreated'      => __( 'Draft created.', 'changelog-to-blog-post' ),
 					'viewDraft'         => __( 'View draft', 'changelog-to-blog-post' ),
 					'regenerateConfirm' => __( 'A post already exists for this release. Regenerate it?', 'changelog-to-blog-post' ),
-					'valid'              => __( 'Valid', 'changelog-to-blog-post' ),
-					'connectionSuccess'  => __( 'Connection successful.', 'changelog-to-blog-post' ),
+					'valid'             => __( 'Valid', 'changelog-to-blog-post' ),
+					'connectionSuccess' => __( 'Connection successful.', 'changelog-to-blog-post' ),
 				],
 			]
 		);
@@ -445,23 +423,11 @@ class Admin_Page {
 
 		register_rest_route(
 			'ctbp/v1',
-			'/ai/test-connection',
+			'/notifications/test',
 			[
-				'methods'             => \WP_REST_Server::READABLE,
-				'callback'            => [ $this, 'rest_test_ai_connection' ],
+				'methods'             => \WP_REST_Server::CREATABLE,
+				'callback'            => [ $this, 'rest_send_test_notification' ],
 				'permission_callback' => [ $this, 'rest_permission_check' ],
-				'args'                => [
-					'provider' => [
-						'type'              => 'string',
-						'default'           => '',
-						'sanitize_callback' => 'sanitize_text_field',
-					],
-					'api_key'  => [
-						'type'              => 'string',
-						'default'           => '',
-						'sanitize_callback' => 'sanitize_text_field',
-					],
-				],
 			]
 		);
 
@@ -518,12 +484,12 @@ class Admin_Page {
 	 * @return void
 	 */
 	public function handle_form_submission(): void {
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- nonce is verified per-action below.
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended, WordPress.Security.NonceVerification.Missing -- nonce is verified per-action in handle_repositories_save(); this is just the early-return guard.
 		if ( 'POST' !== $_SERVER['REQUEST_METHOD'] || empty( $_POST['ctbp_action'] ) || ( $_GET['page'] ?? '' ) !== 'changelog-to-blog-post' ) {
 			return;
 		}
 
-		$action = sanitize_key( $_POST['ctbp_action'] );
+		$action = sanitize_key( $_POST['ctbp_action'] ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
 
 		if ( 'repositories' === $action ) {
 			$this->handle_repositories_save();
@@ -760,75 +726,9 @@ class Admin_Page {
 
 		return new \WP_Error(
 			'ctbp_generation_failed',
-			__( 'Draft could not be generated. Check the debug log for details or verify your AI provider settings.', 'changelog-to-blog-post' ),
+			__( 'Draft could not be generated. Check the debug log for details or verify your connector configuration under Settings → Connectors.', 'changelog-to-blog-post' ),
 			[ 'status' => 422 ]
 		);
-	}
-
-	/**
-	 * REST handler: tests the active AI provider connection.
-	 *
-	 * @param \WP_REST_Request $request REST request with optional provider and api_key overrides.
-	 * @return \WP_REST_Response|\WP_Error
-	 */
-	public function rest_test_ai_connection( \WP_REST_Request $request ): \WP_REST_Response|\WP_Error {
-		$override_provider = $request->get_param( 'provider' );
-		$override_key      = $request->get_param( 'api_key' );
-
-		// Temporarily override the saved provider/key if the form sent unsaved values.
-		$saved_provider = null;
-		$saved_keys     = null;
-
-		if ( ! empty( $override_provider ) ) {
-			$saved_provider = get_option( Plugin_Constants::OPTION_AI_PROVIDER );
-			update_option( Plugin_Constants::OPTION_AI_PROVIDER, $override_provider, false );
-		}
-
-		if ( ! empty( $override_key ) && Global_Settings::MASKED_PLACEHOLDER !== $override_key ) {
-			$saved_keys    = get_option( Plugin_Constants::OPTION_AI_API_KEYS );
-			$provider_slug = ! empty( $override_provider ) ? $override_provider : $this->global_settings->get_ai_provider();
-			$this->global_settings->save_api_keys( [ $provider_slug => $override_key ] );
-		}
-
-		// Clear option cache to ensure fresh reads.
-		wp_cache_delete( Plugin_Constants::OPTION_AI_PROVIDER, 'options' );
-		wp_cache_delete( Plugin_Constants::OPTION_AI_API_KEYS, 'options' );
-		wp_cache_delete( 'alloptions', 'options' );
-
-		// Run the test.
-		$factory  = new \TenUp\ChangelogToBlogPost\AI\AI_Provider_Factory( new Global_Settings() );
-		$provider = $factory->get_provider();
-
-		if ( is_wp_error( $provider ) ) {
-			$response = new \WP_Error( $provider->get_error_code(), $provider->get_error_message(), [ 'status' => 400 ] );
-		} else {
-			$result = $provider->test_connection();
-
-			if ( is_wp_error( $result ) ) {
-				$response = new \WP_Error( $result->get_error_code(), $result->get_error_message(), [ 'status' => 400 ] );
-			} else {
-				$response = new \WP_REST_Response(
-					[
-						'message' => sprintf(
-							/* translators: %s: AI provider display label */
-							__( 'Connection to %s successful.', 'changelog-to-blog-post' ),
-							$provider->get_label()
-						),
-					],
-					200
-				);
-			}
-		}
-
-		// Restore original values.
-		if ( null !== $saved_provider ) {
-			update_option( Plugin_Constants::OPTION_AI_PROVIDER, $saved_provider, false );
-		}
-		if ( null !== $saved_keys ) {
-			update_option( Plugin_Constants::OPTION_AI_API_KEYS, $saved_keys, false );
-		}
-
-		return $response;
 	}
 
 	/**
@@ -840,6 +740,195 @@ class Admin_Page {
 	public function rest_validate_plugin_link( \WP_REST_Request $request ): \WP_REST_Response {
 		$result = $this->repo_settings->validate_plugin_link( $request->get_param( 'value' ) );
 		return new \WP_REST_Response( $result, 200 );
+	}
+
+	/**
+	 * REST handler: sends a test notification email.
+	 *
+	 * Uses the most recent generated post to build a realistic sample email,
+	 * or a placeholder example if no posts have been generated yet.
+	 *
+	 * @return \WP_REST_Response|\WP_Error
+	 */
+	public function rest_send_test_notification(): \WP_REST_Response|\WP_Error {
+		$notif = $this->global_settings->get_notification_settings();
+		if ( empty( $notif['notify_site_owner'] ) && empty( $this->global_settings->get_additional_email_list() ) ) {
+			return new \WP_Error(
+				'ctbp_no_recipients',
+				__( 'No notification recipients configured. Enable the site owner checkbox or add email addresses first.', 'changelog-to-blog-post' ),
+				[ 'status' => 400 ]
+			);
+		}
+
+		$entry = $this->build_test_notification_entry();
+
+		$significance = new \TenUp\ChangelogToBlogPost\AI\Release_Significance();
+		$notifier     = new \TenUp\ChangelogToBlogPost\Notification\Email_Notifier(
+			$this->global_settings,
+			$significance,
+			$this->repo_settings
+		);
+
+		// Use reflection to call the private build methods and send directly.
+		$entries = [ $entry ];
+
+		// Build subject matching the real notification format, prefixed with [Test].
+		$display = $entry['display_name'] . ' ' . $entry['tag'];
+		if ( 'publish' === $entry['status'] ) {
+			/* translators: %s: project name and version */
+			$subject = sprintf( __( '[Test] %s — release post published', 'changelog-to-blog-post' ), $display );
+		} else {
+			/* translators: %s: project name and version */
+			$subject = sprintf( __( '[Test] %s — draft ready for review', 'changelog-to-blog-post' ), $display );
+		}
+
+		$html_body = $this->build_test_email_body( $entries );
+		$headers   = [ 'Content-Type: text/html; charset=UTF-8' ];
+
+		$recipients = [];
+		if ( ! empty( $notif['notify_site_owner'] ) ) {
+			$admin_email = get_option( 'admin_email', '' );
+			if ( ! empty( $admin_email ) ) {
+				$recipients[] = $admin_email;
+			}
+		}
+		foreach ( $this->global_settings->get_additional_email_list() as $email ) {
+			if ( ! in_array( $email, $recipients, true ) ) {
+				$recipients[] = $email;
+			}
+		}
+
+		$sent = false;
+		foreach ( $recipients as $recipient ) {
+			if ( wp_mail( $recipient, $subject, $html_body, $headers ) ) {
+				$sent = true;
+			}
+		}
+
+		if ( ! $sent ) {
+			return new \WP_Error(
+				'ctbp_mail_failed',
+				__( 'Failed to send test email. Check your site\'s email configuration.', 'changelog-to-blog-post' ),
+				[ 'status' => 500 ]
+			);
+		}
+
+		return new \WP_REST_Response(
+			[
+				'message' => sprintf(
+					/* translators: %s: comma-separated list of recipient emails */
+					__( 'Test email sent to %s.', 'changelog-to-blog-post' ),
+					implode( ', ', $recipients )
+				),
+			],
+			200
+		);
+	}
+
+	/**
+	 * Builds a test notification entry from the most recent generated post,
+	 * or a placeholder if no posts exist yet.
+	 *
+	 * @return array{post_id: int, status: string, identifier: string, display_name: string, tag: string, html_url: string, significance: string}
+	 */
+	private function build_test_notification_entry(): array {
+		$posts = get_posts(
+			[
+				'post_type'      => 'post',
+				'post_status'    => [ 'publish', 'draft', 'pending', 'private' ],
+				'meta_key'       => Plugin_Constants::META_SOURCE_REPO, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+				'posts_per_page' => 1,
+				'orderby'        => 'date',
+				'order'          => 'DESC',
+			]
+		);
+
+		if ( ! empty( $posts ) ) {
+			$post       = $posts[0];
+			$identifier = get_post_meta( $post->ID, Plugin_Constants::META_SOURCE_REPO, true );
+			$tag        = get_post_meta( $post->ID, Plugin_Constants::META_RELEASE_TAG, true );
+			$html_url   = get_post_meta( $post->ID, Plugin_Constants::META_RELEASE_URL, true );
+			$config     = $this->repo_settings->get_repository( $identifier );
+
+			return [
+				'post_id'      => $post->ID,
+				'status'       => $post->post_status,
+				'identifier'   => $identifier,
+				'display_name' => ! empty( $config['display_name'] ) ? $config['display_name'] : $identifier,
+				'tag'          => $tag,
+				'html_url'     => $html_url,
+				'post_title'   => get_the_title( $post->ID ),
+			];
+		}
+
+		// Placeholder when no posts exist.
+		return [
+			'post_id'      => 0,
+			'status'       => 'draft',
+			'identifier'   => 'example/plugin',
+			'display_name' => 'Example Plugin',
+			'tag'          => 'v1.0.0',
+			'html_url'     => 'https://github.com/example/plugin/releases/tag/v1.0.0',
+			'post_title'   => 'Example Plugin 1.0: A Major New Release',
+		];
+	}
+
+	/**
+	 * Builds the HTML email body for a test notification.
+	 *
+	 * Mirrors the format used by Email_Notifier::build_html_body().
+	 *
+	 * @param array $entries Post entries.
+	 * @return string
+	 */
+	private function build_test_email_body( array $entries ): string {
+		$site_url    = esc_url( home_url() );
+		$site_host   = wp_parse_url( home_url(), PHP_URL_HOST );
+		$plugin_url  = 'https://github.com/jakemgold/github-release-posts-wordpress';
+		$plugin_name = 'GitHub Release Posts';
+
+		$html  = '<div style="font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif; max-width: 600px;">';
+		$html .= '<p><em>' . esc_html__( 'This is a test email.', 'changelog-to-blog-post' ) . '</em></p>';
+		$html .= '<p>' . sprintf(
+			/* translators: 1: linked site URL, 2: linked plugin name */
+			esc_html__( 'New posts have been generated from GitHub releases on %1$s, via the %2$s plugin.', 'changelog-to-blog-post' ),
+			'<a href="' . $site_url . '">' . esc_html( $site_host ) . '</a>',
+			'<a href="' . esc_url( $plugin_url ) . '">' . esc_html( $plugin_name ) . '</a>'
+		) . '</p>';
+
+		$html .= '<table style="width: 100%; border-collapse: collapse;">';
+
+		foreach ( $entries as $entry ) {
+			$title = ! empty( $entry['post_title'] )
+				? $entry['post_title']
+				: $entry['display_name'] . ' ' . $entry['tag'];
+
+			$html .= '<tr style="border-bottom: 1px solid #eee;">';
+			$html .= '<td style="padding: 12px 0;">';
+			$html .= '<strong>' . esc_html( $title ) . '</strong>';
+			$html .= ' <span style="color: #666;">(' . esc_html( $entry['display_name'] ) . ' ' . esc_html( $entry['tag'] ) . ')</span>';
+			$html .= '<br>';
+
+			if ( $entry['post_id'] > 0 ) {
+				if ( 'publish' === $entry['status'] ) {
+					$view_url = esc_url( get_permalink( $entry['post_id'] ) );
+					$html    .= '<a href="' . $view_url . '">' . esc_html__( 'View post', 'changelog-to-blog-post' ) . '</a>';
+					$html    .= ' · <a href="' . esc_url( (string) get_edit_post_link( $entry['post_id'], 'raw' ) ) . '">' . esc_html__( 'Edit', 'changelog-to-blog-post' ) . '</a>';
+				} else {
+					$html .= '<a href="' . esc_url( (string) get_edit_post_link( $entry['post_id'], 'raw' ) ) . '"><strong>' . esc_html__( 'Review draft', 'changelog-to-blog-post' ) . '</strong></a>';
+				}
+				$html .= ' · ';
+			}
+
+			$html .= '<a href="' . esc_url( $entry['html_url'] ) . '">' . esc_html__( 'GitHub release', 'changelog-to-blog-post' ) . '</a>';
+			$html .= '</td>';
+			$html .= '</tr>';
+		}
+
+		$html .= '</table>';
+		$html .= '</div>';
+
+		return $html;
 	}
 
 	/**
@@ -937,12 +1026,12 @@ class Admin_Page {
 
 		// Only update the slug if the post is not yet published (preserve live URLs).
 		if ( '' !== $result->slug_keywords && ! in_array( $post->post_status, [ 'publish', 'private' ], true ) ) {
-			$repo_config  = $this->repo_settings->get_repository( $identifier );
-			$display_name = ! empty( $repo_config['display_name'] )
+			$repo_config              = $this->repo_settings->get_repository( $identifier );
+			$display_name             = ! empty( $repo_config['display_name'] )
 				? (string) $repo_config['display_name']
 				: $this->repo_settings->derive_display_name( explode( '/', $identifier )[1] ?? $identifier );
-			$version      = strtolower( ltrim( $data->tag, 'vV' ) );
-			$version      = str_replace( '.', '-', $version );
+			$version                  = strtolower( ltrim( $data->tag, 'vV' ) );
+			$version                  = str_replace( '.', '-', $version );
 			$update_args['post_name'] = sanitize_title( $display_name . '-' . $version . '-' . $result->slug_keywords );
 		}
 

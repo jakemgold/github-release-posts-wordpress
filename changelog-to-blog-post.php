@@ -3,8 +3,8 @@
  * Plugin Name:       GitHub Release Posts
  * Plugin URI:        https://github.com/10up/changelog-to-blog-post
  * Description:       Automatically generate blog posts from GitHub releases using AI.
- * Version:           1.0.0
- * Requires at least: 6.9
+ * Version:           0.8.0
+ * Requires at least: 7.0
  * Requires PHP:      8.2
  * Author:            Jake Goldman, Fueled (formerly 10up)
  * Author URI:        https://www.linkedin.com/in/jacobgoldman/
@@ -24,7 +24,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! defined( 'CHANGELOG_TO_BLOG_POST_VERSION' ) ) {
-	define( 'CHANGELOG_TO_BLOG_POST_VERSION', '1.0.0' );
+	define( 'CHANGELOG_TO_BLOG_POST_VERSION', '0.8.0' );
 }
 
 if ( ! defined( 'CHANGELOG_TO_BLOG_POST_URL' ) ) {
@@ -42,6 +42,19 @@ if ( ! defined( 'CHANGELOG_TO_BLOG_POST_INC' ) ) {
 // Require Composer autoloader if it exists.
 if ( file_exists( CHANGELOG_TO_BLOG_POST_PATH . 'vendor/autoload.php' ) ) {
 	require_once CHANGELOG_TO_BLOG_POST_PATH . 'vendor/autoload.php';
+}
+
+// Require WordPress 7.0+ AI Client API.
+if ( ! function_exists( 'wp_ai_client_prompt' ) ) {
+	add_action(
+		'admin_notices',
+		function () {
+			echo '<div class="notice notice-error"><p>';
+			echo esc_html__( 'GitHub Release Posts requires WordPress 7.0 or later with the AI Client API. Please update WordPress.', 'changelog-to-blog-post' );
+			echo '</p></div>';
+		}
+	);
+	return;
 }
 
 /**

@@ -7,8 +7,6 @@
 
 namespace TenUp\ChangelogToBlogPost\AI;
 
-use TenUp\ChangelogToBlogPost\AI\Connectors\Anthropic_Connector;
-use TenUp\ChangelogToBlogPost\AI\Connectors\OpenAI_Connector;
 use TenUp\ChangelogToBlogPost\AI\Connectors\WP_AI_Client_Connector;
 use TenUp\ChangelogToBlogPost\Settings\Global_Settings;
 
@@ -38,7 +36,7 @@ class AI_Provider_Factory {
 		if ( '' === $slug ) {
 			return new \WP_Error(
 				'ctbp_no_provider',
-				__( 'No AI provider is configured. Please select a provider in the plugin settings.', 'changelog-to-blog-post' )
+				__( 'No AI connector is configured. Set one up under Settings → Connectors.', 'changelog-to-blog-post' )
 			);
 		}
 
@@ -92,8 +90,6 @@ class AI_Provider_Factory {
 	private function get_registered_providers(): array {
 		$providers = [
 			'wp_ai_client' => new WP_AI_Client_Connector(),
-			'openai'       => new OpenAI_Connector( $this->settings ),
-			'anthropic'    => new Anthropic_Connector( $this->settings ),
 		];
 
 		/**

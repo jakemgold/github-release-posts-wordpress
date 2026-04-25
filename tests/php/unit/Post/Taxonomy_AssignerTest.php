@@ -166,7 +166,7 @@ class Taxonomy_AssignerTest extends TestCase {
 		return new GeneratedPost(
 			title:         'Test subtitle',
 			content:       '<p>Body</p>',
-			provider_slug: 'openai',
+			provider_slug: 'wp_ai_client',
 		);
 	}
 

@@ -10,154 +10,35 @@ namespace TenUp\ChangelogToBlogPost\Settings;
 use TenUp\ChangelogToBlogPost\Plugin_Constants;
 
 /**
- * Manages the site-wide plugin settings: AI provider, encrypted API keys,
- * post defaults, notification preferences, and check frequency.
+ * Manages the site-wide plugin settings: notification preferences,
+ * audience level, custom prompt instructions, and check frequency.
  *
- * API keys are encrypted at rest using libsodium and decrypted only at the
- * point of use, never in the admin UI.
+ * The GitHub PAT is encrypted at rest using libsodium and decrypted
+ * only at the point of use, never in the admin UI.
  */
 class Global_Settings {
 
 	/**
-	 * Placeholder string shown in the API key field when a key is already saved.
+	 * Placeholder string shown in masked fields when a value is already saved.
 	 * Submitting this value means "no change".
 	 */
 	const MASKED_PLACEHOLDER = '••••••••';
-
-	/**
-	 * Supported AI provider identifiers (v1).
-	 *
-	 * 'wp_ai_client' — WordPress AI Services plugin (recommended for non-technical users).
-	 * 'openai'       — Direct OpenAI API key.
-	 * 'anthropic'    — Direct Anthropic API key.
-	 */
-	const SUPPORTED_PROVIDERS = [ 'wp_ai_client', 'openai', 'anthropic' ];
-
 
 	// -------------------------------------------------------------------------
 	// AI Provider
 	// -------------------------------------------------------------------------
 
 	/**
-	 * Gets the currently active AI provider identifier.
+	 * Gets the active AI provider identifier.
 	 *
-	 * @return string Provider identifier, or empty string if none is set.
+	 * Always returns 'wp_ai_client' — WordPress Connectors is the only
+	 * supported provider since 2.0.
+	 *
+	 * @return string Provider identifier.
 	 */
 	public function get_ai_provider(): string {
-		return (string) get_option( Plugin_Constants::OPTION_AI_PROVIDER, '' );
+		return 'wp_ai_client';
 	}
-
-	/**
-	 * Saves the active AI provider.
-	 *
-	 * @param string $provider Provider identifier. Must be in SUPPORTED_PROVIDERS.
-	 * @return bool Whether the save succeeded.
-	 */
-	public function save_ai_provider( string $provider ): bool {
-		if ( ! empty( $provider ) && ! in_array( $provider, self::SUPPORTED_PROVIDERS, true ) ) {
-			return false;
-		}
-
-		return (bool) update_option( Plugin_Constants::OPTION_AI_PROVIDER, $provider, false );
-	}
-
-	// -------------------------------------------------------------------------
-	// API Keys (encrypted at rest)
-	// -------------------------------------------------------------------------
-
-	/**
-	 * Returns the decrypted API keys for all key-based providers.
-	 *
-	 * Keys are decrypted at this point for use by the AI integration layer.
-	 * Never call this method from within the admin UI display path.
-	 *
-	 * @return array<string, string> Map of provider => plaintext key (empty string if not set).
-	 */
-	public function get_api_keys(): array {
-		$encrypted = get_option( Plugin_Constants::OPTION_AI_API_KEYS, [] );
-		if ( ! is_array( $encrypted ) ) {
-			$encrypted = [];
-		}
-
-		$keys = [];
-		foreach ( [ 'openai', 'anthropic' ] as $provider ) {
-			if ( isset( $encrypted[ $provider ] ) && '' !== $encrypted[ $provider ] ) {
-				$decrypted = $this->decrypt( (string) $encrypted[ $provider ] );
-				if ( '' === $decrypted ) {
-					// Key exists but can't be decrypted (AUTH_KEY may have changed).
-					if ( defined( 'WP_DEBUG' ) && WP_DEBUG && defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
-						// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-						error_log(
-							sprintf(
-								'[CTBP] Failed to decrypt API key for provider "%s". If you migrated this site, re-enter your API key in Settings.',
-								$provider
-							)
-						);
-					}
-				}
-				$keys[ $provider ] = $decrypted;
-			} else {
-				$keys[ $provider ] = '';
-			}
-		}
-
-		return $keys;
-	}
-
-	/**
-	 * Saves API keys. Skips any key whose submitted value equals the masked placeholder.
-	 *
-	 * @param array<string, string> $keys Map of provider => submitted value.
-	 * @return bool Whether the save succeeded.
-	 */
-	public function save_api_keys( array $keys ): bool {
-		$existing = get_option( Plugin_Constants::OPTION_AI_API_KEYS, [] );
-		if ( ! is_array( $existing ) ) {
-			$existing = [];
-		}
-
-		foreach ( [ 'openai', 'anthropic' ] as $provider ) {
-			if ( ! isset( $keys[ $provider ] ) ) {
-				continue;
-			}
-
-			$value = (string) $keys[ $provider ];
-
-			if ( self::MASKED_PLACEHOLDER === $value ) {
-				// User left the masked placeholder — preserve the existing encrypted key.
-				continue;
-			}
-
-			if ( '' === $value ) {
-				// User cleared the field — remove the key.
-				unset( $existing[ $provider ] );
-			} else {
-				$existing[ $provider ] = $this->encrypt( $value );
-			}
-		}
-
-		return (bool) update_option( Plugin_Constants::OPTION_AI_API_KEYS, $existing, false );
-	}
-
-	/**
-	 * Returns the masked placeholder if a key exists for the given provider.
-	 *
-	 * Never returns the actual key value. Used to populate the admin UI field.
-	 *
-	 * @param string $provider Provider identifier.
-	 * @return string Masked placeholder, or empty string if no key is stored.
-	 */
-	public function get_masked_key( string $provider ): string {
-		$encrypted = get_option( Plugin_Constants::OPTION_AI_API_KEYS, [] );
-
-		return ( is_array( $encrypted ) && ! empty( $encrypted[ $provider ] ) )
-			? self::MASKED_PLACEHOLDER
-			: '';
-	}
-
-	// -------------------------------------------------------------------------
-	// Post Defaults
-	// -------------------------------------------------------------------------
 
 	// -------------------------------------------------------------------------
 	// Notification Settings
@@ -201,50 +82,6 @@ class Global_Settings {
 		}
 
 		return $valid;
-	}
-
-	// -------------------------------------------------------------------------
-	// Custom Model IDs
-	// -------------------------------------------------------------------------
-
-	/**
-	 * Returns the per-provider custom model IDs set by the site owner.
-	 *
-	 * An empty string for a provider means "use the plugin default / filter value".
-	 *
-	 * @return array<string, string> Map of provider slug => custom model ID.
-	 */
-	public function get_custom_models(): array {
-		$stored = (array) get_option( Plugin_Constants::OPTION_AI_CUSTOM_MODELS, [] );
-		return [
-			'openai'    => (string) ( $stored['openai'] ?? '' ),
-			'anthropic' => (string) ( $stored['anthropic'] ?? '' ),
-		];
-	}
-
-	/**
-	 * Saves per-provider custom model IDs.
-	 *
-	 * Pass an empty string for a provider to revert to the plugin default.
-	 *
-	 * @param array<string, string> $models Map of provider slug => custom model ID.
-	 * @return bool Whether the option was updated.
-	 */
-	public function save_custom_models( array $models ): bool {
-		$existing = (array) get_option( Plugin_Constants::OPTION_AI_CUSTOM_MODELS, [] );
-
-		foreach ( [ 'openai', 'anthropic' ] as $provider ) {
-			if ( array_key_exists( $provider, $models ) ) {
-				$value = trim( (string) $models[ $provider ] );
-				if ( '' === $value ) {
-					unset( $existing[ $provider ] );
-				} else {
-					$existing[ $provider ] = $value;
-				}
-			}
-		}
-
-		return (bool) update_option( Plugin_Constants::OPTION_AI_CUSTOM_MODELS, $existing, false );
 	}
 
 	// -------------------------------------------------------------------------
