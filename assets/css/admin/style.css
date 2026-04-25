@@ -8,7 +8,7 @@
 }
 
 /* Tab panels */
-.ctbp-tab-panel {
+.ghrp-tab-panel {
 	padding-top: 1.5em;
 }
 
@@ -36,7 +36,7 @@
 	width: 80px;
 }
 
-.ctbp-generate-spinner {
+.ghrp-generate-spinner {
 	display: none;
 	float: none;
 	margin: 0 0 0 4px;
@@ -44,26 +44,26 @@
 }
 
 /* Generate status shown inline */
-.ctbp-generate-status {
+.ghrp-generate-status {
 	margin-left: 4px;
 	font-style: italic;
 	display: inline;
 }
 
-.ctbp-generate-status a {
+.ghrp-generate-status a {
 	font-style: normal;
 }
 
-.ctbp-generate-status.is-error {
+.ghrp-generate-status.is-error {
 	color: #d63638;
 }
 
-.ctbp-generate-status.is-success {
+.ghrp-generate-status.is-success {
 	color: #00a32a;
 }
 
 /* Category checklist in inline edit */
-.ctbp-repo-edit-row .cat-checklist {
+.ghrp-repo-edit-row .cat-checklist {
 	max-height: 12em;
 	overflow-y: auto;
 	padding: 0;
@@ -72,19 +72,19 @@
 }
 
 /* Featured image picker in inline edit */
-.ctbp-featured-image-field .title {
+.ghrp-featured-image-field .title {
 	display: block;
 	margin-bottom: 4px;
 }
 
-.ctbp-featured-image-field .ctbp-remove-image {
+.ghrp-featured-image-field .ghrp-remove-image {
 	margin-left: 8px;
 	color: #b32d2e;
 	text-decoration: none;
 }
 
 /* Status badges */
-.ctbp-status-badge {
+.ghrp-status-badge {
 	display: inline-block;
 	padding: 2px 8px;
 	border-radius: 3px;
@@ -94,12 +94,12 @@
 	letter-spacing: 0.5px;
 }
 
-.ctbp-status-active {
+.ghrp-status-active {
 	background-color: #d7f0da;
 	color: #0a6b0f;
 }
 
-.ctbp-status-paused {
+.ghrp-status-paused {
 	background-color: #f0e6a8;
 	color: #6b5a0a;
 }
@@ -107,31 +107,31 @@
 
 /* Repo inline edit — three-column layout (mirrors WP Posts Quick Edit).
    Must match #wpbody-content specificity to override the base 100% width. */
-#wpbody-content .ctbp-repo-edit-row .inline-edit-col-left {
+#wpbody-content .ghrp-repo-edit-row .inline-edit-col-left {
 	width: 40%;
 }
 
-#wpbody-content .ctbp-repo-edit-row .inline-edit-col-center {
+#wpbody-content .ghrp-repo-edit-row .inline-edit-col-center {
 	width: 20%;
 }
 
-#wpbody-content .ctbp-repo-edit-row .inline-edit-col-right {
+#wpbody-content .ghrp-repo-edit-row .inline-edit-col-right {
 	width: 39%;
 }
 
 /* Plugin link field — shorter input with inline status icon */
-.ctbp-plugin-link-input {
+.ghrp-plugin-link-input {
 	width: 70% !important;
 }
 
-.ctbp-plugin-link-status {
+.ghrp-plugin-link-status {
 	display: inline-block;
 	vertical-align: middle;
 	margin-left: 6px;
 	line-height: 1;
 }
 
-.ctbp-plugin-link-status .dashicons {
+.ghrp-plugin-link-status .dashicons {
 	font-size: 20px;
 	width: 20px;
 	height: 20px;
@@ -141,7 +141,7 @@
 
 
 /* Confirmation dialogs */
-.ctbp-dialog {
+.ghrp-dialog {
 	border: 1px solid #c3c4c7;
 	border-radius: 4px;
 	padding: 24px;
@@ -149,11 +149,11 @@
 	max-width: 420px;
 }
 
-.ctbp-dialog::backdrop {
+.ghrp-dialog::backdrop {
 	background: rgba(0, 0, 0, 0.5);
 }
 
-.ctbp-dialog-actions {
+.ghrp-dialog-actions {
 	display: flex;
 	align-items: center;
 	gap: 8px;
@@ -166,24 +166,24 @@
 }
 
 /* Provider key/note rows */
-.ctbp-api-key-row,
-.ctbp-provider-note {
+.ghrp-api-key-row,
+.ghrp-provider-note {
 	margin-top: 8px;
 }
 
 /* Test connection */
-#ctbp-test-connection {
+#ghrp-test-connection {
 	vertical-align: middle;
 }
 
-.ctbp-connection-spinner {
+.ghrp-connection-spinner {
 	display: none;
 	float: none;
 	margin: 0 0 0 4px;
 	vertical-align: middle;
 }
 
-#ctbp-connection-result {
+#ghrp-connection-result {
 	display: inline-block;
 	margin-left: 4px;
 	vertical-align: middle;

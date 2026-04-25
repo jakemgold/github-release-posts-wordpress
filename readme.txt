@@ -5,7 +5,7 @@ Tags:              github, releases, blog post, ai, automation
 Requires at least: 7.0
 Tested up to:      7.0
 Requires PHP:      8.2
-Stable tag:        0.8.1
+Stable tag:        0.9.0
 License:           GPL-2.0-or-later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -42,7 +42,7 @@ You can also generate a post on demand at any time from the Repositories tab.
 **For developers:**
 
 * Extensible via filter hooks at every stage of the pipeline
-* Customize preferred AI models via the `ctbp_wp_ai_client_model_preferences` filter
+* Customize preferred AI models via the `ghrp_wp_ai_client_model_preferences` filter
 * Override significance classification, prompt content, post terms, and post status per-release
 * All prompt templates defined in code, versioned with the plugin
 
@@ -54,7 +54,7 @@ You can also generate a post on demand at any time from the Repositories tab.
 
 == Installation ==
 
-1. Upload the plugin files to `/wp-content/plugins/changelog-to-blog-post/`, or install via the WordPress Plugins screen.
+1. Upload the plugin files to `/wp-content/plugins/github-release-posts/`, or install via the WordPress Plugins screen.
 2. Activate the plugin through the Plugins screen in WordPress.
 3. Go to **Tools → Release Posts** to configure your AI provider and add repositories.
 
@@ -74,11 +74,11 @@ Yes. Add a GitHub Personal Access Token with the `repo` scope in the Settings ta
 
 = How often does the plugin check for new releases? =
 
-By default, the plugin checks daily via WP-Cron. Developers can change this to hourly, twice daily, or weekly using the `ctbp_check_frequency` filter.
+By default, the plugin checks daily via WP-Cron. Developers can change this to hourly, twice daily, or weekly using the `ghrp_check_frequency` filter.
 
 = Can I customize the AI-generated content? =
 
-Yes, in two ways. Site owners can enter custom prompt instructions in the Settings tab to guide the AI's writing style, tone, and voice. Developers can use filter hooks (`ctbp_prompt`, `ctbp_prompt_title_guidance`, `ctbp_prompt_content_guidance`) for full control over the prompt sent to the AI.
+Yes, in two ways. Site owners can enter custom prompt instructions in the Settings tab to guide the AI's writing style, tone, and voice. Developers can use filter hooks (`ghrp_prompt`, `ghrp_prompt_title_guidance`, `ghrp_prompt_content_guidance`) for full control over the prompt sent to the AI.
 
 = Can I edit or regenerate a post after it's created? =
 
@@ -97,6 +97,15 @@ A Release Attribution panel appears in the document sidebar, showing which GitHu
 
 == Changelog ==
 
+= 0.9.0 =
+* Plugin renamed and rebranded to **GitHub Release Posts**.
+* Folder, slug, text domain, PHP namespace, hooks, options, REST routes, and CSS/JS prefixes all updated to match the new name.
+* Plugin slug: `github-release-posts` (folder + text domain + WP.org slug).
+* PHP namespace: `Jakemgold\GitHubReleasePosts`.
+* Hook/option/transient prefix: `ghrp_*` (was `ctbp_*`).
+* REST namespace: `ghrp/v1` (was `ctbp/v1`).
+* No automatic migration from prior pre-release versions — uninstall and reinstall on a clean site.
+
 = 0.8.1 =
 * New: Deep research depth — optionally fetches commit messages and file change summaries between releases for richer AI context. Useful when release notes are sparse.
 * New: Research Depth setting (Standard / Deep) in the Post Creation section of Settings.
@@ -114,6 +123,9 @@ A Release Attribution panel appears in the document sidebar, showing which GitHu
 * Test notification email feature.
 
 == Upgrade Notice ==
+
+= 0.9.0 =
+Plugin renamed to GitHub Release Posts. Hooks, options, REST routes, and CSS prefixes all changed to `ghrp_*` / `ghrp-`. No migration from earlier pre-release versions — uninstall the old plugin and install fresh.
 
 = 0.8.1 =
 Adds optional Deep research mode (commit history and file changes) and minor settings UI polish.

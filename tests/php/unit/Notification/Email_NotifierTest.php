@@ -2,20 +2,20 @@
 /**
  * Tests for Email_Notifier.
  *
- * @package ChangelogToBlogPost\Tests\Notification
+ * @package GitHubReleasePosts\Tests\Notification
  */
 
-namespace TenUp\ChangelogToBlogPost\Tests\Notification;
+namespace Jakemgold\GitHubReleasePosts\Tests\Notification;
 
-use TenUp\ChangelogToBlogPost\AI\ReleaseData;
-use TenUp\ChangelogToBlogPost\AI\Release_Significance;
-use TenUp\ChangelogToBlogPost\Notification\Email_Notifier;
-use TenUp\ChangelogToBlogPost\Settings\Global_Settings;
-use TenUp\ChangelogToBlogPost\Settings\Repository_Settings;
+use Jakemgold\GitHubReleasePosts\AI\ReleaseData;
+use Jakemgold\GitHubReleasePosts\AI\Release_Significance;
+use Jakemgold\GitHubReleasePosts\Notification\Email_Notifier;
+use Jakemgold\GitHubReleasePosts\Settings\Global_Settings;
+use Jakemgold\GitHubReleasePosts\Settings\Repository_Settings;
 use WP_Mock\Tools\TestCase;
 
 /**
- * @covers \TenUp\ChangelogToBlogPost\Notification\Email_Notifier
+ * @covers \Jakemgold\GitHubReleasePosts\Notification\Email_Notifier
  */
 class Email_NotifierTest extends TestCase {
 
@@ -53,7 +53,7 @@ class Email_NotifierTest extends TestCase {
 	// -------------------------------------------------------------------------
 
 	public function test_setup_registers_action(): void {
-		\WP_Mock::expectActionAdded( 'ctbp_post_status_set', [ $this->notifier, 'collect' ], 10, 4 );
+		\WP_Mock::expectActionAdded( 'ghrp_post_status_set', [ $this->notifier, 'collect' ], 10, 4 );
 		$this->notifier->setup();
 		$this->assertConditionsMet();
 	}

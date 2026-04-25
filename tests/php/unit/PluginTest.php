@@ -2,12 +2,12 @@
 /**
  * Tests for the Plugin singleton class.
  *
- * @package ChangelogToBlogPost\Tests
+ * @package GitHubReleasePosts\Tests
  */
 
-namespace TenUp\ChangelogToBlogPost\Tests;
+namespace Jakemgold\GitHubReleasePosts\Tests;
 
-use TenUp\ChangelogToBlogPost\Plugin;
+use Jakemgold\GitHubReleasePosts\Plugin;
 use WP_Mock\Tools\TestCase;
 
 /**
@@ -84,16 +84,16 @@ class PluginTest extends TestCase {
 	 * i18n() calls load_plugin_textdomain with the correct text domain.
 	 */
 	public function test_i18n_loads_text_domain(): void {
-		if ( ! defined( 'CHANGELOG_TO_BLOG_POST_PATH' ) ) {
-			define( 'CHANGELOG_TO_BLOG_POST_PATH', dirname( __DIR__, 3 ) . '/' );
+		if ( ! defined( 'GITHUB_RELEASE_POSTS_PATH' ) ) {
+			define( 'GITHUB_RELEASE_POSTS_PATH', dirname( __DIR__, 3 ) . '/' );
 		}
 
 		\WP_Mock::userFunction( 'load_plugin_textdomain' )
 			->once()
 			->with(
-				'changelog-to-blog-post',
+				'github-release-posts',
 				false,
-				CHANGELOG_TO_BLOG_POST_PATH . 'languages'
+				GITHUB_RELEASE_POSTS_PATH . 'languages'
 			);
 
 		Plugin::get_instance()->i18n();

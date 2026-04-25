@@ -2,12 +2,12 @@
 /**
  * In-process queue of newly detected releases.
  *
- * @package ChangelogToBlogPost
+ * @package GitHubReleasePosts
  */
 
-namespace TenUp\ChangelogToBlogPost\GitHub;
+namespace Jakemgold\GitHubReleasePosts\GitHub;
 
-use TenUp\ChangelogToBlogPost\Plugin_Constants;
+use Jakemgold\GitHubReleasePosts\Plugin_Constants;
 
 /**
  * Lightweight queue that holds newly detected releases within a single cron run.

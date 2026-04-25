@@ -1,6 +1,6 @@
 {
-	"name": "10up/changelog-to-blog-post",
-	"description": "Convert changelog entries into WordPress blog posts.",
+	"name": "jakemgold/github-release-posts",
+	"description": "Automatically generate WordPress blog posts from GitHub releases using AI.",
 	"type": "wordpress-plugin",
 	"license": "GPL-2.0-or-later",
 	"require": {
@@ -17,12 +17,12 @@
 	},
 	"autoload": {
 		"psr-4": {
-			"TenUp\\ChangelogToBlogPost\\": "includes/classes/"
+			"Jakemgold\\GitHubReleasePosts\\": "includes/classes/"
 		}
 	},
 	"autoload-dev": {
 		"psr-4": {
-			"TenUp\\ChangelogToBlogPost\\Tests\\": "tests/php/unit/"
+			"Jakemgold\\GitHubReleasePosts\\Tests\\": "tests/php/unit/"
 		}
 	},
 	"scripts": {

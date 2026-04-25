@@ -2,12 +2,12 @@
 /**
  * Global settings service.
  *
- * @package ChangelogToBlogPost
+ * @package GitHubReleasePosts
  */
 
-namespace TenUp\ChangelogToBlogPost\Settings;
+namespace Jakemgold\GitHubReleasePosts\Settings;
 
-use TenUp\ChangelogToBlogPost\Plugin_Constants;
+use Jakemgold\GitHubReleasePosts\Plugin_Constants;
 
 /**
  * Manages the site-wide plugin settings: notification preferences,
@@ -181,14 +181,14 @@ class Global_Settings {
 	/**
 	 * Returns the release-check cron frequency.
 	 *
-	 * Defaults to 'daily'. Developers can override via the `ctbp_check_frequency`
+	 * Defaults to 'daily'. Developers can override via the `ghrp_check_frequency`
 	 * filter — return any valid WP-Cron schedule name (e.g. 'hourly', 'twicedaily',
 	 * 'daily', 'weekly').
 	 *
 	 * @return string WP-Cron schedule name.
 	 */
 	public function get_check_frequency(): string {
-		return (string) apply_filters( 'ctbp_check_frequency', 'daily' );
+		return (string) apply_filters( 'ghrp_check_frequency', 'daily' );
 	}
 
 	// -------------------------------------------------------------------------

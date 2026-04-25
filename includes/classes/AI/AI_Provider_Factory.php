@@ -2,19 +2,19 @@
 /**
  * Resolves and returns the active AI provider connector.
  *
- * @package ChangelogToBlogPost\AI
+ * @package GitHubReleasePosts\AI
  */
 
-namespace TenUp\ChangelogToBlogPost\AI;
+namespace Jakemgold\GitHubReleasePosts\AI;
 
-use TenUp\ChangelogToBlogPost\AI\Connectors\WP_AI_Client_Connector;
-use TenUp\ChangelogToBlogPost\Settings\Global_Settings;
+use Jakemgold\GitHubReleasePosts\AI\Connectors\WP_AI_Client_Connector;
+use Jakemgold\GitHubReleasePosts\Settings\Global_Settings;
 
 /**
  * Instantiates the correct AI provider connector based on plugin settings.
  *
  * Third-party developers can add custom providers via the
- * `ctbp_register_ai_providers` filter.
+ * `ghrp_register_ai_providers` filter.
  */
 class AI_Provider_Factory {
 
@@ -35,8 +35,8 @@ class AI_Provider_Factory {
 
 		if ( '' === $slug ) {
 			return new \WP_Error(
-				'ctbp_no_provider',
-				__( 'No AI connector is configured. Set one up under Settings → Connectors.', 'changelog-to-blog-post' )
+				'ghrp_no_provider',
+				__( 'No AI connector is configured. Set one up under Settings → Connectors.', 'github-release-posts' )
 			);
 		}
 
@@ -44,10 +44,10 @@ class AI_Provider_Factory {
 
 		if ( ! isset( $providers[ $slug ] ) ) {
 			return new \WP_Error(
-				'ctbp_unknown_provider',
+				'ghrp_unknown_provider',
 				sprintf(
 					/* translators: %s: provider slug */
-					__( 'AI provider "%s" is not registered. It may have been deactivated.', 'changelog-to-blog-post' ),
+					__( 'AI provider "%s" is not registered. It may have been deactivated.', 'github-release-posts' ),
 					$slug
 				)
 			);
@@ -81,7 +81,7 @@ class AI_Provider_Factory {
 	/**
 	 * Builds the full map of registered providers (built-in + community).
 	 *
-	 * Fires the `ctbp_register_ai_providers` filter so third-party code can add
+	 * Fires the `ghrp_register_ai_providers` filter so third-party code can add
 	 * custom providers. Any registered value that does not implement
 	 * AIProviderInterface is rejected with an error_log warning.
 	 *
@@ -98,14 +98,14 @@ class AI_Provider_Factory {
 		 * Third-party developers can add custom providers by appending an
 		 * AIProviderInterface implementation keyed by the provider slug:
 		 *
-		 *     add_filter( 'ctbp_register_ai_providers', function( $providers ) {
+		 *     add_filter( 'ghrp_register_ai_providers', function( $providers ) {
 		 *         $providers['my_provider'] = new My_Provider_Connector();
 		 *         return $providers;
 		 *     } );
 		 *
 		 * @param array<string, AIProviderInterface> $providers Map of slug => connector.
 		 */
-		$providers = apply_filters( 'ctbp_register_ai_providers', $providers );
+		$providers = apply_filters( 'ghrp_register_ai_providers', $providers );
 
 		// Validate: reject anything that doesn't satisfy the interface.
 		foreach ( $providers as $slug => $provider ) {
@@ -114,7 +114,7 @@ class AI_Provider_Factory {
 					// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 					error_log(
 						sprintf(
-							'[CTBP] ctbp_register_ai_providers: provider "%s" does not implement AIProviderInterface and was removed.',
+							'[CTBP] ghrp_register_ai_providers: provider "%s" does not implement AIProviderInterface and was removed.',
 							$slug
 						)
 					);

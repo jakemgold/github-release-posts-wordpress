@@ -2,12 +2,12 @@
 /**
  * Per-repo release state storage.
  *
- * @package ChangelogToBlogPost
+ * @package GitHubReleasePosts
  */
 
-namespace TenUp\ChangelogToBlogPost\GitHub;
+namespace Jakemgold\GitHubReleasePosts\GitHub;
 
-use TenUp\ChangelogToBlogPost\Plugin_Constants;
+use Jakemgold\GitHubReleasePosts\Plugin_Constants;
 
 /**
  * Manages per-repository monitoring state: last seen release tag,

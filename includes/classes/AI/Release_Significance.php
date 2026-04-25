@@ -2,10 +2,10 @@
 /**
  * Classifies the significance of a GitHub release.
  *
- * @package ChangelogToBlogPost\AI
+ * @package GitHubReleasePosts\AI
  */
 
-namespace TenUp\ChangelogToBlogPost\AI;
+namespace Jakemgold\GitHubReleasePosts\AI;
 
 /**
  * Determines whether a release is a patch, minor, major, or security update.
@@ -62,7 +62,7 @@ class Release_Significance {
 		 *
 		 * Example — force all releases for a specific repo to 'minor':
 		 *
-		 *     add_filter( 'ctbp_release_significance', function( $sig, $tag, $body ) {
+		 *     add_filter( 'ghrp_release_significance', function( $sig, $tag, $body ) {
 		 *         return 'minor';
 		 *     }, 10, 3 );
 		 *
@@ -70,7 +70,7 @@ class Release_Significance {
 		 * @param string $tag            Release tag (e.g. 'v2.1.0').
 		 * @param string $body           Raw release body (Markdown).
 		 */
-		return (string) apply_filters( 'ctbp_release_significance', $classification, $data->tag, $data->body );
+		return (string) apply_filters( 'ghrp_release_significance', $classification, $data->tag, $data->body );
 	}
 
 	/**

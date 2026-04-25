@@ -77,13 +77,13 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	// -------------------------------------------------------------------------
 
 	/**
-	 * Sends a request to a ctbp/v1 REST endpoint.
+	 * Sends a request to a ghrp/v1 REST endpoint.
 	 *
 	 * For GET requests, `data` is serialised as query parameters.
 	 * For POST requests, `data` is sent as a JSON body.
 	 *
 	 * @param {string}   method    HTTP method ('GET' or 'POST').
-	 * @param {string}   path      Endpoint path relative to ctbp/v1 (e.g. '/ai/test-connection').
+	 * @param {string}   path      Endpoint path relative to ghrp/v1 (e.g. '/ai/test-connection').
 	 * @param {Object}   data      Query params (GET) or body payload (POST).
 	 * @param {Function} onSuccess Called with the parsed response object on success.
 	 * @param {Function} onError   Called with an object containing a `message` key on failure.
@@ -135,11 +135,11 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	// -------------------------------------------------------------------------
 	// Test notification email.
 	// -------------------------------------------------------------------------
-	const testNotifBtn = document.getElementById( 'ctbp-test-notification' );
+	const testNotifBtn = document.getElementById( 'ghrp-test-notification' );
 	if ( testNotifBtn ) {
 		testNotifBtn.addEventListener( 'click', function () {
-			const resultEl = document.getElementById( 'ctbp-test-notification-result' );
-			const spinner = testNotifBtn.parentNode.querySelector( '.ctbp-test-notification-spinner' );
+			const resultEl = document.getElementById( 'ghrp-test-notification-result' );
+			const spinner = testNotifBtn.parentNode.querySelector( '.ghrp-test-notification-spinner' );
 
 			if ( spinner ) {
 				spinner.style.display = 'inline-block';
@@ -179,14 +179,14 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	// -------------------------------------------------------------------------
 	// Repository inline edit — WP Quick Edit clone pattern.
 	// -------------------------------------------------------------------------
-	const editTemplate = document.getElementById( 'ctbp-inline-edit' );
+	const editTemplate = document.getElementById( 'ghrp-inline-edit' );
 
 	/**
 	 * Closes the currently active inline edit row (if any),
 	 * removes it from the DOM, and restores the data row.
 	 */
 	function closeActiveEditRow() {
-		const activeEdit = document.querySelector( '.wp-list-table tbody > .ctbp-repo-edit-row' );
+		const activeEdit = document.querySelector( '.wp-list-table tbody > .ghrp-repo-edit-row' );
 		if ( ! activeEdit ) {
 			return;
 		}
@@ -194,7 +194,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 		const spacer  = activeEdit.previousElementSibling;
 		const dataRow = spacer ? spacer.previousElementSibling : null;
 
-		var editLink = dataRow ? dataRow.querySelector( '.ctbp-edit-repo-btn' ) : null;
+		var editLink = dataRow ? dataRow.querySelector( '.ghrp-edit-repo-btn' ) : null;
 
 		if ( dataRow ) {
 			dataRow.style.display = '';
@@ -256,7 +256,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 		}
 
 		// Populate category checklist.
-		var catHidden = editRow.querySelector( '.ctbp-tpl-cat-hidden' );
+		var catHidden = editRow.querySelector( '.ghrp-tpl-cat-hidden' );
 		if ( catHidden ) {
 			catHidden.name = 'repos[' + repo + '][categories][]';
 		}
@@ -266,13 +266,13 @@ document.addEventListener( 'DOMContentLoaded', function () {
 		} catch ( e ) {
 			savedCats = [];
 		}
-		editRow.querySelectorAll( '.ctbp-tpl-categories input[type="checkbox"]' ).forEach( function ( cb ) {
+		editRow.querySelectorAll( '.ghrp-tpl-categories input[type="checkbox"]' ).forEach( function ( cb ) {
 			cb.name    = 'repos[' + repo + '][categories][]';
 			cb.checked = savedCats.indexOf( parseInt( cb.value, 10 ) ) !== -1;
 		} );
 
 		// Populate select: author.
-		var authorSelect = editRow.querySelector( '.ctbp-tpl-author' );
+		var authorSelect = editRow.querySelector( '.ghrp-tpl-author' );
 		if ( authorSelect ) {
 			authorSelect.name  = 'repos[' + repo + '][author]';
 			authorSelect.value = dataRow.dataset.author || '0';
@@ -295,13 +295,13 @@ document.addEventListener( 'DOMContentLoaded', function () {
 		wireFeatureImagePicker( editRow, featuredImageId );
 
 		// Wire up Cancel button.
-		var cancelBtn = editRow.querySelector( '.ctbp-cancel-edit' );
+		var cancelBtn = editRow.querySelector( '.ghrp-cancel-edit' );
 		if ( cancelBtn ) {
 			cancelBtn.addEventListener( 'click', closeActiveEditRow );
 		}
 
 		// Wire up plugin link blur validation.
-		var pluginLinkInput = editRow.querySelector( '.ctbp-plugin-link-input' );
+		var pluginLinkInput = editRow.querySelector( '.ghrp-plugin-link-input' );
 		if ( pluginLinkInput ) {
 			wirePluginLinkValidation( pluginLinkInput );
 		}
@@ -323,7 +323,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	}
 
 	// Open edit row from row-action "Edit" link.
-	document.querySelectorAll( '.ctbp-edit-repo-btn' ).forEach( function ( link ) {
+	document.querySelectorAll( '.ghrp-edit-repo-btn' ).forEach( function ( link ) {
 		link.addEventListener( 'click', function ( e ) {
 			e.preventDefault();
 			var dataRow = link.closest( 'tr' );
@@ -336,11 +336,11 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	// -------------------------------------------------------------------------
 	// Remove repository — dialog-based confirmation.
 	// -------------------------------------------------------------------------
-	const removeDialog    = document.getElementById( 'ctbp-remove-dialog' );
-	const removeRepoInput = document.getElementById( 'ctbp-remove-repo-input' );
-	const removeCancelBtn = document.getElementById( 'ctbp-remove-cancel' );
+	const removeDialog    = document.getElementById( 'ghrp-remove-dialog' );
+	const removeRepoInput = document.getElementById( 'ghrp-remove-repo-input' );
+	const removeCancelBtn = document.getElementById( 'ghrp-remove-cancel' );
 
-	document.querySelectorAll( '.ctbp-remove-repo-btn' ).forEach( function ( link ) {
+	document.querySelectorAll( '.ghrp-remove-repo-btn' ).forEach( function ( link ) {
 		link.addEventListener( 'click', function ( e ) {
 			e.preventDefault();
 
@@ -355,9 +355,9 @@ document.addEventListener( 'DOMContentLoaded', function () {
 					const form = document.createElement( 'form' );
 					form.method = 'post';
 					form.innerHTML =
-						'<input type="hidden" name="ctbp_action" value="repositories">' +
-						'<input type="hidden" name="ctbp_nonce" value="">' +
-						'<input type="hidden" name="ctbp_remove_repo" value="' +
+						'<input type="hidden" name="ghrp_action" value="repositories">' +
+						'<input type="hidden" name="ghrp_nonce" value="">' +
+						'<input type="hidden" name="ghrp_remove_repo" value="' +
 						encodeURIComponent( repo ) +
 						'">';
 					document.body.appendChild( form );
@@ -384,9 +384,9 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	 * @param {number}      attachmentId    Current attachment ID (0 = none).
 	 */
 	function wireFeatureImagePicker( editRow, attachmentId ) {
-		var selectBtn = editRow.querySelector( '.ctbp-select-image' );
-		var removeBtn = editRow.querySelector( '.ctbp-remove-image' );
-		var preview   = editRow.querySelector( '.ctbp-featured-image-preview' );
+		var selectBtn = editRow.querySelector( '.ghrp-select-image' );
+		var removeBtn = editRow.querySelector( '.ghrp-remove-image' );
+		var preview   = editRow.querySelector( '.ghrp-featured-image-preview' );
 		var input     = editRow.querySelector( '[data-field="featured_image"]' );
 
 		if ( ! selectBtn || ! input ) {
@@ -504,7 +504,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 
 		input.addEventListener( 'blur', function () {
 			var value    = input.value.trim();
-			var statusEl = input.closest( '.input-text-wrap' ).querySelector( '.ctbp-plugin-link-status' );
+			var statusEl = input.closest( '.input-text-wrap' ).querySelector( '.ghrp-plugin-link-status' );
 
 			if ( ! statusEl ) {
 				return;
@@ -556,10 +556,10 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	// -------------------------------------------------------------------------
 	// Generate draft post + regeneration dialog.
 	// -------------------------------------------------------------------------
-	const conflictDialog  = document.getElementById( 'ctbp-conflict-dialog' );
-	const conflictInfo    = document.getElementById( 'ctbp-conflict-post-info' );
-	const conflictConfirm = document.getElementById( 'ctbp-conflict-confirm' );
-	const conflictCancel  = document.getElementById( 'ctbp-conflict-cancel' );
+	const conflictDialog  = document.getElementById( 'ghrp-conflict-dialog' );
+	const conflictInfo    = document.getElementById( 'ghrp-conflict-post-info' );
+	const conflictConfirm = document.getElementById( 'ghrp-conflict-confirm' );
+	const conflictCancel  = document.getElementById( 'ghrp-conflict-cancel' );
 
 	/**
 	 * Updates the Last Post column for a data row with a fade-in highlight.
@@ -602,12 +602,12 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	 */
 	function showGenerateResult( btn, post, error ) {
 		// Hide any active spinner.
-		var spinner = btn.closest( 'td' ).querySelector( '.ctbp-generate-spinner' );
+		var spinner = btn.closest( 'td' ).querySelector( '.ghrp-generate-spinner' );
 		if ( spinner ) {
 			spinner.style.display = 'none';
 		}
 
-		var statusEl = btn.closest( 'td' ).querySelector( '.ctbp-generate-status' );
+		var statusEl = btn.closest( 'td' ).querySelector( '.ghrp-generate-status' );
 		if ( ! statusEl ) {
 			return;
 		}
@@ -671,7 +671,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 		btn.disabled = true;
 		disableRowActions( btn );
 
-		var spinner = btn.closest( 'td' ).querySelector( '.ctbp-generate-spinner' );
+		var spinner = btn.closest( 'td' ).querySelector( '.ghrp-generate-spinner' );
 		if ( spinner ) {
 			spinner.style.display = 'inline-block';
 			spinner.classList.add( 'is-active' );
@@ -694,7 +694,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 		);
 	}
 
-	document.querySelectorAll( '.ctbp-generate-draft' ).forEach( function ( btn ) {
+	document.querySelectorAll( '.ghrp-generate-draft' ).forEach( function ( btn ) {
 		btn.addEventListener( 'click', function () {
 			const repo = btn.dataset.repo;
 
@@ -702,13 +702,13 @@ document.addEventListener( 'DOMContentLoaded', function () {
 			disableRowActions( btn );
 
 			// Show the adjacent spinner.
-			const spinner = btn.closest( 'td' ).querySelector( '.ctbp-generate-spinner' );
+			const spinner = btn.closest( 'td' ).querySelector( '.ghrp-generate-spinner' );
 			if ( spinner ) {
 				spinner.style.display = 'inline-block';
 				spinner.classList.add( 'is-active' );
 			}
 
-			var statusEl = btn.closest( 'td' ).querySelector( '.ctbp-generate-status' );
+			var statusEl = btn.closest( 'td' ).querySelector( '.ghrp-generate-status' );
 			if ( statusEl ) {
 				statusEl.innerHTML = '<span class="screen-reader-text">' + ctbpAdmin.i18n.generating + '</span>';
 			}
@@ -721,7 +721,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 					btn.disabled = false;
 
 					// Hide spinner — either showing dialog or result.
-					var sp = btn.closest( 'td' ).querySelector( '.ctbp-generate-spinner' );
+					var sp = btn.closest( 'td' ).querySelector( '.ghrp-generate-spinner' );
 					if ( sp ) {
 						sp.style.display = 'none';
 					}
@@ -744,7 +744,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 							if ( conflictDialog ) {
 								conflictDialog.close();
 							}
-							var s = btn.closest( 'td' ).querySelector( '.ctbp-generate-status' );
+							var s = btn.closest( 'td' ).querySelector( '.ghrp-generate-status' );
 							if ( s ) {
 								s.innerHTML = '';
 							}

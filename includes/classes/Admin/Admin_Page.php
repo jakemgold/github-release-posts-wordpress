@@ -2,20 +2,20 @@
 /**
  * Admin settings page.
  *
- * @package ChangelogToBlogPost
+ * @package GitHubReleasePosts
  */
 
-namespace TenUp\ChangelogToBlogPost\Admin;
+namespace Jakemgold\GitHubReleasePosts\Admin;
 
-use TenUp\ChangelogToBlogPost\GitHub\API_Client;
-use TenUp\ChangelogToBlogPost\Post\Post_Creator;
-use TenUp\ChangelogToBlogPost\GitHub\Onboarding_Handler;
-use TenUp\ChangelogToBlogPost\GitHub\Release_Monitor;
-use TenUp\ChangelogToBlogPost\GitHub\Release_Queue;
-use TenUp\ChangelogToBlogPost\GitHub\Release_State;
-use TenUp\ChangelogToBlogPost\Plugin_Constants;
-use TenUp\ChangelogToBlogPost\Settings\Global_Settings;
-use TenUp\ChangelogToBlogPost\Settings\Repository_Settings;
+use Jakemgold\GitHubReleasePosts\GitHub\API_Client;
+use Jakemgold\GitHubReleasePosts\Post\Post_Creator;
+use Jakemgold\GitHubReleasePosts\GitHub\Onboarding_Handler;
+use Jakemgold\GitHubReleasePosts\GitHub\Release_Monitor;
+use Jakemgold\GitHubReleasePosts\GitHub\Release_Queue;
+use Jakemgold\GitHubReleasePosts\GitHub\Release_State;
+use Jakemgold\GitHubReleasePosts\Plugin_Constants;
+use Jakemgold\GitHubReleasePosts\Settings\Global_Settings;
+use Jakemgold\GitHubReleasePosts\Settings\Repository_Settings;
 
 /**
  * Registers the plugin settings page under the WordPress Tools menu,
@@ -79,7 +79,7 @@ class Admin_Page {
 		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_assets' ] );
 		add_action( 'enqueue_block_editor_assets', [ $this, 'enqueue_editor_assets' ] );
 		add_action( 'rest_api_init', [ $this, 'register_rest_routes' ] );
-		add_filter( 'plugin_action_links_' . plugin_basename( CHANGELOG_TO_BLOG_POST_PATH . 'changelog-to-blog-post.php' ), [ $this, 'add_action_links' ] );
+		add_filter( 'plugin_action_links_' . plugin_basename( GITHUB_RELEASE_POSTS_PATH . 'github-release-posts.php' ), [ $this, 'add_action_links' ] );
 
 		// Register meta immediately — setup() is called during 'init',
 		// so hooking 'init' again would be too late.
@@ -98,8 +98,8 @@ class Admin_Page {
 	public function add_action_links( array $links ): array {
 		$configure_link = sprintf(
 			'<a href="%s">%s</a>',
-			esc_url( admin_url( 'tools.php?page=changelog-to-blog-post' ) ),
-			esc_html__( 'Configure', 'changelog-to-blog-post' )
+			esc_url( admin_url( 'tools.php?page=github-release-posts' ) ),
+			esc_html__( 'Configure', 'github-release-posts' )
 		);
 		array_unshift( $links, $configure_link );
 		return $links;
@@ -112,10 +112,10 @@ class Admin_Page {
 	 */
 	public function register_menu_page(): void {
 		$this->page_hook = (string) add_management_page(
-			__( 'GitHub Release Posts', 'changelog-to-blog-post' ),
-			__( 'Release Posts', 'changelog-to-blog-post' ),
+			__( 'GitHub Release Posts', 'github-release-posts' ),
+			__( 'Release Posts', 'github-release-posts' ),
 			'manage_options',
-			'changelog-to-blog-post',
+			'github-release-posts',
 			[ $this, 'render_page' ]
 		);
 
@@ -136,111 +136,111 @@ class Admin_Page {
 
 		$screen->add_help_tab(
 			[
-				'id'      => 'ctbp-help-overview',
-				'title'   => __( 'Overview', 'changelog-to-blog-post' ),
-				'content' => '<h3>' . esc_html__( 'GitHub Release Posts', 'changelog-to-blog-post' ) . '</h3>'
-					. '<p>' . esc_html__( 'This plugin monitors GitHub repositories for new releases and uses AI to automatically generate blog posts from release notes. Posts are created as drafts (or published immediately) so your readers always know what changed in the projects you maintain.', 'changelog-to-blog-post' ) . '</p>'
-					. '<p>' . esc_html__( 'The plugin checks for new releases on a daily schedule via WP-Cron. You can also generate a post manually from the Repositories tab at any time.', 'changelog-to-blog-post' ) . '</p>',
+				'id'      => 'ghrp-help-overview',
+				'title'   => __( 'Overview', 'github-release-posts' ),
+				'content' => '<h3>' . esc_html__( 'GitHub Release Posts', 'github-release-posts' ) . '</h3>'
+					. '<p>' . esc_html__( 'This plugin monitors GitHub repositories for new releases and uses AI to automatically generate blog posts from release notes. Posts are created as drafts (or published immediately) so your readers always know what changed in the projects you maintain.', 'github-release-posts' ) . '</p>'
+					. '<p>' . esc_html__( 'The plugin checks for new releases on a daily schedule via WP-Cron. You can also generate a post manually from the Repositories tab at any time.', 'github-release-posts' ) . '</p>',
 			]
 		);
 
 		$screen->add_help_tab(
 			[
-				'id'      => 'ctbp-help-getting-started',
-				'title'   => __( 'Getting Started', 'changelog-to-blog-post' ),
-				'content' => '<h3>' . esc_html__( 'Getting Started', 'changelog-to-blog-post' ) . '</h3>'
+				'id'      => 'ghrp-help-getting-started',
+				'title'   => __( 'Getting Started', 'github-release-posts' ),
+				'content' => '<h3>' . esc_html__( 'Getting Started', 'github-release-posts' ) . '</h3>'
 					. '<ol>'
-					. '<li>' . esc_html__( 'Set up an AI connector under Settings → Connectors (Anthropic, OpenAI, or Google recommended).', 'changelog-to-blog-post' ) . '</li>'
-					. '<li>' . esc_html__( 'Add a GitHub repository in the Repositories tab using the format "owner/repo" (e.g. "WordPress/gutenberg").', 'changelog-to-blog-post' ) . '</li>'
-					. '<li>' . esc_html__( 'When you add a repository, the plugin automatically checks for the latest release and generates a draft post if one is found. You can also generate a post manually at any time.', 'changelog-to-blog-post' ) . '</li>'
+					. '<li>' . esc_html__( 'Set up an AI connector under Settings → Connectors (Anthropic, OpenAI, or Google recommended).', 'github-release-posts' ) . '</li>'
+					. '<li>' . esc_html__( 'Add a GitHub repository in the Repositories tab using the format "owner/repo" (e.g. "WordPress/gutenberg").', 'github-release-posts' ) . '</li>'
+					. '<li>' . esc_html__( 'When you add a repository, the plugin automatically checks for the latest release and generates a draft post if one is found. You can also generate a post manually at any time.', 'github-release-posts' ) . '</li>'
 					. '</ol>'
-					. '<p>' . esc_html__( 'Optionally, add a GitHub Personal Access Token in the Settings tab to increase the API rate limit from 60 to 5,000 requests per hour.', 'changelog-to-blog-post' ) . '</p>',
+					. '<p>' . esc_html__( 'Optionally, add a GitHub Personal Access Token in the Settings tab to increase the API rate limit from 60 to 5,000 requests per hour.', 'github-release-posts' ) . '</p>',
 			]
 		);
 
 		$screen->add_help_tab(
 			[
-				'id'      => 'ctbp-help-repositories',
-				'title'   => __( 'Repositories', 'changelog-to-blog-post' ),
-				'content' => '<h3>' . esc_html__( 'Managing Repositories', 'changelog-to-blog-post' ) . '</h3>'
-					. '<p>' . esc_html__( 'Each repository you add is monitored for new GitHub releases. When a new release is detected, the plugin fetches the release notes, sends them to your configured AI provider, and creates a blog post.', 'changelog-to-blog-post' ) . '</p>'
-					. '<h4>' . esc_html__( 'Per-Repository Options', 'changelog-to-blog-post' ) . '</h4>'
+				'id'      => 'ghrp-help-repositories',
+				'title'   => __( 'Repositories', 'github-release-posts' ),
+				'content' => '<h3>' . esc_html__( 'Managing Repositories', 'github-release-posts' ) . '</h3>'
+					. '<p>' . esc_html__( 'Each repository you add is monitored for new GitHub releases. When a new release is detected, the plugin fetches the release notes, sends them to your configured AI provider, and creates a blog post.', 'github-release-posts' ) . '</p>'
+					. '<h4>' . esc_html__( 'Per-Repository Options', 'github-release-posts' ) . '</h4>'
 					. '<ul>'
-					. '<li><strong>' . esc_html__( 'Display Name', 'changelog-to-blog-post' ) . '</strong> — ' . esc_html__( 'The project name used in post titles. Defaults to a cleaned-up version of the repo name.', 'changelog-to-blog-post' ) . '</li>'
-					. '<li><strong>' . esc_html__( 'Project Link', 'changelog-to-blog-post' ) . '</strong> — ' . esc_html__( 'A URL included in the generated post as a download or project link. If the repository is a WordPress plugin, you can enter just the WordPress.org slug instead. If left blank, the GitHub release URL is used.', 'changelog-to-blog-post' ) . '</li>'
+					. '<li><strong>' . esc_html__( 'Display Name', 'github-release-posts' ) . '</strong> — ' . esc_html__( 'The project name used in post titles. Defaults to a cleaned-up version of the repo name.', 'github-release-posts' ) . '</li>'
+					. '<li><strong>' . esc_html__( 'Project Link', 'github-release-posts' ) . '</strong> — ' . esc_html__( 'A URL included in the generated post as a download or project link. If the repository is a WordPress plugin, you can enter just the WordPress.org slug instead. If left blank, the GitHub release URL is used.', 'github-release-posts' ) . '</li>'
 					. '</ul>'
-					. '<h4>' . esc_html__( 'Generate Draft Now', 'changelog-to-blog-post' ) . '</h4>'
-					. '<p>' . esc_html__( 'Creates a post from the latest release immediately, bypassing the cron schedule. Useful for testing your setup or generating a post on demand.', 'changelog-to-blog-post' ) . '</p>',
+					. '<h4>' . esc_html__( 'Generate Draft Now', 'github-release-posts' ) . '</h4>'
+					. '<p>' . esc_html__( 'Creates a post from the latest release immediately, bypassing the cron schedule. Useful for testing your setup or generating a post on demand.', 'github-release-posts' ) . '</p>',
 			]
 		);
 
 		$screen->add_help_tab(
 			[
-				'id'      => 'ctbp-help-ai-settings',
-				'title'   => __( 'AI & Prompts', 'changelog-to-blog-post' ),
-				'content' => '<h3>' . esc_html__( 'Post Creation Settings', 'changelog-to-blog-post' ) . '</h3>'
-				. '<p>' . esc_html__( 'This plugin uses WordPress Connectors to communicate with AI providers. Configure your preferred connector (Anthropic, OpenAI, or Google) under Settings → Connectors.', 'changelog-to-blog-post' ) . '</p>'
-				. '<h4>' . esc_html__( 'Recommended Models', 'changelog-to-blog-post' ) . '</h4>'
-				. '<p>' . esc_html__( 'The plugin specifies a list of preferred models and automatically uses the best available one via your configured connector. For best results, your AI provider account should support one of these models:', 'changelog-to-blog-post' ) . '</p>'
+				'id'      => 'ghrp-help-ai-settings',
+				'title'   => __( 'AI & Prompts', 'github-release-posts' ),
+				'content' => '<h3>' . esc_html__( 'Post Creation Settings', 'github-release-posts' ) . '</h3>'
+				. '<p>' . esc_html__( 'This plugin uses WordPress Connectors to communicate with AI providers. Configure your preferred connector (Anthropic, OpenAI, or Google) under Settings → Connectors.', 'github-release-posts' ) . '</p>'
+				. '<h4>' . esc_html__( 'Recommended Models', 'github-release-posts' ) . '</h4>'
+				. '<p>' . esc_html__( 'The plugin specifies a list of preferred models and automatically uses the best available one via your configured connector. For best results, your AI provider account should support one of these models:', 'github-release-posts' ) . '</p>'
 				. '<ul>'
-				. '<li>' . esc_html__( 'Anthropic — Claude Opus 4.7', 'changelog-to-blog-post' ) . '</li>'
-				. '<li>' . esc_html__( 'OpenAI — GPT-5.5', 'changelog-to-blog-post' ) . '</li>'
-				. '<li>' . esc_html__( 'Google — Gemini 2.5 Pro', 'changelog-to-blog-post' ) . '</li>'
+				. '<li>' . esc_html__( 'Anthropic — Claude Opus 4.7', 'github-release-posts' ) . '</li>'
+				. '<li>' . esc_html__( 'OpenAI — GPT-5.5', 'github-release-posts' ) . '</li>'
+				. '<li>' . esc_html__( 'Google — Gemini 2.5 Pro', 'github-release-posts' ) . '</li>'
 				. '</ul>'
-				. '<p>' . esc_html__( 'If none of these models are available, the plugin falls back to whatever model your connector provides. Developers can customize the preferred model list via the ctbp_wp_ai_client_model_preferences filter.', 'changelog-to-blog-post' ) . '</p>'
-				. '<h4>' . esc_html__( 'Research Depth', 'changelog-to-blog-post' ) . '</h4>'
-				. '<p>' . esc_html__( 'Controls how much context the AI gathers before writing. "Standard" uses the release notes, linked issues/PRs, and README. "Deep" also fetches commit messages and file change summaries between the previous and current release, giving the AI more detail to work with — especially useful for releases with sparse notes.', 'changelog-to-blog-post' ) . '</p>'
-				. '<h4>' . esc_html__( 'Post Audience', 'changelog-to-blog-post' ) . '</h4>'
-				. '<p>' . esc_html__( 'Controls the technical depth of generated posts. "Site owners & managers" avoids all jargon; "Engineering teams" includes hook signatures, code examples, and architecture details.', 'changelog-to-blog-post' ) . '</p>'
-				. '<h4>' . esc_html__( 'Custom Prompt Instructions', 'changelog-to-blog-post' ) . '</h4>'
-				. '<p>' . esc_html__( 'Add extra instructions to guide the AI\'s writing style, tone, or voice. For example: "Write in a friendly, conversational tone" or "Our readers are non-technical site owners." Keep it under 500 characters for best results.', 'changelog-to-blog-post' ) . '</p>'
-				. '<h4>' . esc_html__( 'AI Disclosure', 'changelog-to-blog-post' ) . '</h4>'
-				. '<p>' . esc_html__( 'When enabled, the following note is appended to the end of each generated post in small italic text:', 'changelog-to-blog-post' ) . '</p>'
-				. '<blockquote><em>' . esc_html__( 'This post was generated from release notes with the help of AI using GitHub Release Posts plugin for WordPress.', 'changelog-to-blog-post' ) . '</em></blockquote>'
-				. '<p>' . esc_html__( 'This text is part of the post content and can be edited or removed. Developers can customize it with the ctbp_ai_disclosure_text filter.', 'changelog-to-blog-post' ) . '</p>'
-				. '<h4>' . esc_html__( 'SEO: Excerpts & Slugs', 'changelog-to-blog-post' ) . '</h4>'
-				. '<p>' . esc_html__( 'Each generated post includes an AI-written excerpt (150–160 characters, optimized as a meta description) and an SEO-friendly URL slug based on the project name, version, and key topics. Published posts keep their existing slug when regenerated to preserve live URLs.', 'changelog-to-blog-post' ) . '</p>',
+				. '<p>' . esc_html__( 'If none of these models are available, the plugin falls back to whatever model your connector provides. Developers can customize the preferred model list via the ghrp_wp_ai_client_model_preferences filter.', 'github-release-posts' ) . '</p>'
+				. '<h4>' . esc_html__( 'Research Depth', 'github-release-posts' ) . '</h4>'
+				. '<p>' . esc_html__( 'Controls how much context the AI gathers before writing. "Standard" uses the release notes, linked issues/PRs, and README. "Deep" also fetches commit messages and file change summaries between the previous and current release, giving the AI more detail to work with — especially useful for releases with sparse notes.', 'github-release-posts' ) . '</p>'
+				. '<h4>' . esc_html__( 'Post Audience', 'github-release-posts' ) . '</h4>'
+				. '<p>' . esc_html__( 'Controls the technical depth of generated posts. "Site owners & managers" avoids all jargon; "Engineering teams" includes hook signatures, code examples, and architecture details.', 'github-release-posts' ) . '</p>'
+				. '<h4>' . esc_html__( 'Custom Prompt Instructions', 'github-release-posts' ) . '</h4>'
+				. '<p>' . esc_html__( 'Add extra instructions to guide the AI\'s writing style, tone, or voice. For example: "Write in a friendly, conversational tone" or "Our readers are non-technical site owners." Keep it under 500 characters for best results.', 'github-release-posts' ) . '</p>'
+				. '<h4>' . esc_html__( 'AI Disclosure', 'github-release-posts' ) . '</h4>'
+				. '<p>' . esc_html__( 'When enabled, the following note is appended to the end of each generated post in small italic text:', 'github-release-posts' ) . '</p>'
+				. '<blockquote><em>' . esc_html__( 'This post was generated from release notes with the help of AI using GitHub Release Posts plugin for WordPress.', 'github-release-posts' ) . '</em></blockquote>'
+				. '<p>' . esc_html__( 'This text is part of the post content and can be edited or removed. Developers can customize it with the ghrp_ai_disclosure_text filter.', 'github-release-posts' ) . '</p>'
+				. '<h4>' . esc_html__( 'SEO: Excerpts & Slugs', 'github-release-posts' ) . '</h4>'
+				. '<p>' . esc_html__( 'Each generated post includes an AI-written excerpt (150–160 characters, optimized as a meta description) and an SEO-friendly URL slug based on the project name, version, and key topics. Published posts keep their existing slug when regenerated to preserve live URLs.', 'github-release-posts' ) . '</p>',
 			]
 		);
 
 		$screen->add_help_tab(
 			[
-				'id'      => 'ctbp-help-github',
-				'title'   => __( 'GitHub Token', 'changelog-to-blog-post' ),
-				'content' => '<h3>' . esc_html__( 'GitHub Personal Access Token', 'changelog-to-blog-post' ) . '</h3>'
-				. '<p>' . esc_html__( 'By default, the plugin uses unauthenticated GitHub API requests, which are limited to 60 per hour. Adding a Personal Access Token raises this limit to 5,000 requests per hour.', 'changelog-to-blog-post' ) . '</p>'
-				. '<p>' . esc_html__( 'A token is recommended if you track more than a few repositories or check for releases frequently.', 'changelog-to-blog-post' ) . '</p>'
-				. '<h4>' . esc_html__( 'Creating a Token', 'changelog-to-blog-post' ) . '</h4>'
+				'id'      => 'ghrp-help-github',
+				'title'   => __( 'GitHub Token', 'github-release-posts' ),
+				'content' => '<h3>' . esc_html__( 'GitHub Personal Access Token', 'github-release-posts' ) . '</h3>'
+				. '<p>' . esc_html__( 'By default, the plugin uses unauthenticated GitHub API requests, which are limited to 60 per hour. Adding a Personal Access Token raises this limit to 5,000 requests per hour.', 'github-release-posts' ) . '</p>'
+				. '<p>' . esc_html__( 'A token is recommended if you track more than a few repositories or check for releases frequently.', 'github-release-posts' ) . '</p>'
+				. '<h4>' . esc_html__( 'Creating a Token', 'github-release-posts' ) . '</h4>'
 				. '<ol>'
 				. '<li>'
 					. sprintf(
 						/* translators: %s: link to GitHub token settings */
-						esc_html__( 'Visit %s on GitHub.', 'changelog-to-blog-post' ),
-						'<a href="https://github.com/settings/tokens" target="_blank" rel="noopener">' . esc_html__( 'Settings &rarr; Personal access tokens', 'changelog-to-blog-post' ) . '</a>'
+						esc_html__( 'Visit %s on GitHub.', 'github-release-posts' ),
+						'<a href="https://github.com/settings/tokens" target="_blank" rel="noopener">' . esc_html__( 'Settings &rarr; Personal access tokens', 'github-release-posts' ) . '</a>'
 					)
 				. '</li>'
-				. '<li>' . esc_html__( 'Generate a new token (classic) with the "public_repo" scope. For private repositories, use the full "repo" scope instead.', 'changelog-to-blog-post' ) . '</li>'
-				. '<li>' . esc_html__( 'Paste the token into the GitHub Personal Access Token field in the Settings tab.', 'changelog-to-blog-post' ) . '</li>'
+				. '<li>' . esc_html__( 'Generate a new token (classic) with the "public_repo" scope. For private repositories, use the full "repo" scope instead.', 'github-release-posts' ) . '</li>'
+				. '<li>' . esc_html__( 'Paste the token into the GitHub Personal Access Token field in the Settings tab.', 'github-release-posts' ) . '</li>'
 				. '</ol>'
-				. '<p>' . esc_html__( 'The token is encrypted at rest using libsodium and is never exposed in the admin UI after saving.', 'changelog-to-blog-post' ) . '</p>',
+				. '<p>' . esc_html__( 'The token is encrypted at rest using libsodium and is never exposed in the admin UI after saving.', 'github-release-posts' ) . '</p>',
 			]
 		);
 
 		$screen->add_help_tab(
 			[
-				'id'      => 'ctbp-help-troubleshooting',
-				'title'   => __( 'Troubleshooting', 'changelog-to-blog-post' ),
-				'content' => '<h3>' . esc_html__( 'Troubleshooting', 'changelog-to-blog-post' ) . '</h3>'
-					. '<h4>' . esc_html__( 'Post generation fails or times out', 'changelog-to-blog-post' ) . '</h4>'
-					. '<p>' . esc_html__( 'AI generation can take 30–60 seconds for complex releases. If your hosting environment has a short PHP execution time limit, the request may time out before the AI responds. Contact your host about increasing the limit, or try generating again — some releases take longer than others.', 'changelog-to-blog-post' ) . '</p>'
-					. '<h4>' . esc_html__( 'API credits or billing error', 'changelog-to-blog-post' ) . '</h4>'
-					. '<p>' . esc_html__( 'If you see a billing or credits error, verify that your AI provider account has API credits loaded. Some providers have separate billing for API usage and chat subscriptions.', 'changelog-to-blog-post' ) . '</p>'
-					. '<h4>' . esc_html__( 'Images show "unexpected or invalid content"', 'changelog-to-blog-post' ) . '</h4>'
-					. '<p>' . esc_html__( 'If image blocks show a validation warning in the editor, click "Attempt recovery" — this usually resolves the issue. The plugin rebuilds image blocks from AI output, and minor formatting differences can occasionally trigger this warning.', 'changelog-to-blog-post' ) . '</p>'
-					. '<h4>' . esc_html__( 'Posts are empty or very short', 'changelog-to-blog-post' ) . '</h4>'
-					. '<p>' . esc_html__( 'This usually means the GitHub release has no release notes (just a tag with no body text). The plugin generates content from the release notes — if there are none, the AI has little to work with. Check the release on GitHub to confirm it has a description.', 'changelog-to-blog-post' ) . '</p>'
-					. '<h4>' . esc_html__( 'Scheduled checks are not running', 'changelog-to-blog-post' ) . '</h4>'
-					. '<p>' . esc_html__( 'The plugin relies on WP-Cron, which requires regular site traffic to trigger. On low-traffic sites, consider setting up a real server cron job to call wp-cron.php. Check Tools → Site Health for WP-Cron status.', 'changelog-to-blog-post' ) . '</p>',
+				'id'      => 'ghrp-help-troubleshooting',
+				'title'   => __( 'Troubleshooting', 'github-release-posts' ),
+				'content' => '<h3>' . esc_html__( 'Troubleshooting', 'github-release-posts' ) . '</h3>'
+					. '<h4>' . esc_html__( 'Post generation fails or times out', 'github-release-posts' ) . '</h4>'
+					. '<p>' . esc_html__( 'AI generation can take 30–60 seconds for complex releases. If your hosting environment has a short PHP execution time limit, the request may time out before the AI responds. Contact your host about increasing the limit, or try generating again — some releases take longer than others.', 'github-release-posts' ) . '</p>'
+					. '<h4>' . esc_html__( 'API credits or billing error', 'github-release-posts' ) . '</h4>'
+					. '<p>' . esc_html__( 'If you see a billing or credits error, verify that your AI provider account has API credits loaded. Some providers have separate billing for API usage and chat subscriptions.', 'github-release-posts' ) . '</p>'
+					. '<h4>' . esc_html__( 'Images show "unexpected or invalid content"', 'github-release-posts' ) . '</h4>'
+					. '<p>' . esc_html__( 'If image blocks show a validation warning in the editor, click "Attempt recovery" — this usually resolves the issue. The plugin rebuilds image blocks from AI output, and minor formatting differences can occasionally trigger this warning.', 'github-release-posts' ) . '</p>'
+					. '<h4>' . esc_html__( 'Posts are empty or very short', 'github-release-posts' ) . '</h4>'
+					. '<p>' . esc_html__( 'This usually means the GitHub release has no release notes (just a tag with no body text). The plugin generates content from the release notes — if there are none, the AI has little to work with. Check the release on GitHub to confirm it has a description.', 'github-release-posts' ) . '</p>'
+					. '<h4>' . esc_html__( 'Scheduled checks are not running', 'github-release-posts' ) . '</h4>'
+					. '<p>' . esc_html__( 'The plugin relies on WP-Cron, which requires regular site traffic to trigger. On low-traffic sites, consider setting up a real server cron job to call wp-cron.php. Check Tools → Site Health for WP-Cron status.', 'github-release-posts' ) . '</p>',
 			]
 		);
 	}
@@ -259,57 +259,57 @@ class Admin_Page {
 		wp_enqueue_media();
 
 		wp_enqueue_style(
-			'changelog-to-blog-post-admin',
-			CHANGELOG_TO_BLOG_POST_URL . 'dist/css/admin-style.css',
+			'github-release-posts-admin',
+			GITHUB_RELEASE_POSTS_URL . 'dist/css/admin-style.css',
 			[],
-			CHANGELOG_TO_BLOG_POST_VERSION
+			GITHUB_RELEASE_POSTS_VERSION
 		);
 
-		$admin_asset_file = CHANGELOG_TO_BLOG_POST_PATH . 'dist/js/admin.asset.php';
+		$admin_asset_file = GITHUB_RELEASE_POSTS_PATH . 'dist/js/admin.asset.php';
 		$admin_asset      = file_exists( $admin_asset_file ) ? require $admin_asset_file : [
 			'dependencies' => [],
-			'version'      => CHANGELOG_TO_BLOG_POST_VERSION,
+			'version'      => GITHUB_RELEASE_POSTS_VERSION,
 		];
 
 		wp_enqueue_script(
-			'changelog-to-blog-post-admin-js',
-			CHANGELOG_TO_BLOG_POST_URL . 'dist/js/admin.js',
+			'github-release-posts-admin-js',
+			GITHUB_RELEASE_POSTS_URL . 'dist/js/admin.js',
 			$admin_asset['dependencies'],
-			$admin_asset['version'] ?? CHANGELOG_TO_BLOG_POST_VERSION,
+			$admin_asset['version'] ?? GITHUB_RELEASE_POSTS_VERSION,
 			true
 		);
 
 		wp_localize_script(
-			'changelog-to-blog-post-admin-js',
+			'github-release-posts-admin-js',
 			'ctbpAdmin',
 			[
-				'restUrl'           => get_rest_url( null, 'ctbp/v1' ),
+				'restUrl'           => get_rest_url( null, 'ghrp/v1' ),
 				'restNonce'         => wp_create_nonce( 'wp_rest' ),
 				'blockEditorActive' => self::is_block_editor_active(),
 				'i18n'              => [
-					'unsavedChanges'    => __( 'You have unsaved changes. Are you sure you want to leave this tab?', 'changelog-to-blog-post' ),
-					'confirmRemove'     => __( 'Are you sure you want to remove this repository? This cannot be undone.', 'changelog-to-blog-post' ),
-					'validating'        => __( 'Validating…', 'changelog-to-blog-post' ),
-					'slugValid'         => __( 'Found on WordPress.org.', 'changelog-to-blog-post' ),
-					'slugNotFound'      => __( 'Not found on WordPress.org.', 'changelog-to-blog-post' ),
-					'validUrl'          => __( 'Valid URL.', 'changelog-to-blog-post' ),
-					'invalidUrl'        => __( 'Invalid URL format.', 'changelog-to-blog-post' ),
-					'pluginLinkHint'    => __( 'Enter a valid URL or WordPress.org slug.', 'changelog-to-blog-post' ),
-					'selectImage'       => __( 'Select Featured Image', 'changelog-to-blog-post' ),
-					'useImage'          => __( 'Use this image', 'changelog-to-blog-post' ),
-					'removeImage'       => __( 'Remove', 'changelog-to-blog-post' ),
-					'notImplemented'    => __( 'This feature is not yet available.', 'changelog-to-blog-post' ),
-					'edit'              => __( 'Edit', 'changelog-to-blog-post' ),
-					'editLabel'         => __( 'Edit:', 'changelog-to-blog-post' ),
-					'done'              => __( 'Done', 'changelog-to-blog-post' ),
-					'generateDraft'     => __( 'Generate draft post', 'changelog-to-blog-post' ),
-					'generatePost'      => __( 'Generate post', 'changelog-to-blog-post' ),
-					'generating'        => __( 'Generating…', 'changelog-to-blog-post' ),
-					'draftCreated'      => __( 'Draft created.', 'changelog-to-blog-post' ),
-					'viewDraft'         => __( 'View draft', 'changelog-to-blog-post' ),
-					'regenerateConfirm' => __( 'A post already exists for this release. Regenerate it?', 'changelog-to-blog-post' ),
-					'valid'             => __( 'Valid', 'changelog-to-blog-post' ),
-					'connectionSuccess' => __( 'Connection successful.', 'changelog-to-blog-post' ),
+					'unsavedChanges'    => __( 'You have unsaved changes. Are you sure you want to leave this tab?', 'github-release-posts' ),
+					'confirmRemove'     => __( 'Are you sure you want to remove this repository? This cannot be undone.', 'github-release-posts' ),
+					'validating'        => __( 'Validating…', 'github-release-posts' ),
+					'slugValid'         => __( 'Found on WordPress.org.', 'github-release-posts' ),
+					'slugNotFound'      => __( 'Not found on WordPress.org.', 'github-release-posts' ),
+					'validUrl'          => __( 'Valid URL.', 'github-release-posts' ),
+					'invalidUrl'        => __( 'Invalid URL format.', 'github-release-posts' ),
+					'pluginLinkHint'    => __( 'Enter a valid URL or WordPress.org slug.', 'github-release-posts' ),
+					'selectImage'       => __( 'Select Featured Image', 'github-release-posts' ),
+					'useImage'          => __( 'Use this image', 'github-release-posts' ),
+					'removeImage'       => __( 'Remove', 'github-release-posts' ),
+					'notImplemented'    => __( 'This feature is not yet available.', 'github-release-posts' ),
+					'edit'              => __( 'Edit', 'github-release-posts' ),
+					'editLabel'         => __( 'Edit:', 'github-release-posts' ),
+					'done'              => __( 'Done', 'github-release-posts' ),
+					'generateDraft'     => __( 'Generate draft post', 'github-release-posts' ),
+					'generatePost'      => __( 'Generate post', 'github-release-posts' ),
+					'generating'        => __( 'Generating…', 'github-release-posts' ),
+					'draftCreated'      => __( 'Draft created.', 'github-release-posts' ),
+					'viewDraft'         => __( 'View draft', 'github-release-posts' ),
+					'regenerateConfirm' => __( 'A post already exists for this release. Regenerate it?', 'github-release-posts' ),
+					'valid'             => __( 'Valid', 'github-release-posts' ),
+					'connectionSuccess' => __( 'Connection successful.', 'github-release-posts' ),
 				],
 			]
 		);
@@ -332,17 +332,17 @@ class Admin_Page {
 			return;
 		}
 
-		$asset_file = CHANGELOG_TO_BLOG_POST_PATH . 'dist/js/editor.asset.php';
+		$asset_file = GITHUB_RELEASE_POSTS_PATH . 'dist/js/editor.asset.php';
 		$asset      = file_exists( $asset_file ) ? require $asset_file : [
 			'dependencies' => [],
-			'version'      => CHANGELOG_TO_BLOG_POST_VERSION,
+			'version'      => GITHUB_RELEASE_POSTS_VERSION,
 		];
 
 		wp_enqueue_script(
-			'changelog-to-blog-post-editor',
-			CHANGELOG_TO_BLOG_POST_URL . 'dist/js/editor.js',
+			'github-release-posts-editor',
+			GITHUB_RELEASE_POSTS_URL . 'dist/js/editor.js',
 			$asset['dependencies'],
-			$asset['version'] ?? CHANGELOG_TO_BLOG_POST_VERSION,
+			$asset['version'] ?? GITHUB_RELEASE_POSTS_VERSION,
 			true
 		);
 	}
@@ -385,7 +385,7 @@ class Admin_Page {
 	 */
 	public function register_rest_routes(): void {
 		register_rest_route(
-			'ctbp/v1',
+			'ghrp/v1',
 			'/releases/generate-draft',
 			[
 				'methods'             => \WP_REST_Server::CREATABLE,
@@ -402,7 +402,7 @@ class Admin_Page {
 		);
 
 		register_rest_route(
-			'ctbp/v1',
+			'ghrp/v1',
 			'/releases/regenerate',
 			[
 				'methods'             => \WP_REST_Server::CREATABLE,
@@ -424,7 +424,7 @@ class Admin_Page {
 		);
 
 		register_rest_route(
-			'ctbp/v1',
+			'ghrp/v1',
 			'/notifications/test',
 			[
 				'methods'             => \WP_REST_Server::CREATABLE,
@@ -434,7 +434,7 @@ class Admin_Page {
 		);
 
 		register_rest_route(
-			'ctbp/v1',
+			'ghrp/v1',
 			'/wporg/validate',
 			[
 				'methods'             => \WP_REST_Server::READABLE,
@@ -459,8 +459,8 @@ class Admin_Page {
 	public function rest_permission_check(): bool|\WP_Error {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			return new \WP_Error(
-				'ctbp_forbidden',
-				__( 'You do not have permission to perform this action.', 'changelog-to-blog-post' ),
+				'ghrp_forbidden',
+				__( 'You do not have permission to perform this action.', 'github-release-posts' ),
 				[ 'status' => 403 ]
 			);
 		}
@@ -474,10 +474,10 @@ class Admin_Page {
 	 */
 	public function render_page(): void {
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( esc_html__( 'You do not have permission to access this page.', 'changelog-to-blog-post' ) );
+			wp_die( esc_html__( 'You do not have permission to access this page.', 'github-release-posts' ) );
 		}
 
-		include CHANGELOG_TO_BLOG_POST_PATH . 'includes/templates/admin-page.php';
+		include GITHUB_RELEASE_POSTS_PATH . 'includes/templates/admin-page.php';
 	}
 
 	/**
@@ -487,11 +487,11 @@ class Admin_Page {
 	 */
 	public function handle_form_submission(): void {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended, WordPress.Security.NonceVerification.Missing -- nonce is verified per-action in handle_repositories_save(); this is just the early-return guard.
-		if ( 'POST' !== $_SERVER['REQUEST_METHOD'] || empty( $_POST['ctbp_action'] ) || ( $_GET['page'] ?? '' ) !== 'changelog-to-blog-post' ) {
+		if ( 'POST' !== $_SERVER['REQUEST_METHOD'] || empty( $_POST['ghrp_action'] ) || ( $_GET['page'] ?? '' ) !== 'github-release-posts' ) {
 			return;
 		}
 
-		$action = sanitize_key( $_POST['ctbp_action'] ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		$action = sanitize_key( $_POST['ghrp_action'] ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
 
 		if ( 'repositories' === $action ) {
 			$this->handle_repositories_save();
@@ -504,15 +504,15 @@ class Admin_Page {
 	 * @return void
 	 */
 	private function handle_repositories_save(): void {
-		check_admin_referer( 'ctbp_save_repositories', 'ctbp_nonce' );
+		check_admin_referer( 'ghrp_save_repositories', 'ghrp_nonce' );
 
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( esc_html__( 'Insufficient permissions.', 'changelog-to-blog-post' ) );
+			wp_die( esc_html__( 'Insufficient permissions.', 'github-release-posts' ) );
 		}
 
 		// Handle "Remove" action.
-		if ( ! empty( $_POST['ctbp_remove_repo'] ) ) {
-			$identifier = sanitize_text_field( wp_unslash( $_POST['ctbp_remove_repo'] ) );
+		if ( ! empty( $_POST['ghrp_remove_repo'] ) ) {
+			$identifier = sanitize_text_field( wp_unslash( $_POST['ghrp_remove_repo'] ) );
 			$this->repo_settings->remove_repository( $identifier );
 			// Clear per-repo state so a re-add starts clean (AC-003, AC-004).
 			( new Release_State() )->clear_state( $identifier );
@@ -529,13 +529,13 @@ class Admin_Page {
 		}
 
 		// Handle "Add repository" action.
-		if ( isset( $_POST['ctbp_add_repo'] ) && ! empty( $_POST['ctbp_new_repo'] ) ) {
+		if ( isset( $_POST['ghrp_add_repo'] ) && ! empty( $_POST['ghrp_new_repo'] ) ) {
 			$result = $this->repo_settings->add_repository(
-				sanitize_text_field( wp_unslash( $_POST['ctbp_new_repo'] ) )
+				sanitize_text_field( wp_unslash( $_POST['ghrp_new_repo'] ) )
 			);
 
 			if ( ! $result['success'] ) {
-				$this->set_admin_error( $result['error'] ?? __( 'Could not add repository.', 'changelog-to-blog-post' ) );
+				$this->set_admin_error( $result['error'] ?? __( 'Could not add repository.', 'github-release-posts' ) );
 				wp_safe_redirect(
 					add_query_arg( 'tab', 'repositories', $this->get_page_url() )
 				);
@@ -560,7 +560,7 @@ class Admin_Page {
 
 					$this->set_admin_notice( $onboarding['type'], $onboarding['message'], $onboarding['post_url'] );
 				} catch ( \Throwable $e ) {
-					$this->set_admin_notice( 'warning', __( 'Repository added, but initial release check failed. It will be checked on the next scheduled run.', 'changelog-to-blog-post' ), '' );
+					$this->set_admin_notice( 'warning', __( 'Repository added, but initial release check failed. It will be checked on the next scheduled run.', 'github-release-posts' ), '' );
 				}
 			}
 
@@ -611,10 +611,10 @@ class Admin_Page {
 		if ( $update_failures > 0 ) {
 			$redirect_args['saved'] = '0';
 			set_transient(
-				'ctbp_admin_errors_' . get_current_user_id(),
+				'ghrp_admin_errors_' . get_current_user_id(),
 				sprintf(
 					/* translators: %d: number of repositories that failed to update */
-					__( '%d repository update(s) failed. Please try again.', 'changelog-to-blog-post' ),
+					__( '%d repository update(s) failed. Please try again.', 'github-release-posts' ),
 					$update_failures
 				),
 				30
@@ -651,14 +651,14 @@ class Admin_Page {
 	 * REST handler: generates a draft post for the latest release of a repository.
 	 *
 	 * Returns conflict data when a post already exists for the tag (BR-003),
-	 * otherwise fires ctbp_process_release and returns the created post.
+	 * otherwise fires ghrp_process_release and returns the created post.
 	 *
 	 * @param \WP_REST_Request $request REST request containing the repo identifier.
 	 * @return \WP_REST_Response|\WP_Error
 	 */
 	public function rest_generate_draft( \WP_REST_Request $request ): \WP_REST_Response|\WP_Error {
 		if ( ! self::is_block_editor_active() ) {
-			return new \WP_Error( 'ctbp_no_block_editor', __( 'Post generation requires the block editor.', 'changelog-to-blog-post' ), [ 'status' => 400 ] );
+			return new \WP_Error( 'ghrp_no_block_editor', __( 'Post generation requires the block editor.', 'github-release-posts' ), [ 'status' => 400 ] );
 		}
 
 		$identifier = $request->get_param( 'repo' );
@@ -670,7 +670,7 @@ class Admin_Page {
 		}
 
 		if ( null === $release ) {
-			return new \WP_Error( 'ctbp_no_release', __( 'No releases found for this repository.', 'changelog-to-blog-post' ), [ 'status' => 404 ] );
+			return new \WP_Error( 'ghrp_no_release', __( 'No releases found for this repository.', 'github-release-posts' ), [ 'status' => 404 ] );
 		}
 
 		// Check for existing post — offer conflict resolution (BR-003).
@@ -696,7 +696,7 @@ class Admin_Page {
 		 * @param array<string, mixed> $context Context flags: force_draft, manual.
 		 */
 		do_action(
-			'ctbp_process_release',
+			'ghrp_process_release',
 			Release_Queue::from_release( $identifier, $release ),
 			[
 				'force_draft' => true,
@@ -716,7 +716,7 @@ class Admin_Page {
 			);
 		}
 
-		$last_error = \TenUp\ChangelogToBlogPost\AI\AI_Processor::get_last_error();
+		$last_error = \Jakemgold\GitHubReleasePosts\AI\AI_Processor::get_last_error();
 
 		if ( $last_error instanceof \WP_Error ) {
 			return new \WP_Error(
@@ -727,8 +727,8 @@ class Admin_Page {
 		}
 
 		return new \WP_Error(
-			'ctbp_generation_failed',
-			__( 'Draft could not be generated. Check the debug log for details or verify your connector configuration under Settings → Connectors.', 'changelog-to-blog-post' ),
+			'ghrp_generation_failed',
+			__( 'Draft could not be generated. Check the debug log for details or verify your connector configuration under Settings → Connectors.', 'github-release-posts' ),
 			[ 'status' => 422 ]
 		);
 	}
@@ -756,16 +756,16 @@ class Admin_Page {
 		$notif = $this->global_settings->get_notification_settings();
 		if ( empty( $notif['notify_site_owner'] ) && empty( $this->global_settings->get_additional_email_list() ) ) {
 			return new \WP_Error(
-				'ctbp_no_recipients',
-				__( 'No notification recipients configured. Enable the site owner checkbox or add email addresses first.', 'changelog-to-blog-post' ),
+				'ghrp_no_recipients',
+				__( 'No notification recipients configured. Enable the site owner checkbox or add email addresses first.', 'github-release-posts' ),
 				[ 'status' => 400 ]
 			);
 		}
 
 		$entry = $this->build_test_notification_entry();
 
-		$significance = new \TenUp\ChangelogToBlogPost\AI\Release_Significance();
-		$notifier     = new \TenUp\ChangelogToBlogPost\Notification\Email_Notifier(
+		$significance = new \Jakemgold\GitHubReleasePosts\AI\Release_Significance();
+		$notifier     = new \Jakemgold\GitHubReleasePosts\Notification\Email_Notifier(
 			$this->global_settings,
 			$significance,
 			$this->repo_settings
@@ -778,10 +778,10 @@ class Admin_Page {
 		$display = $entry['display_name'] . ' ' . $entry['tag'];
 		if ( 'publish' === $entry['status'] ) {
 			/* translators: %s: project name and version */
-			$subject = sprintf( __( '[Test] %s — release post published', 'changelog-to-blog-post' ), $display );
+			$subject = sprintf( __( '[Test] %s — release post published', 'github-release-posts' ), $display );
 		} else {
 			/* translators: %s: project name and version */
-			$subject = sprintf( __( '[Test] %s — draft ready for review', 'changelog-to-blog-post' ), $display );
+			$subject = sprintf( __( '[Test] %s — draft ready for review', 'github-release-posts' ), $display );
 		}
 
 		$html_body = $this->build_test_email_body( $entries );
@@ -809,8 +809,8 @@ class Admin_Page {
 
 		if ( ! $sent ) {
 			return new \WP_Error(
-				'ctbp_mail_failed',
-				__( 'Failed to send test email. Check your site\'s email configuration.', 'changelog-to-blog-post' ),
+				'ghrp_mail_failed',
+				__( 'Failed to send test email. Check your site\'s email configuration.', 'github-release-posts' ),
 				[ 'status' => 500 ]
 			);
 		}
@@ -819,7 +819,7 @@ class Admin_Page {
 			[
 				'message' => sprintf(
 					/* translators: %s: comma-separated list of recipient emails */
-					__( 'Test email sent to %s.', 'changelog-to-blog-post' ),
+					__( 'Test email sent to %s.', 'github-release-posts' ),
 					implode( ', ', $recipients )
 				),
 			],
@@ -890,10 +890,10 @@ class Admin_Page {
 		$plugin_name = 'GitHub Release Posts';
 
 		$html  = '<div style="font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif; max-width: 600px;">';
-		$html .= '<p><em>' . esc_html__( 'This is a test email.', 'changelog-to-blog-post' ) . '</em></p>';
+		$html .= '<p><em>' . esc_html__( 'This is a test email.', 'github-release-posts' ) . '</em></p>';
 		$html .= '<p>' . sprintf(
 			/* translators: 1: linked site URL, 2: linked plugin name */
-			esc_html__( 'New posts have been generated from GitHub releases on %1$s, via the %2$s plugin.', 'changelog-to-blog-post' ),
+			esc_html__( 'New posts have been generated from GitHub releases on %1$s, via the %2$s plugin.', 'github-release-posts' ),
 			'<a href="' . $site_url . '">' . esc_html( $site_host ) . '</a>',
 			'<a href="' . esc_url( $plugin_url ) . '">' . esc_html( $plugin_name ) . '</a>'
 		) . '</p>';
@@ -914,15 +914,15 @@ class Admin_Page {
 			if ( $entry['post_id'] > 0 ) {
 				if ( 'publish' === $entry['status'] ) {
 					$view_url = esc_url( get_permalink( $entry['post_id'] ) );
-					$html    .= '<a href="' . $view_url . '">' . esc_html__( 'View post', 'changelog-to-blog-post' ) . '</a>';
-					$html    .= ' · <a href="' . esc_url( (string) get_edit_post_link( $entry['post_id'], 'raw' ) ) . '">' . esc_html__( 'Edit', 'changelog-to-blog-post' ) . '</a>';
+					$html    .= '<a href="' . $view_url . '">' . esc_html__( 'View post', 'github-release-posts' ) . '</a>';
+					$html    .= ' · <a href="' . esc_url( (string) get_edit_post_link( $entry['post_id'], 'raw' ) ) . '">' . esc_html__( 'Edit', 'github-release-posts' ) . '</a>';
 				} else {
-					$html .= '<a href="' . esc_url( (string) get_edit_post_link( $entry['post_id'], 'raw' ) ) . '"><strong>' . esc_html__( 'Review draft', 'changelog-to-blog-post' ) . '</strong></a>';
+					$html .= '<a href="' . esc_url( (string) get_edit_post_link( $entry['post_id'], 'raw' ) ) . '"><strong>' . esc_html__( 'Review draft', 'github-release-posts' ) . '</strong></a>';
 				}
 				$html .= ' · ';
 			}
 
-			$html .= '<a href="' . esc_url( $entry['html_url'] ) . '">' . esc_html__( 'GitHub release', 'changelog-to-blog-post' ) . '</a>';
+			$html .= '<a href="' . esc_url( $entry['html_url'] ) . '">' . esc_html__( 'GitHub release', 'github-release-posts' ) . '</a>';
 			$html .= '</td>';
 			$html .= '</tr>';
 		}
@@ -948,7 +948,7 @@ class Admin_Page {
 
 		$post = get_post( $post_id );
 		if ( ! $post ) {
-			return new \WP_Error( 'ctbp_post_not_found', __( 'Post not found.', 'changelog-to-blog-post' ), [ 'status' => 404 ] );
+			return new \WP_Error( 'ghrp_post_not_found', __( 'Post not found.', 'github-release-posts' ), [ 'status' => 404 ] );
 		}
 
 		// Read source meta.
@@ -956,7 +956,7 @@ class Admin_Page {
 		$release_tag = (string) get_post_meta( $post_id, Plugin_Constants::META_RELEASE_TAG, true );
 
 		if ( empty( $identifier ) || empty( $release_tag ) ) {
-			return new \WP_Error( 'ctbp_not_generated', __( 'This post was not generated by the plugin.', 'changelog-to-blog-post' ), [ 'status' => 422 ] );
+			return new \WP_Error( 'ghrp_not_generated', __( 'This post was not generated by the plugin.', 'github-release-posts' ), [ 'status' => 422 ] );
 		}
 
 		// Fetch the release from GitHub.
@@ -968,11 +968,11 @@ class Admin_Page {
 		}
 
 		if ( null === $release ) {
-			return new \WP_Error( 'ctbp_no_release', __( 'No release found on GitHub.', 'changelog-to-blog-post' ), [ 'status' => 404 ] );
+			return new \WP_Error( 'ghrp_no_release', __( 'No release found on GitHub.', 'github-release-posts' ), [ 'status' => 404 ] );
 		}
 
 		// Build ReleaseData from the fetched release.
-		$data = new \TenUp\ChangelogToBlogPost\AI\ReleaseData(
+		$data = new \Jakemgold\GitHubReleasePosts\AI\ReleaseData(
 			identifier:   $identifier,
 			tag:          $release->tag,
 			name:         $release->name,
@@ -983,7 +983,7 @@ class Admin_Page {
 		);
 
 		// Generate a new prompt — the standard pipeline handles enrichment and significance.
-		$prompt = (string) apply_filters( 'ctbp_generate_prompt', '', $data );
+		$prompt = (string) apply_filters( 'ghrp_generate_prompt', '', $data );
 
 		// Append user feedback if provided.
 		if ( '' !== trim( $feedback ) ) {
@@ -991,7 +991,7 @@ class Admin_Page {
 		}
 
 		// Call the AI provider.
-		$factory  = new \TenUp\ChangelogToBlogPost\AI\AI_Provider_Factory( $this->global_settings );
+		$factory  = new \Jakemgold\GitHubReleasePosts\AI\AI_Provider_Factory( $this->global_settings );
 		$provider = $factory->get_provider();
 
 		if ( is_wp_error( $provider ) ) {
@@ -1041,7 +1041,7 @@ class Admin_Page {
 
 		if ( is_wp_error( $update_result ) ) {
 			return new \WP_Error(
-				'ctbp_update_failed',
+				'ghrp_update_failed',
 				$update_result->get_error_message(),
 				[ 'status' => 422 ]
 			);
@@ -1073,7 +1073,7 @@ class Admin_Page {
 	 * @return string
 	 */
 	public function get_page_url(): string {
-		return admin_url( 'tools.php?page=changelog-to-blog-post' );
+		return admin_url( 'tools.php?page=github-release-posts' );
 	}
 
 	/**
@@ -1084,7 +1084,7 @@ class Admin_Page {
 	 */
 	private function set_admin_error( string $message ): void {
 		$user_id = get_current_user_id();
-		set_transient( 'ctbp_admin_errors_' . $user_id, $message, 60 );
+		set_transient( 'ghrp_admin_errors_' . $user_id, $message, 60 );
 	}
 
 	/**
@@ -1098,7 +1098,7 @@ class Admin_Page {
 	private function set_admin_notice( string $type, string $message, ?string $url = null ): void {
 		$user_id = get_current_user_id();
 		set_transient(
-			'ctbp_admin_notice_' . $user_id,
+			'ghrp_admin_notice_' . $user_id,
 			[
 				'type'    => $type,
 				'message' => $message,

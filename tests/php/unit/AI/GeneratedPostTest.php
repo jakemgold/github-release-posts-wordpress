@@ -2,12 +2,12 @@
 /**
  * Tests for AI\GeneratedPost value object.
  *
- * @package ChangelogToBlogPost\Tests\AI
+ * @package GitHubReleasePosts\Tests\AI
  */
 
-namespace TenUp\ChangelogToBlogPost\Tests\AI;
+namespace Jakemgold\GitHubReleasePosts\Tests\AI;
 
-use TenUp\ChangelogToBlogPost\AI\GeneratedPost;
+use Jakemgold\GitHubReleasePosts\AI\GeneratedPost;
 use WP_Mock\Tools\TestCase;
 
 class GeneratedPostTest extends TestCase {

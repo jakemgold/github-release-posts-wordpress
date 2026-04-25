@@ -2,10 +2,10 @@
 /**
  * Release version comparison logic.
  *
- * @package ChangelogToBlogPost
+ * @package GitHubReleasePosts
  */
 
-namespace TenUp\ChangelogToBlogPost\GitHub;
+namespace Jakemgold\GitHubReleasePosts\GitHub;
 
 /**
  * Determines whether a candidate release is newer than the last-seen release.

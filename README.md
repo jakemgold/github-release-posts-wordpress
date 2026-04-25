@@ -74,29 +74,29 @@ The plugin is extensible via filter hooks at every stage of the pipeline:
 
 | Filter | Purpose |
 |--------|---------|
-| `ctbp_default_post_status` | Default status when creating a repo (default: `draft`) |
-| `ctbp_default_categories` | Default categories for new repos |
-| `ctbp_default_tags` | Default tags for new repos |
-| `ctbp_post_status_options` | Post status dropdown choices |
-| `ctbp_post_status` | Override status per-release before it's applied |
-| `ctbp_post_terms` | Override categories/tags per-release |
-| `ctbp_post_featured_image` | Override featured image per-release |
-| `ctbp_ai_disclosure_text` | Customize or suppress the AI disclosure note |
-| `ctbp_max_release_body_length` | Truncation threshold for large release bodies |
-| `ctbp_sideload_allowed_domains` | Domains allowed for image sideloading |
-| `ctbp_check_frequency` | WP-Cron schedule (default: `daily`) |
-| `ctbp_register_ai_providers` | Register custom AI provider connectors |
-| `ctbp_wp_ai_client_model_preferences` | Ordered list of preferred model IDs for WordPress Connectors |
-| `ctbp_openai_reasoning_effort` | Reasoning effort level for OpenAI models (default: `high`) |
-| `ctbp_generate_prompt` | Full prompt customization |
-| `ctbp_release_body` | Filter release body before prompt building |
+| `ghrp_default_post_status` | Default status when creating a repo (default: `draft`) |
+| `ghrp_default_categories` | Default categories for new repos |
+| `ghrp_default_tags` | Default tags for new repos |
+| `ghrp_post_status_options` | Post status dropdown choices |
+| `ghrp_post_status` | Override status per-release before it's applied |
+| `ghrp_post_terms` | Override categories/tags per-release |
+| `ghrp_post_featured_image` | Override featured image per-release |
+| `ghrp_ai_disclosure_text` | Customize or suppress the AI disclosure note |
+| `ghrp_max_release_body_length` | Truncation threshold for large release bodies |
+| `ghrp_sideload_allowed_domains` | Domains allowed for image sideloading |
+| `ghrp_check_frequency` | WP-Cron schedule (default: `daily`) |
+| `ghrp_register_ai_providers` | Register custom AI provider connectors |
+| `ghrp_wp_ai_client_model_preferences` | Ordered list of preferred model IDs for WordPress Connectors |
+| `ghrp_openai_reasoning_effort` | Reasoning effort level for OpenAI models (default: `high`) |
+| `ghrp_generate_prompt` | Full prompt customization |
+| `ghrp_release_body` | Filter release body before prompt building |
 
 ### Custom AI providers
 
-Register a custom provider by implementing `AIProviderInterface` and hooking into `ctbp_register_ai_providers`:
+Register a custom provider by implementing `AIProviderInterface` and hooking into `ghrp_register_ai_providers`:
 
 ```php
-add_filter( 'ctbp_register_ai_providers', function( $providers ) {
+add_filter( 'ghrp_register_ai_providers', function( $providers ) {
     $providers['my_provider'] = new My_Custom_Provider();
     return $providers;
 } );

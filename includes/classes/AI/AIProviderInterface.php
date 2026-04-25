@@ -2,10 +2,10 @@
 /**
  * Contract that every AI provider connector must satisfy.
  *
- * @package ChangelogToBlogPost\AI
+ * @package GitHubReleasePosts\AI
  */
 
-namespace TenUp\ChangelogToBlogPost\AI;
+namespace Jakemgold\GitHubReleasePosts\AI;
 
 /**
  * All AI provider connectors must implement this interface.

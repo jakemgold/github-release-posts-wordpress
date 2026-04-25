@@ -2,10 +2,10 @@
 /**
  * Value object representing a GitHub release passed into the AI generation pipeline.
  *
- * @package ChangelogToBlogPost\AI
+ * @package GitHubReleasePosts\AI
  */
 
-namespace TenUp\ChangelogToBlogPost\AI;
+namespace Jakemgold\GitHubReleasePosts\AI;
 
 /**
  * Immutable data bag carrying everything an AI provider needs to generate a blog post.

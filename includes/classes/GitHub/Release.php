@@ -2,10 +2,10 @@
 /**
  * GitHub Release value object.
  *
- * @package ChangelogToBlogPost
+ * @package GitHubReleasePosts
  */
 
-namespace TenUp\ChangelogToBlogPost\GitHub;
+namespace Jakemgold\GitHubReleasePosts\GitHub;
 
 /**
  * Immutable representation of a single GitHub release.

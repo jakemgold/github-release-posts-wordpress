@@ -2,13 +2,13 @@
 /**
  * Tests for GitHub\Release_State.
  *
- * @package ChangelogToBlogPost\Tests\GitHub
+ * @package GitHubReleasePosts\Tests\GitHub
  */
 
-namespace TenUp\ChangelogToBlogPost\Tests\GitHub;
+namespace Jakemgold\GitHubReleasePosts\Tests\GitHub;
 
-use TenUp\ChangelogToBlogPost\GitHub\Release_State;
-use TenUp\ChangelogToBlogPost\Plugin_Constants;
+use Jakemgold\GitHubReleasePosts\GitHub\Release_State;
+use Jakemgold\GitHubReleasePosts\Plugin_Constants;
 use WP_Mock\Tools\TestCase;
 
 /**

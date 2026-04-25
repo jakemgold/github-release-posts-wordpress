@@ -36,13 +36,13 @@ function ReleaseAttribution() {
 	const [ isRegenerating, setIsRegenerating ] = useState( false );
 	const [ resultMessage, setResultMessage ] = useState( '' );
 
-	const repo = meta ? ( meta._ctbp_source_repo || '' ) : '';
-	const tag = meta ? ( meta._ctbp_release_tag || '' ) : '';
-	const releaseUrl = meta ? ( meta._ctbp_release_url || '' ) : '';
+	const repo = meta ? ( meta._ghrp_source_repo || '' ) : '';
+	const tag = meta ? ( meta._ghrp_release_tag || '' ) : '';
+	const releaseUrl = meta ? ( meta._ghrp_release_url || '' ) : '';
 	const hasRelease = !! ( repo && releaseUrl );
 
 	// Auto-expand the panel on first load for generated posts.
-	const panelName = 'ctbp-release-attribution/ctbp-release-attribution';
+	const panelName = 'ghrp-release-attribution/ghrp-release-attribution';
 	const isPanelOpen = useSelect(
 		( select ) => select( 'core/editor' ).isEditorPanelOpened( panelName ),
 		[]
@@ -63,7 +63,7 @@ function ReleaseAttribution() {
 		setResultMessage( '' );
 
 		apiFetch( {
-			path: '/ctbp/v1/releases/regenerate',
+			path: '/ghrp/v1/releases/regenerate',
 			method: 'POST',
 			data: {
 				post_id: postId,
@@ -74,7 +74,7 @@ function ReleaseAttribution() {
 				setIsRegenerating( false );
 				setShowFeedback( false );
 				setFeedback( '' );
-				setResultMessage( __( 'Content regenerated. Refresh to see changes.', 'changelog-to-blog-post' ) );
+				setResultMessage( __( 'Content regenerated. Refresh to see changes.', 'github-release-posts' ) );
 
 				// Update the post content in the editor.
 				if ( response && response.post ) {
@@ -83,7 +83,7 @@ function ReleaseAttribution() {
 					} );
 					// Force a content refresh by dispatching a notice.
 					wp.data.dispatch( 'core/notices' ).createSuccessNotice(
-						__( 'Post content regenerated from release.', 'changelog-to-blog-post' ),
+						__( 'Post content regenerated from release.', 'github-release-posts' ),
 						{ type: 'snackbar' }
 					);
 				}
@@ -91,19 +91,19 @@ function ReleaseAttribution() {
 			.catch( ( error ) => {
 				setIsRegenerating( false );
 				setResultMessage(
-					error.message || __( 'Regeneration failed.', 'changelog-to-blog-post' )
+					error.message || __( 'Regeneration failed.', 'github-release-posts' )
 				);
 			} );
 	}
 
 	return (
 		<PluginDocumentSettingPanel
-			name="ctbp-release-attribution"
-			title={ __( 'GitHub Release', 'changelog-to-blog-post' ) }
-			className="ctbp-release-attribution"
+			name="ghrp-release-attribution"
+			title={ __( 'GitHub Release', 'github-release-posts' ) }
+			className="ghrp-release-attribution"
 		>
 			<p style={ { margin: '0 0 8px' } }>
-				{ __( 'Generated from', 'changelog-to-blog-post' ) }{ ' ' }
+				{ __( 'Generated from', 'github-release-posts' ) }{ ' ' }
 				<ExternalLink href={ releaseUrl }>
 					{ repo } { tag }
 				</ExternalLink>
@@ -116,15 +116,15 @@ function ReleaseAttribution() {
 					onClick={ () => setShowFeedback( true ) }
 					disabled={ isRegenerating }
 				>
-					{ __( 'Regenerate', 'changelog-to-blog-post' ) }
+					{ __( 'Regenerate', 'github-release-posts' ) }
 				</Button>
 			) }
 
 			{ showFeedback && (
 				<div style={ { marginTop: '8px' } }>
 					<TextareaControl
-						label={ __( 'Feedback (optional)', 'changelog-to-blog-post' ) }
-						help={ __( 'Tell the AI what to change, e.g. "make it shorter" or "emphasize the security fix".', 'changelog-to-blog-post' ) }
+						label={ __( 'Feedback (optional)', 'github-release-posts' ) }
+						help={ __( 'Tell the AI what to change, e.g. "make it shorter" or "emphasize the security fix".', 'github-release-posts' ) }
 						value={ feedback }
 						onChange={ setFeedback }
 						rows={ 3 }
@@ -138,8 +138,8 @@ function ReleaseAttribution() {
 							disabled={ isRegenerating }
 						>
 							{ isRegenerating
-								? __( 'Regenerating…', 'changelog-to-blog-post' )
-								: __( 'Regenerate content', 'changelog-to-blog-post' )
+								? __( 'Regenerating…', 'github-release-posts' )
+								: __( 'Regenerate content', 'github-release-posts' )
 							}
 						</Button>
 						{ ! isRegenerating && (
@@ -151,7 +151,7 @@ function ReleaseAttribution() {
 									setFeedback( '' );
 								} }
 							>
-								{ __( 'Cancel', 'changelog-to-blog-post' ) }
+								{ __( 'Cancel', 'github-release-posts' ) }
 							</Button>
 						) }
 						{ isRegenerating && <Spinner /> }
@@ -168,6 +168,6 @@ function ReleaseAttribution() {
 	);
 }
 
-registerPlugin( 'ctbp-release-attribution', {
+registerPlugin( 'ghrp-release-attribution', {
 	render: ReleaseAttribution,
 } );

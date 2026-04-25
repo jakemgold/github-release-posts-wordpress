@@ -4,7 +4,7 @@ includes:
 parameters:
     level: 5
     paths:
-        - changelog-to-blog-post.php
+        - github-release-posts.php
         - includes/
     excludePaths:
         - vendor/

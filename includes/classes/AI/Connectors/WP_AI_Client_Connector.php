@@ -2,14 +2,14 @@
 /**
  * AI provider connector for the WordPress Connectors / AI Client API.
  *
- * @package ChangelogToBlogPost\AI\Connectors
+ * @package GitHubReleasePosts\AI\Connectors
  */
 
-namespace TenUp\ChangelogToBlogPost\AI\Connectors;
+namespace Jakemgold\GitHubReleasePosts\AI\Connectors;
 
-use TenUp\ChangelogToBlogPost\AI\AIProviderInterface;
-use TenUp\ChangelogToBlogPost\AI\GeneratedPost;
-use TenUp\ChangelogToBlogPost\AI\ReleaseData;
+use Jakemgold\GitHubReleasePosts\AI\AIProviderInterface;
+use Jakemgold\GitHubReleasePosts\AI\GeneratedPost;
+use Jakemgold\GitHubReleasePosts\AI\ReleaseData;
 
 /**
  * Delegates generation to the WordPress AI Client API (Connectors).
@@ -44,7 +44,7 @@ class WP_AI_Client_Connector implements AIProviderInterface {
 	 * {@inheritDoc}
 	 */
 	public function get_label(): string {
-		return __( 'WordPress Connectors', 'changelog-to-blog-post' );
+		return __( 'WordPress Connectors', 'github-release-posts' );
 	}
 
 	/**
@@ -65,8 +65,8 @@ class WP_AI_Client_Connector implements AIProviderInterface {
 	public function test_connection(): true|\WP_Error {
 		if ( ! $this->is_available() ) {
 			return new \WP_Error(
-				'ctbp_wp_ai_client_unavailable',
-				__( 'The WordPress AI Client API is not available. On WordPress 7.0+ it is built in — make sure at least one AI connector is activated under Settings → AI Credentials. On older versions, install and activate the wp-ai-client plugin.', 'changelog-to-blog-post' )
+				'ghrp_wp_ai_client_unavailable',
+				__( 'The WordPress AI Client API is not available. On WordPress 7.0+ it is built in — make sure at least one AI connector is activated under Settings → AI Credentials. On older versions, install and activate the wp-ai-client plugin.', 'github-release-posts' )
 			);
 		}
 
@@ -82,8 +82,8 @@ class WP_AI_Client_Connector implements AIProviderInterface {
 	public function generate_post( ReleaseData $data, string $prompt ): GeneratedPost|\WP_Error {
 		if ( ! $this->is_available() ) {
 			return new \WP_Error(
-				'ctbp_wp_ai_client_unavailable',
-				__( 'The WordPress AI Client API is not available.', 'changelog-to-blog-post' )
+				'ghrp_wp_ai_client_unavailable',
+				__( 'The WordPress AI Client API is not available.', 'github-release-posts' )
 			);
 		}
 
@@ -110,8 +110,8 @@ class WP_AI_Client_Connector implements AIProviderInterface {
 		$text = (string) $response;
 		if ( '' === trim( $text ) ) {
 			return new \WP_Error(
-				'ctbp_wp_ai_client_empty_response',
-				__( 'WordPress Connectors returned an empty response. Please try again.', 'changelog-to-blog-post' )
+				'ghrp_wp_ai_client_empty_response',
+				__( 'WordPress Connectors returned an empty response. Please try again.', 'github-release-posts' )
 			);
 		}
 
@@ -170,7 +170,7 @@ class WP_AI_Client_Connector implements AIProviderInterface {
 		 *
 		 * @param string[] $preferences Model IDs in preference order.
 		 */
-		return (array) apply_filters( 'ctbp_wp_ai_client_model_preferences', $defaults );
+		return (array) apply_filters( 'ghrp_wp_ai_client_model_preferences', $defaults );
 	}
 
 	/**
@@ -239,7 +239,7 @@ class WP_AI_Client_Connector implements AIProviderInterface {
 		 *
 		 * @param string $effort Reasoning effort level. Default 'high'.
 		 */
-		$effort = (string) apply_filters( 'ctbp_openai_reasoning_effort', 'high' );
+		$effort = (string) apply_filters( 'ghrp_openai_reasoning_effort', 'high' );
 
 		if ( '' === $effort ) {
 			return;

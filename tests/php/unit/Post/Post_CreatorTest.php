@@ -2,20 +2,20 @@
 /**
  * Tests for Post_Creator.
  *
- * @package ChangelogToBlogPost\Tests\Post
+ * @package GitHubReleasePosts\Tests\Post
  */
 
-namespace TenUp\ChangelogToBlogPost\Tests\Post;
+namespace Jakemgold\GitHubReleasePosts\Tests\Post;
 
-use TenUp\ChangelogToBlogPost\AI\GeneratedPost;
-use TenUp\ChangelogToBlogPost\AI\ReleaseData;
-use TenUp\ChangelogToBlogPost\Plugin_Constants;
-use TenUp\ChangelogToBlogPost\Post\Post_Creator;
-use TenUp\ChangelogToBlogPost\Settings\Repository_Settings;
+use Jakemgold\GitHubReleasePosts\AI\GeneratedPost;
+use Jakemgold\GitHubReleasePosts\AI\ReleaseData;
+use Jakemgold\GitHubReleasePosts\Plugin_Constants;
+use Jakemgold\GitHubReleasePosts\Post\Post_Creator;
+use Jakemgold\GitHubReleasePosts\Settings\Repository_Settings;
 use WP_Mock\Tools\TestCase;
 
 /**
- * @covers \TenUp\ChangelogToBlogPost\Post\Post_Creator
+ * @covers \Jakemgold\GitHubReleasePosts\Post\Post_Creator
  */
 class Post_CreatorTest extends TestCase {
 
@@ -77,7 +77,7 @@ class Post_CreatorTest extends TestCase {
 	// -------------------------------------------------------------------------
 
 	public function test_setup_registers_action(): void {
-		\WP_Mock::expectActionAdded( 'ctbp_post_generated', [ $this->creator, 'handle' ], 10, 3 );
+		\WP_Mock::expectActionAdded( 'ghrp_post_generated', [ $this->creator, 'handle' ], 10, 3 );
 		$this->creator->setup();
 		$this->assertConditionsMet();
 	}
@@ -111,8 +111,8 @@ class Post_CreatorTest extends TestCase {
 		// Idempotency check returns no results.
 		$this->mock_wp_query_no_results();
 
-		// Expect ctbp_post_created action.
-		\WP_Mock::expectAction( 'ctbp_post_created', 42, $post, $data, [] );
+		// Expect ghrp_post_created action.
+		\WP_Mock::expectAction( 'ghrp_post_created', 42, $post, $data, [] );
 
 		$this->creator->handle( $post, $data, [] );
 		$this->assertConditionsMet();
@@ -142,13 +142,13 @@ class Post_CreatorTest extends TestCase {
 			->once()
 			->with( 42, Plugin_Constants::META_GENERATED_BY, 'wp_ai_client' );
 
-		\WP_Mock::expectAction( 'ctbp_post_created', 42, $post, $data, [] );
+		\WP_Mock::expectAction( 'ghrp_post_created', 42, $post, $data, [] );
 
 		$this->creator->handle( $post, $data, [] );
 		$this->assertConditionsMet();
 	}
 
-	public function test_handle_fires_ctbp_post_created_on_success(): void {
+	public function test_handle_fires_ghrp_post_created_on_success(): void {
 		$post = $this->make_generated_post();
 		$data = $this->make_release_data();
 
@@ -156,7 +156,7 @@ class Post_CreatorTest extends TestCase {
 		\WP_Mock::userFunction( 'update_post_meta' )->andReturn( true );
 		$this->mock_wp_query_no_results();
 
-		\WP_Mock::expectAction( 'ctbp_post_created', 99, $post, $data, [] );
+		\WP_Mock::expectAction( 'ghrp_post_created', 99, $post, $data, [] );
 
 		$this->creator->handle( $post, $data, [] );
 		$this->assertConditionsMet();
@@ -176,8 +176,8 @@ class Post_CreatorTest extends TestCase {
 		// wp_insert_post should NOT be called.
 		\WP_Mock::userFunction( 'wp_insert_post' )->never();
 
-		// But ctbp_post_created should still fire with the existing ID.
-		\WP_Mock::expectAction( 'ctbp_post_created', 55, $post, $data, [] );
+		// But ghrp_post_created should still fire with the existing ID.
+		\WP_Mock::expectAction( 'ghrp_post_created', 55, $post, $data, [] );
 
 		$this->creator->handle( $post, $data, [] );
 		$this->assertConditionsMet();
@@ -193,7 +193,7 @@ class Post_CreatorTest extends TestCase {
 		\WP_Mock::userFunction( 'wp_insert_post' )->once()->andReturn( 77 );
 		\WP_Mock::userFunction( 'update_post_meta' )->andReturn( true );
 
-		\WP_Mock::expectAction( 'ctbp_post_created', 77, $post, $data, $context );
+		\WP_Mock::expectAction( 'ghrp_post_created', 77, $post, $data, $context );
 
 		$this->creator->handle( $post, $data, $context );
 		$this->assertConditionsMet();
@@ -217,9 +217,9 @@ class Post_CreatorTest extends TestCase {
 
 		$this->mock_wp_query_no_results();
 
-		// ctbp_post_created should NOT fire.
+		// ghrp_post_created should NOT fire.
 		\WP_Mock::userFunction( 'do_action' )
-			->with( 'ctbp_post_created', \Mockery::any(), \Mockery::any(), \Mockery::any(), \Mockery::any() )
+			->with( 'ghrp_post_created', \Mockery::any(), \Mockery::any(), \Mockery::any(), \Mockery::any() )
 			->never();
 
 		$this->creator->handle( $post, $data, [] );
@@ -253,7 +253,7 @@ class Post_CreatorTest extends TestCase {
 		\WP_Mock::userFunction( 'update_post_meta' )->andReturn( true );
 		$this->mock_wp_query_no_results();
 
-		\WP_Mock::expectAction( 'ctbp_post_created', 10, $post, $data, [] );
+		\WP_Mock::expectAction( 'ghrp_post_created', 10, $post, $data, [] );
 
 		$this->creator->handle( $post, $data, [] );
 		$this->assertConditionsMet();

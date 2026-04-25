@@ -2,17 +2,17 @@
 /**
  * Tests for Release_Significance.
  *
- * @package ChangelogToBlogPost\Tests\AI
+ * @package GitHubReleasePosts\Tests\AI
  */
 
-namespace TenUp\ChangelogToBlogPost\Tests\AI;
+namespace Jakemgold\GitHubReleasePosts\Tests\AI;
 
-use TenUp\ChangelogToBlogPost\AI\Release_Significance;
-use TenUp\ChangelogToBlogPost\AI\ReleaseData;
+use Jakemgold\GitHubReleasePosts\AI\Release_Significance;
+use Jakemgold\GitHubReleasePosts\AI\ReleaseData;
 use WP_Mock\Tools\TestCase;
 
 /**
- * @covers \TenUp\ChangelogToBlogPost\AI\Release_Significance
+ * @covers \Jakemgold\GitHubReleasePosts\AI\Release_Significance
  */
 class Release_SignificanceTest extends TestCase {
 
@@ -72,7 +72,7 @@ class Release_SignificanceTest extends TestCase {
 	public function test_classify_by_semver( string $tag, string $expected ): void {
 		$data = $this->make_release_data( $tag, 'Bug fixes and improvements.' );
 
-		\WP_Mock::onFilter( 'ctbp_release_significance' )
+		\WP_Mock::onFilter( 'ghrp_release_significance' )
 			->with( $expected, $tag, 'Bug fixes and improvements.' )
 			->reply( $expected );
 
@@ -94,7 +94,7 @@ class Release_SignificanceTest extends TestCase {
 	public function test_classify_falls_back_to_minor_for_non_semver(): void {
 		$data = $this->make_release_data( 'release-2024', 'Some content.' );
 
-		\WP_Mock::onFilter( 'ctbp_release_significance' )
+		\WP_Mock::onFilter( 'ghrp_release_significance' )
 			->with( 'minor', 'release-2024', 'Some content.' )
 			->reply( 'minor' );
 
@@ -113,7 +113,7 @@ class Release_SignificanceTest extends TestCase {
 		$body = "This release fixes a {$keyword} issue.";
 		$data = $this->make_release_data( 'v1.2.3', $body );
 
-		\WP_Mock::onFilter( 'ctbp_release_significance' )
+		\WP_Mock::onFilter( 'ghrp_release_significance' )
 			->with( 'security', 'v1.2.3', $body )
 			->reply( 'security' );
 
@@ -128,7 +128,7 @@ class Release_SignificanceTest extends TestCase {
 		$tag  = "v1.0.0-{$keyword}";
 		$data = $this->make_release_data( $tag, 'Normal release body.' );
 
-		\WP_Mock::onFilter( 'ctbp_release_significance' )
+		\WP_Mock::onFilter( 'ghrp_release_significance' )
 			->with( 'security', $tag, 'Normal release body.' )
 			->reply( 'security' );
 
@@ -151,7 +151,7 @@ class Release_SignificanceTest extends TestCase {
 	public function test_classify_security_is_case_insensitive(): void {
 		$data = $this->make_release_data( 'v1.2.3', 'SECURITY fix applied.' );
 
-		\WP_Mock::onFilter( 'ctbp_release_significance' )
+		\WP_Mock::onFilter( 'ghrp_release_significance' )
 			->with( 'security', 'v1.2.3', 'SECURITY fix applied.' )
 			->reply( 'security' );
 
@@ -163,7 +163,7 @@ class Release_SignificanceTest extends TestCase {
 		// v2.0.0 would normally be 'major', but security keyword wins.
 		$data = $this->make_release_data( 'v2.0.0', 'Fixes a critical vulnerability.' );
 
-		\WP_Mock::onFilter( 'ctbp_release_significance' )
+		\WP_Mock::onFilter( 'ghrp_release_significance' )
 			->with( 'security', 'v2.0.0', 'Fixes a critical vulnerability.' )
 			->reply( 'security' );
 
@@ -179,7 +179,7 @@ class Release_SignificanceTest extends TestCase {
 		$data = $this->make_release_data( 'v1.2.3', 'Normal patch.' );
 
 		// Filter overrides 'patch' → 'minor'.
-		\WP_Mock::onFilter( 'ctbp_release_significance' )
+		\WP_Mock::onFilter( 'ghrp_release_significance' )
 			->with( 'patch', 'v1.2.3', 'Normal patch.' )
 			->reply( 'minor' );
 

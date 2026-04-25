@@ -2,13 +2,13 @@
 /**
  * Tests for Global_Settings class.
  *
- * @package ChangelogToBlogPost\Tests
+ * @package GitHubReleasePosts\Tests
  */
 
-namespace TenUp\ChangelogToBlogPost\Tests\Settings;
+namespace Jakemgold\GitHubReleasePosts\Tests\Settings;
 
-use TenUp\ChangelogToBlogPost\Settings\Global_Settings;
-use TenUp\ChangelogToBlogPost\Plugin_Constants;
+use Jakemgold\GitHubReleasePosts\Settings\Global_Settings;
+use Jakemgold\GitHubReleasePosts\Plugin_Constants;
 use WP_Mock\Tools\TestCase;
 
 /**

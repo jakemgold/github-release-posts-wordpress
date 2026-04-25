@@ -1,18 +1,18 @@
 <?php
 /**
- * Hooks into ctbp_process_release and drives AI generation.
+ * Hooks into ghrp_process_release and drives AI generation.
  *
- * @package ChangelogToBlogPost\AI
+ * @package GitHubReleasePosts\AI
  */
 
-namespace TenUp\ChangelogToBlogPost\AI;
+namespace Jakemgold\GitHubReleasePosts\AI;
 
-use TenUp\ChangelogToBlogPost\Plugin_Constants;
-use TenUp\ChangelogToBlogPost\Settings\Global_Settings;
+use Jakemgold\GitHubReleasePosts\Plugin_Constants;
+use Jakemgold\GitHubReleasePosts\Settings\Global_Settings;
 
 /**
- * Listens for ctbp_process_release, fetches the active AI provider, manages
- * the response cache, tracks consecutive failures, and fires ctbp_post_generated
+ * Listens for ghrp_process_release, fetches the active AI provider, manages
+ * the response cache, tracks consecutive failures, and fires ghrp_post_generated
  * on a successful generation.
  */
 class AI_Processor {
@@ -56,13 +56,13 @@ class AI_Processor {
 	 * @return void
 	 */
 	public function setup(): void {
-		add_action( 'ctbp_process_release', [ $this, 'handle' ], 10, 2 );
+		add_action( 'ghrp_process_release', [ $this, 'handle' ], 10, 2 );
 	}
 
 	/**
 	 * Handles a single queued release entry.
 	 *
-	 * Called by the ctbp_process_release action fired from Release_Monitor::process_queue().
+	 * Called by the ghrp_process_release action fired from Release_Monitor::process_queue().
 	 *
 	 * @param array $entry   Queue entry (identifier, tag, name, body, html_url, published_at, assets).
 	 * @param array $context Optional context flags (e.g. ['force_draft' => true, 'onboarding' => true]).
@@ -87,7 +87,7 @@ class AI_Processor {
 			 * @param ReleaseData   $data    The source release data.
 			 * @param array         $context Generation context flags.
 			 */
-			do_action( 'ctbp_post_generated', $cached, $data, $context );
+			do_action( 'ghrp_post_generated', $cached, $data, $context );
 			return;
 		}
 
@@ -97,14 +97,14 @@ class AI_Processor {
 			return;
 		}
 
-		$prompt = (string) apply_filters( 'ctbp_generate_prompt', '', $data );
+		$prompt = (string) apply_filters( 'ghrp_generate_prompt', '', $data );
 
 		if ( '' === trim( $prompt ) ) {
 			$this->record_failure(
 				$data,
 				new \WP_Error(
-					'ctbp_empty_prompt',
-					__( 'AI prompt is empty. Check that the prompt builder is configured correctly.', 'changelog-to-blog-post' )
+					'ghrp_empty_prompt',
+					__( 'AI prompt is empty. Check that the prompt builder is configured correctly.', 'github-release-posts' )
 				)
 			);
 			return;
@@ -122,7 +122,7 @@ class AI_Processor {
 		$this->clear_failure_count( $data );
 
 		/** This action is documented above. */
-		do_action( 'ctbp_post_generated', $result, $data, $context );
+		do_action( 'ghrp_post_generated', $result, $data, $context );
 	}
 
 	/**
@@ -209,7 +209,7 @@ class AI_Processor {
 		$site_name = get_bloginfo( 'name' );
 		$subject   = sprintf(
 			/* translators: 1: site name, 2: repo identifier */
-			__( '[%1$s] Post generation failing for %2$s', 'changelog-to-blog-post' ),
+			__( '[%1$s] Post generation failing for %2$s', 'github-release-posts' ),
 			$site_name,
 			$data->identifier
 		);
@@ -224,7 +224,7 @@ Last error: %4$s
 This may be caused by an issue with your AI connector configuration, insufficient API credits, or server timeout limits. You can try generating the post manually from Tools → Release Posts, or check your connector setup under Settings → Connectors.
 
 This notification will not be sent again for this release unless the issue is resolved and a new failure streak occurs.',
-				'changelog-to-blog-post'
+				'github-release-posts'
 			),
 			$data->identifier,
 			$data->tag,

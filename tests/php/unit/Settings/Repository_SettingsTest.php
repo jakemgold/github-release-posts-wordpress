@@ -2,13 +2,13 @@
 /**
  * Tests for Repository_Settings class.
  *
- * @package ChangelogToBlogPost\Tests
+ * @package GitHubReleasePosts\Tests
  */
 
-namespace TenUp\ChangelogToBlogPost\Tests\Settings;
+namespace Jakemgold\GitHubReleasePosts\Tests\Settings;
 
-use TenUp\ChangelogToBlogPost\Settings\Repository_Settings;
-use TenUp\ChangelogToBlogPost\Plugin_Constants;
+use Jakemgold\GitHubReleasePosts\Settings\Repository_Settings;
+use Jakemgold\GitHubReleasePosts\Plugin_Constants;
 use WP_Mock\Tools\TestCase;
 
 /**
@@ -102,7 +102,7 @@ class Repository_SettingsTest extends TestCase {
 
 		\WP_Mock::userFunction( '__' )->andReturnArg( 0 );
 		\WP_Mock::userFunction( 'apply_filters' )
-			->with( 'ctbp_max_repositories', Repository_Settings::MAX_REPOSITORIES )
+			->with( 'ghrp_max_repositories', Repository_Settings::MAX_REPOSITORIES )
 			->andReturn( Repository_Settings::MAX_REPOSITORIES );
 
 		$result = ( new Repository_Settings() )->add_repository( 'owner/repo' );
@@ -126,7 +126,7 @@ class Repository_SettingsTest extends TestCase {
 			->andReturn( $existing );
 
 		\WP_Mock::userFunction( 'apply_filters' )
-			->with( 'ctbp_max_repositories', Repository_Settings::MAX_REPOSITORIES )
+			->with( 'ghrp_max_repositories', Repository_Settings::MAX_REPOSITORIES )
 			->andReturn( 25 );
 
 		\WP_Mock::userFunction( '__' )->andReturnArg( 0 );
@@ -146,7 +146,7 @@ class Repository_SettingsTest extends TestCase {
 			->andReturn( [] );
 
 		\WP_Mock::userFunction( 'apply_filters' )
-			->with( 'ctbp_max_repositories', Repository_Settings::MAX_REPOSITORIES )
+			->with( 'ghrp_max_repositories', Repository_Settings::MAX_REPOSITORIES )
 			->andReturn( Repository_Settings::MAX_REPOSITORIES );
 
 		\WP_Mock::userFunction( 'update_option' )

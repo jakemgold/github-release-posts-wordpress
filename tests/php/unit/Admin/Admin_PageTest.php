@@ -2,12 +2,12 @@
 /**
  * Tests for Admin_Page class.
  *
- * @package ChangelogToBlogPost\Tests
+ * @package GitHubReleasePosts\Tests
  */
 
-namespace TenUp\ChangelogToBlogPost\Tests\Admin;
+namespace Jakemgold\GitHubReleasePosts\Tests\Admin;
 
-use TenUp\ChangelogToBlogPost\Admin\Admin_Page;
+use Jakemgold\GitHubReleasePosts\Admin\Admin_Page;
 use WP_Mock\Tools\TestCase;
 
 /**
@@ -46,7 +46,7 @@ class Admin_PageTest extends TestCase {
 		\WP_Mock::userFunction( 'register_post_meta' )->andReturn( true );
 
 		// plugin_action_links filter uses plugin_basename.
-		\WP_Mock::userFunction( 'plugin_basename' )->andReturn( 'changelog-to-blog-post/changelog-to-blog-post.php' );
+		\WP_Mock::userFunction( 'plugin_basename' )->andReturn( 'github-release-posts/github-release-posts.php' );
 
 		$page->setup();
 
@@ -72,11 +72,11 @@ class Admin_PageTest extends TestCase {
 	 * enqueue_assets() enqueues CSS and JS when the hook suffix matches.
 	 */
 	public function test_enqueue_assets_enqueues_on_correct_hook(): void {
-		if ( ! defined( 'CHANGELOG_TO_BLOG_POST_URL' ) ) {
-			define( 'CHANGELOG_TO_BLOG_POST_URL', 'http://example.com/wp-content/plugins/changelog-to-blog-post/' );
+		if ( ! defined( 'GITHUB_RELEASE_POSTS_URL' ) ) {
+			define( 'GITHUB_RELEASE_POSTS_URL', 'http://example.com/wp-content/plugins/github-release-posts/' );
 		}
-		if ( ! defined( 'CHANGELOG_TO_BLOG_POST_VERSION' ) ) {
-			define( 'CHANGELOG_TO_BLOG_POST_VERSION', '1.0.0' );
+		if ( ! defined( 'GITHUB_RELEASE_POSTS_VERSION' ) ) {
+			define( 'GITHUB_RELEASE_POSTS_VERSION', '1.0.0' );
 		}
 
 		\WP_Mock::userFunction( 'wp_enqueue_style' )->once();
@@ -92,9 +92,9 @@ class Admin_PageTest extends TestCase {
 		$page = new Admin_Page();
 		$ref  = new \ReflectionProperty( Admin_Page::class, 'page_hook' );
 		$ref->setAccessible( true );
-		$ref->setValue( $page, 'tools_page_changelog-to-blog-post' );
+		$ref->setValue( $page, 'tools_page_github-release-posts' );
 
-		$page->enqueue_assets( 'tools_page_changelog-to-blog-post' );
+		$page->enqueue_assets( 'tools_page_github-release-posts' );
 
 		$this->assertConditionsMet();
 	}
@@ -133,11 +133,11 @@ class Admin_PageTest extends TestCase {
 	 */
 	public function test_get_page_url_returns_tools_page_url(): void {
 		\WP_Mock::userFunction( 'admin_url' )
-			->with( 'tools.php?page=changelog-to-blog-post' )
-			->andReturn( 'http://example.com/wp-admin/tools.php?page=changelog-to-blog-post' );
+			->with( 'tools.php?page=github-release-posts' )
+			->andReturn( 'http://example.com/wp-admin/tools.php?page=github-release-posts' );
 
 		$url = ( new Admin_Page() )->get_page_url();
 
-		$this->assertSame( 'http://example.com/wp-admin/tools.php?page=changelog-to-blog-post', $url );
+		$this->assertSame( 'http://example.com/wp-admin/tools.php?page=github-release-posts', $url );
 	}
 }

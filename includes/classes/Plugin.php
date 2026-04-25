@@ -2,27 +2,27 @@
 /**
  * Core plugin class.
  *
- * @package ChangelogToBlogPost
+ * @package GitHubReleasePosts
  */
 
-namespace TenUp\ChangelogToBlogPost;
+namespace Jakemgold\GitHubReleasePosts;
 
-use TenUp\ChangelogToBlogPost\AI\AI_Processor;
-use TenUp\ChangelogToBlogPost\AI\AI_Provider_Factory;
-use TenUp\ChangelogToBlogPost\AI\Prompt_Builder;
-use TenUp\ChangelogToBlogPost\AI\Release_Enricher;
-use TenUp\ChangelogToBlogPost\AI\Release_Significance;
-use TenUp\ChangelogToBlogPost\Notification\Email_Notifier;
-use TenUp\ChangelogToBlogPost\Post\Post_Creator;
-use TenUp\ChangelogToBlogPost\Post\Publish_Workflow;
-use TenUp\ChangelogToBlogPost\Post\Taxonomy_Assigner;
-use TenUp\ChangelogToBlogPost\GitHub\API_Client;
-use TenUp\ChangelogToBlogPost\GitHub\Release_Monitor;
-use TenUp\ChangelogToBlogPost\GitHub\Release_Queue;
-use TenUp\ChangelogToBlogPost\GitHub\Release_State;
-use TenUp\ChangelogToBlogPost\GitHub\Version_Comparator;
-use TenUp\ChangelogToBlogPost\Settings\Global_Settings;
-use TenUp\ChangelogToBlogPost\Settings\Repository_Settings;
+use Jakemgold\GitHubReleasePosts\AI\AI_Processor;
+use Jakemgold\GitHubReleasePosts\AI\AI_Provider_Factory;
+use Jakemgold\GitHubReleasePosts\AI\Prompt_Builder;
+use Jakemgold\GitHubReleasePosts\AI\Release_Enricher;
+use Jakemgold\GitHubReleasePosts\AI\Release_Significance;
+use Jakemgold\GitHubReleasePosts\Notification\Email_Notifier;
+use Jakemgold\GitHubReleasePosts\Post\Post_Creator;
+use Jakemgold\GitHubReleasePosts\Post\Publish_Workflow;
+use Jakemgold\GitHubReleasePosts\Post\Taxonomy_Assigner;
+use Jakemgold\GitHubReleasePosts\GitHub\API_Client;
+use Jakemgold\GitHubReleasePosts\GitHub\Release_Monitor;
+use Jakemgold\GitHubReleasePosts\GitHub\Release_Queue;
+use Jakemgold\GitHubReleasePosts\GitHub\Release_State;
+use Jakemgold\GitHubReleasePosts\GitHub\Version_Comparator;
+use Jakemgold\GitHubReleasePosts\Settings\Global_Settings;
+use Jakemgold\GitHubReleasePosts\Settings\Repository_Settings;
 
 /**
  * Plugin singleton — the single entry point for all feature classes.
@@ -71,7 +71,7 @@ class Plugin {
 	 * Registers the 'weekly' WP-Cron schedule.
 	 *
 	 * WordPress ships with 'hourly', 'twicedaily', and 'daily' but not 'weekly'.
-	 * This adds it so that developers who filter `ctbp_check_frequency` to 'weekly'
+	 * This adds it so that developers who filter `ghrp_check_frequency` to 'weekly'
 	 * get a working schedule. Skips registration if another plugin already defined it.
 	 *
 	 * @param array<string, array{interval: int, display: string}> $schedules Existing schedules.
@@ -81,7 +81,7 @@ class Plugin {
 		if ( ! isset( $schedules['weekly'] ) ) {
 			$schedules['weekly'] = [
 				'interval' => WEEK_IN_SECONDS,
-				'display'  => __( 'Once Weekly', 'changelog-to-blog-post' ),
+				'display'  => __( 'Once Weekly', 'github-release-posts' ),
 			];
 		}
 
@@ -95,9 +95,9 @@ class Plugin {
 	 */
 	public function i18n(): void {
 		load_plugin_textdomain(
-			'changelog-to-blog-post',
+			'github-release-posts',
 			false,
-			CHANGELOG_TO_BLOG_POST_PATH . 'languages'
+			GITHUB_RELEASE_POSTS_PATH . 'languages'
 		);
 	}
 
@@ -107,7 +107,7 @@ class Plugin {
 	 * This is the single place where feature objects are created. To add a
 	 * new feature, instantiate its class here and call ->setup() on it:
 	 *
-	 *   ( new \TenUp\ChangelogToBlogPost\Feature\MyFeature() )->setup();
+	 *   ( new \Jakemgold\GitHubReleasePosts\Feature\MyFeature() )->setup();
 	 *
 	 * Feature classes must not instantiate other feature classes.
 	 *
@@ -116,7 +116,7 @@ class Plugin {
 	public function init(): void {
 		// Admin page — registers menu, REST routes, post meta, and editor assets.
 		// Must run outside is_admin() because REST API requests need the routes.
-		( new \TenUp\ChangelogToBlogPost\Admin\Admin_Page() )->setup();
+		( new \Jakemgold\GitHubReleasePosts\Admin\Admin_Page() )->setup();
 
 		// Shared instances — reused across the pipeline.
 		$global_settings = new Global_Settings();

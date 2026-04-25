@@ -2,12 +2,12 @@
 /**
  * Tests for GitHub\Release value object.
  *
- * @package ChangelogToBlogPost\Tests\GitHub
+ * @package GitHubReleasePosts\Tests\GitHub
  */
 
-namespace TenUp\ChangelogToBlogPost\Tests\GitHub;
+namespace Jakemgold\GitHubReleasePosts\Tests\GitHub;
 
-use TenUp\ChangelogToBlogPost\GitHub\Release;
+use Jakemgold\GitHubReleasePosts\GitHub\Release;
 use WP_Mock\Tools\TestCase;
 
 /**

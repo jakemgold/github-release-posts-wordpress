@@ -2,19 +2,19 @@
 /**
  * Finalizes post status and collects cron run results for admin notices.
  *
- * @package ChangelogToBlogPost\Post
+ * @package GitHubReleasePosts\Post
  */
 
-namespace TenUp\ChangelogToBlogPost\Post;
+namespace Jakemgold\GitHubReleasePosts\Post;
 
-use TenUp\ChangelogToBlogPost\AI\GeneratedPost;
-use TenUp\ChangelogToBlogPost\AI\ReleaseData;
-use TenUp\ChangelogToBlogPost\Plugin_Constants;
+use Jakemgold\GitHubReleasePosts\AI\GeneratedPost;
+use Jakemgold\GitHubReleasePosts\AI\ReleaseData;
+use Jakemgold\GitHubReleasePosts\Plugin_Constants;
 
-use TenUp\ChangelogToBlogPost\Settings\Repository_Settings;
+use Jakemgold\GitHubReleasePosts\Settings\Repository_Settings;
 
 /**
- * Hooks into ctbp_post_created (after Taxonomy_Assigner) and sets the final
+ * Hooks into ghrp_post_created (after Taxonomy_Assigner) and sets the final
  * post status based on per-repo or global configuration. Collects results
  * for a dismissible admin notice summarizing the cron run outcome.
  */
@@ -41,7 +41,7 @@ class Publish_Workflow {
 	 */
 	public function setup(): void {
 		// Priority 20 — runs after Taxonomy_Assigner at priority 10.
-		add_action( 'ctbp_post_created', [ $this, 'handle' ], 20, 4 );
+		add_action( 'ghrp_post_created', [ $this, 'handle' ], 20, 4 );
 		add_action( 'admin_notices', [ $this, 'display_admin_notice' ] );
 	}
 
@@ -68,7 +68,7 @@ class Publish_Workflow {
 		 * @param string $identifier Repository identifier (owner/repo).
 		 * @param string $tag        Release tag.
 		 */
-		$status = (string) apply_filters( 'ctbp_post_status', $status, $post_id, $data->identifier, $data->tag );
+		$status = (string) apply_filters( 'ghrp_post_status', $status, $post_id, $data->identifier, $data->tag );
 
 		$update_args = [
 			'ID'          => $post_id,
@@ -98,7 +98,7 @@ class Publish_Workflow {
 		 * @param ReleaseData $data    Source release data.
 		 * @param array       $context Generation context flags.
 		 */
-		do_action( 'ctbp_post_status_set', $post_id, $status, $data, $context );
+		do_action( 'ghrp_post_status_set', $post_id, $status, $data, $context );
 	}
 
 	/**
@@ -202,7 +202,7 @@ class Publish_Workflow {
 			);
 			$lines[] = sprintf(
 				/* translators: 1: count, 2: comma-separated edit links */
-				_n( '%1$d draft created: %2$s', '%1$d drafts created: %2$s', $count, 'changelog-to-blog-post' ),
+				_n( '%1$d draft created: %2$s', '%1$d drafts created: %2$s', $count, 'github-release-posts' ),
 				$count,
 				implode( ', ', $links )
 			);
@@ -223,7 +223,7 @@ class Publish_Workflow {
 			);
 			$lines[] = sprintf(
 				/* translators: 1: count, 2: comma-separated edit links */
-				_n( '%1$d post published: %2$s', '%1$d posts published: %2$s', $count, 'changelog-to-blog-post' ),
+				_n( '%1$d post published: %2$s', '%1$d posts published: %2$s', $count, 'github-release-posts' ),
 				$count,
 				implode( ', ', $links )
 			);
@@ -237,15 +237,15 @@ class Publish_Workflow {
 					'%d release skipped due to errors — check the debug log for details.',
 					'%d releases skipped due to errors — check the debug log for details.',
 					$count,
-					'changelog-to-blog-post'
+					'github-release-posts'
 				),
 				$count
 			);
 		}
 
 		printf(
-			'<div class="notice notice-info is-dismissible" id="ctbp-cron-results"><p><strong>%s</strong></p><p>%s</p></div>',
-			esc_html__( 'Changelog to Blog Post', 'changelog-to-blog-post' ),
+			'<div class="notice notice-info is-dismissible" id="ghrp-cron-results"><p><strong>%s</strong></p><p>%s</p></div>',
+			esc_html__( 'Changelog to Blog Post', 'github-release-posts' ),
 			wp_kses_post( implode( '<br>', $lines ) )
 		);
 

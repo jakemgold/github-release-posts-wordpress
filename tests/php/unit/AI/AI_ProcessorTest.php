@@ -2,17 +2,17 @@
 /**
  * Tests for AI\AI_Processor.
  *
- * @package ChangelogToBlogPost\Tests\AI
+ * @package GitHubReleasePosts\Tests\AI
  */
 
-namespace TenUp\ChangelogToBlogPost\Tests\AI;
+namespace Jakemgold\GitHubReleasePosts\Tests\AI;
 
-use TenUp\ChangelogToBlogPost\AI\AI_Processor;
-use TenUp\ChangelogToBlogPost\AI\AI_Provider_Factory;
-use TenUp\ChangelogToBlogPost\AI\AIProviderInterface;
-use TenUp\ChangelogToBlogPost\AI\GeneratedPost;
-use TenUp\ChangelogToBlogPost\AI\ReleaseData;
-use TenUp\ChangelogToBlogPost\Plugin_Constants;
+use Jakemgold\GitHubReleasePosts\AI\AI_Processor;
+use Jakemgold\GitHubReleasePosts\AI\AI_Provider_Factory;
+use Jakemgold\GitHubReleasePosts\AI\AIProviderInterface;
+use Jakemgold\GitHubReleasePosts\AI\GeneratedPost;
+use Jakemgold\GitHubReleasePosts\AI\ReleaseData;
+use Jakemgold\GitHubReleasePosts\Plugin_Constants;
 use WP_Mock\Tools\TestCase;
 
 class AI_ProcessorTest extends TestCase {
@@ -56,7 +56,7 @@ class AI_ProcessorTest extends TestCase {
 
 		$this->factory->expects( $this->never() )->method( 'get_provider' );
 
-		\WP_Mock::expectAction( 'ctbp_post_generated', $cached, \WP_Mock\Functions::type( ReleaseData::class ), [] );
+		\WP_Mock::expectAction( 'ghrp_post_generated', $cached, \WP_Mock\Functions::type( ReleaseData::class ), [] );
 
 		$this->processor->handle( $this->base_entry, [] );
 
@@ -70,7 +70,7 @@ class AI_ProcessorTest extends TestCase {
 	public function test_handle_records_failure_when_provider_unavailable(): void {
 		\WP_Mock::userFunction( 'get_transient' )->andReturn( false );
 
-		$error = new \WP_Error( 'ctbp_no_provider', 'No provider.' );
+		$error = new \WP_Error( 'ghrp_no_provider', 'No provider.' );
 		$this->factory->method( 'get_provider' )->willReturn( $error );
 
 		// Failure count tracking.
@@ -82,14 +82,14 @@ class AI_ProcessorTest extends TestCase {
 
 		$this->processor->handle( $this->base_entry, [] );
 
-		// No ctbp_post_generated should have fired.
+		// No ghrp_post_generated should have fired.
 		$this->assertConditionsMet();
 	}
 
 	public function test_handle_sets_admin_notice_after_three_failures(): void {
 		\WP_Mock::userFunction( 'get_transient' )->andReturn( false );
 
-		$error = new \WP_Error( 'ctbp_openai_quota', 'Quota exceeded.' );
+		$error = new \WP_Error( 'ghrp_openai_quota', 'Quota exceeded.' );
 		$this->factory->method( 'get_provider' )->willReturn( $error );
 
 		// Simulate existing count of 2 — next call makes it 3.
@@ -103,7 +103,7 @@ class AI_ProcessorTest extends TestCase {
 		// Admin notice transient must be set when count reaches threshold.
 		\WP_Mock::userFunction( 'set_transient' )
 			->once()
-			->with( 'ctbp_ai_failure_notice', \WP_Mock\Functions::type( 'array' ), DAY_IN_SECONDS );
+			->with( 'ghrp_ai_failure_notice', \WP_Mock\Functions::type( 'array' ), DAY_IN_SECONDS );
 
 		// send_failure_email() calls get_option('admin_email', '') and get_option for additional emails.
 		\WP_Mock::userFunction( 'get_option' )
@@ -132,7 +132,7 @@ class AI_ProcessorTest extends TestCase {
 		$this->factory->method( 'get_provider' )->willReturn( $this->provider );
 
 		// The prompt filter must return a non-empty string for generation to proceed.
-		\WP_Mock::onFilter( 'ctbp_generate_prompt' )
+		\WP_Mock::onFilter( 'ghrp_generate_prompt' )
 			->withAnyArgs()
 			->reply( 'Test prompt content' );
 
@@ -155,7 +155,7 @@ class AI_ProcessorTest extends TestCase {
 			->once()
 			->with( Plugin_Constants::OPTION_AI_FAILURE_COUNTS, \Mockery::any(), false );
 
-		\WP_Mock::expectAction( 'ctbp_post_generated', $generated, \WP_Mock\Functions::type( ReleaseData::class ), [] );
+		\WP_Mock::expectAction( 'ghrp_post_generated', $generated, \WP_Mock\Functions::type( ReleaseData::class ), [] );
 
 		$this->processor->handle( $this->base_entry, [] );
 

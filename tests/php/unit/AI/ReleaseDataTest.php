@@ -2,12 +2,12 @@
 /**
  * Tests for AI\ReleaseData value object.
  *
- * @package ChangelogToBlogPost\Tests\AI
+ * @package GitHubReleasePosts\Tests\AI
  */
 
-namespace TenUp\ChangelogToBlogPost\Tests\AI;
+namespace Jakemgold\GitHubReleasePosts\Tests\AI;
 
-use TenUp\ChangelogToBlogPost\AI\ReleaseData;
+use Jakemgold\GitHubReleasePosts\AI\ReleaseData;
 use WP_Mock\Tools\TestCase;
 
 class ReleaseDataTest extends TestCase {

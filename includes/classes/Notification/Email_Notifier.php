@@ -2,19 +2,19 @@
 /**
  * Sends batched email notifications after a cron run.
  *
- * @package ChangelogToBlogPost\Notification
+ * @package GitHubReleasePosts\Notification
  */
 
-namespace TenUp\ChangelogToBlogPost\Notification;
+namespace Jakemgold\GitHubReleasePosts\Notification;
 
-use TenUp\ChangelogToBlogPost\AI\ReleaseData;
-use TenUp\ChangelogToBlogPost\AI\Release_Significance;
-use TenUp\ChangelogToBlogPost\Plugin_Constants;
-use TenUp\ChangelogToBlogPost\Settings\Global_Settings;
-use TenUp\ChangelogToBlogPost\Settings\Repository_Settings;
+use Jakemgold\GitHubReleasePosts\AI\ReleaseData;
+use Jakemgold\GitHubReleasePosts\AI\Release_Significance;
+use Jakemgold\GitHubReleasePosts\Plugin_Constants;
+use Jakemgold\GitHubReleasePosts\Settings\Global_Settings;
+use Jakemgold\GitHubReleasePosts\Settings\Repository_Settings;
 
 /**
- * Hooks into ctbp_post_status_set, collects results during a cron run,
+ * Hooks into ghrp_post_status_set, collects results during a cron run,
  * and sends a single batched summary email at shutdown.
  *
  * One email per run, never one per post (BR-001).
@@ -54,7 +54,7 @@ class Email_Notifier {
 	 * @return void
 	 */
 	public function setup(): void {
-		add_action( 'ctbp_post_status_set', [ $this, 'collect' ], 10, 4 );
+		add_action( 'ghrp_post_status_set', [ $this, 'collect' ], 10, 4 );
 	}
 
 	/**
@@ -144,7 +144,7 @@ class Email_Notifier {
 		 * @param array $email_data Email data: subject, body, headers, text.
 		 * @param array $eligible   Post entries included in the email.
 		 */
-		$email_data = apply_filters( 'ctbp_notification_email', $email_data, $eligible );
+		$email_data = apply_filters( 'ghrp_notification_email', $email_data, $eligible );
 
 		if ( empty( $email_data ) ) {
 			return; // Suppressed by filter.
@@ -212,16 +212,16 @@ class Email_Notifier {
 
 			if ( 'publish' === $entry['status'] ) {
 				/* translators: %s: project name and version, e.g. "Gutenberg 19.0" */
-				return sprintf( __( '%s — release post published', 'changelog-to-blog-post' ), $prefix );
+				return sprintf( __( '%s — release post published', 'github-release-posts' ), $prefix );
 			}
 
 			/* translators: %s: project name and version, e.g. "Gutenberg 19.0" */
-			return sprintf( __( '%s — draft ready for review', 'changelog-to-blog-post' ), $prefix );
+			return sprintf( __( '%s — draft ready for review', 'github-release-posts' ), $prefix );
 		}
 
 		return sprintf(
 			/* translators: 1: site name, 2: number of posts */
-			__( '[%1$s] %2$d release posts ready', 'changelog-to-blog-post' ),
+			__( '[%1$s] %2$d release posts ready', 'github-release-posts' ),
 			$site_name,
 			count( $entries )
 		);
@@ -239,7 +239,7 @@ class Email_Notifier {
 
 		$lines[] = sprintf(
 			/* translators: 1: site URL, 2: plugin name */
-			__( 'New posts have been generated from GitHub releases on %1$s, via the %2$s plugin.', 'changelog-to-blog-post' ),
+			__( 'New posts have been generated from GitHub releases on %1$s, via the %2$s plugin.', 'github-release-posts' ),
 			$site_url,
 			'GitHub Release Posts'
 		);
@@ -250,12 +250,12 @@ class Email_Notifier {
 			$lines[] = sprintf( '• %s', $title );
 
 			if ( 'publish' === $entry['status'] ) {
-				$lines[] = sprintf( '  %s: %s', __( 'View post', 'changelog-to-blog-post' ), get_permalink( $entry['post_id'] ) );
+				$lines[] = sprintf( '  %s: %s', __( 'View post', 'github-release-posts' ), get_permalink( $entry['post_id'] ) );
 			} else {
-				$lines[] = sprintf( '  %s: %s', __( 'Review draft', 'changelog-to-blog-post' ), $this->get_edit_url( $entry['post_id'] ) );
+				$lines[] = sprintf( '  %s: %s', __( 'Review draft', 'github-release-posts' ), $this->get_edit_url( $entry['post_id'] ) );
 			}
 
-			$lines[] = sprintf( '  %s: %s', __( 'GitHub release', 'changelog-to-blog-post' ), $entry['html_url'] );
+			$lines[] = sprintf( '  %s: %s', __( 'GitHub release', 'github-release-posts' ), $entry['html_url'] );
 			$lines[] = '';
 		}
 
@@ -277,7 +277,7 @@ class Email_Notifier {
 		$html  = '<div style="font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif; max-width: 600px;">';
 		$html .= '<p>' . sprintf(
 			/* translators: 1: linked site URL, 2: linked plugin name */
-			esc_html__( 'New posts have been generated from GitHub releases on %1$s, via the %2$s plugin.', 'changelog-to-blog-post' ),
+			esc_html__( 'New posts have been generated from GitHub releases on %1$s, via the %2$s plugin.', 'github-release-posts' ),
 			'<a href="' . $site_url . '">' . esc_html( $site_host ) . '</a>',
 			'<a href="' . esc_url( $plugin_url ) . '">' . esc_html( $plugin_name ) . '</a>'
 		) . '</p>';
@@ -297,14 +297,14 @@ class Email_Notifier {
 
 			if ( 'publish' === $entry['status'] ) {
 				$view_url = esc_url( get_permalink( $entry['post_id'] ) );
-				$html    .= '<a href="' . $view_url . '">' . esc_html__( 'View post', 'changelog-to-blog-post' ) . '</a>';
-				$html    .= ' · <a href="' . esc_url( $this->get_edit_url( $entry['post_id'] ) ) . '">' . esc_html__( 'Edit', 'changelog-to-blog-post' ) . '</a>';
+				$html    .= '<a href="' . $view_url . '">' . esc_html__( 'View post', 'github-release-posts' ) . '</a>';
+				$html    .= ' · <a href="' . esc_url( $this->get_edit_url( $entry['post_id'] ) ) . '">' . esc_html__( 'Edit', 'github-release-posts' ) . '</a>';
 			} else {
 				$edit_url = esc_url( $this->get_edit_url( $entry['post_id'] ) );
-				$html    .= '<a href="' . $edit_url . '"><strong>' . esc_html__( 'Review draft', 'changelog-to-blog-post' ) . '</strong></a>';
+				$html    .= '<a href="' . $edit_url . '"><strong>' . esc_html__( 'Review draft', 'github-release-posts' ) . '</strong></a>';
 			}
 
-			$html .= ' · <a href="' . esc_url( $entry['html_url'] ) . '">' . esc_html__( 'GitHub release', 'changelog-to-blog-post' ) . '</a>';
+			$html .= ' · <a href="' . esc_url( $entry['html_url'] ) . '">' . esc_html__( 'GitHub release', 'github-release-posts' ) . '</a>';
 			$html .= '</td>';
 			$html .= '</tr>';
 		}

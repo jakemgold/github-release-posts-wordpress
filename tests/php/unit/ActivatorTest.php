@@ -2,13 +2,13 @@
 /**
  * Tests for Activator class.
  *
- * @package ChangelogToBlogPost\Tests
+ * @package GitHubReleasePosts\Tests
  */
 
-namespace TenUp\ChangelogToBlogPost\Tests;
+namespace Jakemgold\GitHubReleasePosts\Tests;
 
-use TenUp\ChangelogToBlogPost\Activator;
-use TenUp\ChangelogToBlogPost\Plugin_Constants;
+use Jakemgold\GitHubReleasePosts\Activator;
+use Jakemgold\GitHubReleasePosts\Plugin_Constants;
 use WP_Mock\Tools\TestCase;
 
 /**
@@ -74,7 +74,7 @@ class ActivatorTest extends TestCase {
 
 		// Stub cron functions.
 		\WP_Mock::userFunction( 'wp_clear_scheduled_hook' )->andReturn( null );
-		\WP_Mock::onFilter( 'ctbp_check_frequency' )->with( 'daily' )->reply( 'daily' );
+		\WP_Mock::onFilter( 'ghrp_check_frequency' )->with( 'daily' )->reply( 'daily' );
 		\WP_Mock::userFunction( 'wp_next_scheduled' )->andReturn( false );
 		\WP_Mock::userFunction( 'wp_schedule_event' )->andReturn( true );
 
@@ -98,7 +98,7 @@ class ActivatorTest extends TestCase {
 			->with( Plugin_Constants::CRON_HOOK_RELEASE_CHECK )
 			->once();
 
-		\WP_Mock::onFilter( 'ctbp_check_frequency' )->with( 'daily' )->reply( 'daily' );
+		\WP_Mock::onFilter( 'ghrp_check_frequency' )->with( 'daily' )->reply( 'daily' );
 
 		\WP_Mock::userFunction( 'wp_next_scheduled' )
 			->with( Plugin_Constants::CRON_HOOK_RELEASE_CHECK )
@@ -120,7 +120,7 @@ class ActivatorTest extends TestCase {
 		\WP_Mock::userFunction( 'current_user_can' )->andReturn( true );
 		\WP_Mock::userFunction( 'add_option' )->andReturn( true );
 		\WP_Mock::userFunction( 'wp_clear_scheduled_hook' )->andReturn( null );
-		\WP_Mock::onFilter( 'ctbp_check_frequency' )->with( 'daily' )->reply( 'daily' );
+		\WP_Mock::onFilter( 'ghrp_check_frequency' )->with( 'daily' )->reply( 'daily' );
 
 		// Simulate already-scheduled event.
 		\WP_Mock::userFunction( 'wp_next_scheduled' )
@@ -136,7 +136,7 @@ class ActivatorTest extends TestCase {
 	}
 
 	/**
-	 * The ctbp_check_frequency filter value is used when registering the cron event (AC-008).
+	 * The ghrp_check_frequency filter value is used when registering the cron event (AC-008).
 	 */
 	public function test_register_cron_event_uses_filter_value(): void {
 		\WP_Mock::userFunction( 'current_user_can' )->andReturn( true );
@@ -144,7 +144,7 @@ class ActivatorTest extends TestCase {
 		\WP_Mock::userFunction( 'wp_clear_scheduled_hook' )->andReturn( null );
 
 		// Developer filters to 'hourly'.
-		\WP_Mock::onFilter( 'ctbp_check_frequency' )->with( 'daily' )->reply( 'hourly' );
+		\WP_Mock::onFilter( 'ghrp_check_frequency' )->with( 'daily' )->reply( 'hourly' );
 
 		\WP_Mock::userFunction( 'wp_next_scheduled' )->andReturn( false );
 

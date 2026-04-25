@@ -6,13 +6,13 @@
  * Settings tab uses `settings_fields()` / `do_settings_sections()` instead
  * of manual form handling.
  *
- * @package ChangelogToBlogPost
+ * @package GitHubReleasePosts
  */
 
-namespace TenUp\ChangelogToBlogPost\Admin;
+namespace Jakemgold\GitHubReleasePosts\Admin;
 
-use TenUp\ChangelogToBlogPost\Plugin_Constants;
-use TenUp\ChangelogToBlogPost\Settings\Global_Settings;
+use Jakemgold\GitHubReleasePosts\Plugin_Constants;
+use Jakemgold\GitHubReleasePosts\Settings\Global_Settings;
 
 /**
  * Handles WordPress Settings API registration for the plugin's Settings tab.
@@ -24,14 +24,14 @@ class Settings_Page {
 	 *
 	 * @var string
 	 */
-	const OPTION_GROUP = 'ctbp_settings';
+	const OPTION_GROUP = 'ghrp_settings';
 
 	/**
 	 * Settings page slug (matches the menu page slug).
 	 *
 	 * @var string
 	 */
-	const PAGE_SLUG = 'changelog-to-blog-post';
+	const PAGE_SLUG = 'github-release-posts';
 
 	/**
 	 * Global settings service.
@@ -81,8 +81,8 @@ class Settings_Page {
 	 */
 	private function register_github_section(): void {
 		add_settings_section(
-			'ctbp_section_github',
-			__( 'GitHub', 'changelog-to-blog-post' ),
+			'ghrp_section_github',
+			__( 'GitHub', 'github-release-posts' ),
 			'__return_null',
 			self::PAGE_SLUG
 		);
@@ -99,10 +99,10 @@ class Settings_Page {
 
 		add_settings_field(
 			Plugin_Constants::OPTION_GITHUB_PAT,
-			__( 'Personal Access Token', 'changelog-to-blog-post' ),
+			__( 'Personal Access Token', 'github-release-posts' ),
 			[ $this, 'render_github_pat_field' ],
 			self::PAGE_SLUG,
-			'ctbp_section_github',
+			'ghrp_section_github',
 			[ 'label_for' => Plugin_Constants::OPTION_GITHUB_PAT ]
 		);
 	}
@@ -124,7 +124,7 @@ class Settings_Page {
 			autocomplete="new-password"
 		>
 		<p class="description">
-			<?php echo esc_html__( 'Optional. Raises the GitHub API rate limit from 60 to 5,000 requests per hour.', 'changelog-to-blog-post' ); ?>
+			<?php echo esc_html__( 'Optional. Raises the GitHub API rate limit from 60 to 5,000 requests per hour.', 'github-release-posts' ); ?>
 		</p>
 		<?php
 	}
@@ -163,18 +163,18 @@ class Settings_Page {
 	 */
 	private function register_ai_provider_section(): void {
 		add_settings_section(
-			'ctbp_section_ai_provider',
-			__( 'Post Creation', 'changelog-to-blog-post' ),
+			'ghrp_section_ai_provider',
+			__( 'Post Creation', 'github-release-posts' ),
 			'__return_null',
 			self::PAGE_SLUG
 		);
 
 		add_settings_field(
-			'ctbp_connector_status',
-			__( 'AI Connector', 'changelog-to-blog-post' ),
+			'ghrp_connector_status',
+			__( 'AI Connector', 'github-release-posts' ),
 			[ $this, 'render_connector_status' ],
 			self::PAGE_SLUG,
-			'ctbp_section_ai_provider'
+			'ghrp_section_ai_provider'
 		);
 
 		// Research depth.
@@ -190,10 +190,10 @@ class Settings_Page {
 
 		add_settings_field(
 			Plugin_Constants::OPTION_RESEARCH_DEPTH,
-			__( 'Research Depth', 'changelog-to-blog-post' ),
+			__( 'Research Depth', 'github-release-posts' ),
 			[ $this, 'render_research_depth_field' ],
 			self::PAGE_SLUG,
-			'ctbp_section_ai_provider'
+			'ghrp_section_ai_provider'
 		);
 
 		// Audience level.
@@ -209,10 +209,10 @@ class Settings_Page {
 
 		add_settings_field(
 			Plugin_Constants::OPTION_AUDIENCE_LEVEL,
-			__( 'Post Audience', 'changelog-to-blog-post' ),
+			__( 'Post Audience', 'github-release-posts' ),
 			[ $this, 'render_audience_level_field' ],
 			self::PAGE_SLUG,
-			'ctbp_section_ai_provider',
+			'ghrp_section_ai_provider',
 			[ 'label_for' => Plugin_Constants::OPTION_AUDIENCE_LEVEL ]
 		);
 
@@ -229,10 +229,10 @@ class Settings_Page {
 
 		add_settings_field(
 			Plugin_Constants::OPTION_CUSTOM_PROMPT_INSTRUCTIONS,
-			__( 'Custom Prompt Instructions', 'changelog-to-blog-post' ),
+			__( 'Custom Prompt Instructions', 'github-release-posts' ),
 			[ $this, 'render_custom_prompt_field' ],
 			self::PAGE_SLUG,
-			'ctbp_section_ai_provider',
+			'ghrp_section_ai_provider',
 			[ 'label_for' => Plugin_Constants::OPTION_CUSTOM_PROMPT_INSTRUCTIONS ]
 		);
 
@@ -249,10 +249,10 @@ class Settings_Page {
 
 		add_settings_field(
 			Plugin_Constants::OPTION_AI_DISCLOSURE,
-			__( 'AI Disclosure', 'changelog-to-blog-post' ),
+			__( 'AI Disclosure', 'github-release-posts' ),
 			[ $this, 'render_ai_disclosure_field' ],
 			self::PAGE_SLUG,
-			'ctbp_section_ai_provider'
+			'ghrp_section_ai_provider'
 		);
 	}
 
@@ -268,14 +268,14 @@ class Settings_Page {
 	public function render_connector_status(): void {
 		$status          = $this->get_connector_status();
 		$connectors_url  = admin_url( 'options-connectors.php' );
-		$connectors_link = '<a href="' . esc_url( $connectors_url ) . '">' . esc_html__( 'WordPress Connectors', 'changelog-to-blog-post' ) . '</a>';
+		$connectors_link = '<a href="' . esc_url( $connectors_url ) . '">' . esc_html__( 'WordPress Connectors', 'github-release-posts' ) . '</a>';
 
 		if ( ! $status['configured'] ) {
 			printf(
 				'<p>&#10007; %s</p>',
 				sprintf(
 					/* translators: %s: link to WordPress Connectors settings */
-					esc_html__( 'No AI connector configured. Set one up in %s.', 'changelog-to-blog-post' ),
+					esc_html__( 'No AI connector configured. Set one up in %s.', 'github-release-posts' ),
 					$connectors_link // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 				)
 			);
@@ -293,7 +293,7 @@ class Settings_Page {
 				'<p>&#10003; %s</p>',
 				sprintf(
 					/* translators: 1: link to WordPress Connectors settings, 2: provider name, 3: model ID */
-					esc_html__( 'Using %1$s for %2$s (%3$s)', 'changelog-to-blog-post' ),
+					esc_html__( 'Using %1$s for %2$s (%3$s)', 'github-release-posts' ),
 					$connectors_link,
 					$provider_label,
 					'<code>' . $model_label . '</code>'
@@ -305,7 +305,7 @@ class Settings_Page {
 				'<p>&#9888; %s</p>',
 				sprintf(
 					/* translators: 1: link to WordPress Connectors settings, 2: provider name, 3: model ID */
-					esc_html__( 'Using %1$s for %2$s (%3$s)', 'changelog-to-blog-post' ),
+					esc_html__( 'Using %1$s for %2$s (%3$s)', 'github-release-posts' ),
 					$connectors_link,
 					$provider_label,
 					'<code>' . $model_label . '</code>'
@@ -315,7 +315,7 @@ class Settings_Page {
 				'<p class="description">%s</p>',
 				sprintf(
 					/* translators: 1: provider name, 2: recommended model */
-					esc_html__( 'For best results, your %1$s account should support %2$s.', 'changelog-to-blog-post' ),
+					esc_html__( 'For best results, your %1$s account should support %2$s.', 'github-release-posts' ),
 					$provider_label,
 					esc_html( $status['recommended_model'] )
 				)
@@ -326,13 +326,13 @@ class Settings_Page {
 				'<p>&#9888; %s</p>',
 				sprintf(
 					/* translators: 1: link to WordPress Connectors settings, 2: provider name, 3: model ID */
-					esc_html__( 'Using %1$s for %2$s (%3$s)', 'changelog-to-blog-post' ),
+					esc_html__( 'Using %1$s for %2$s (%3$s)', 'github-release-posts' ),
 					$connectors_link,
 					$provider_label,
 					'<code>' . $model_label . '</code>'
 				)
 			);
-			echo '<p class="description">' . esc_html__( 'We recommend the Anthropic, OpenAI, or Google connector.', 'changelog-to-blog-post' ) . '</p>';
+			echo '<p class="description">' . esc_html__( 'We recommend the Anthropic, OpenAI, or Google connector.', 'github-release-posts' ) . '</p>';
 		}
 		// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
 	}
@@ -343,13 +343,13 @@ class Settings_Page {
 	 * @return array{configured: bool, provider_name: string, provider_id: string, model_id: string, is_preferred_model: bool, is_preferred_provider: bool, recommended_model: string}
 	 */
 	private function get_connector_status(): array {
-		$cached = get_transient( 'ctbp_connector_status' );
+		$cached = get_transient( 'ghrp_connector_status' );
 		if ( is_array( $cached ) ) {
 			return $cached;
 		}
 
 		$status = $this->detect_connector_status();
-		set_transient( 'ctbp_connector_status', $status, MINUTE_IN_SECONDS );
+		set_transient( 'ghrp_connector_status', $status, MINUTE_IN_SECONDS );
 
 		return $status;
 	}
@@ -452,18 +452,18 @@ class Settings_Page {
 		<fieldset>
 			<label>
 				<input type="radio" name="<?php echo esc_attr( Plugin_Constants::OPTION_RESEARCH_DEPTH ); ?>" value="standard" <?php checked( $depth, 'standard' ); ?>>
-				<strong><?php echo esc_html__( 'Standard', 'changelog-to-blog-post' ); ?></strong> —
-				<?php echo esc_html__( 'Reviews release notes, linked issues and PRs, metadata, and README.', 'changelog-to-blog-post' ); ?>
+				<strong><?php echo esc_html__( 'Standard', 'github-release-posts' ); ?></strong> —
+				<?php echo esc_html__( 'Reviews release notes, linked issues and PRs, metadata, and README.', 'github-release-posts' ); ?>
 			</label>
 			<br>
 			<label>
 				<input type="radio" name="<?php echo esc_attr( Plugin_Constants::OPTION_RESEARCH_DEPTH ); ?>" value="deep" <?php checked( $depth, 'deep' ); ?>>
-				<strong><?php echo esc_html__( 'Deep', 'changelog-to-blog-post' ); ?></strong> —
-				<?php echo esc_html__( 'Adds a review of commit messages and file changes since the last release.', 'changelog-to-blog-post' ); ?>
+				<strong><?php echo esc_html__( 'Deep', 'github-release-posts' ); ?></strong> —
+				<?php echo esc_html__( 'Adds a review of commit messages and file changes since the last release.', 'github-release-posts' ); ?>
 			</label>
 		</fieldset>
 		<p class="description">
-			<?php echo esc_html__( 'Deep research may increase API usage and generation time, especially for repositories with many commits between releases.', 'changelog-to-blog-post' ); ?>
+			<?php echo esc_html__( 'Deep research may increase API usage and generation time, especially for repositories with many commits between releases.', 'github-release-posts' ); ?>
 		</p>
 		<?php
 	}
@@ -490,30 +490,30 @@ class Settings_Page {
 		<fieldset>
 			<label>
 				<input type="radio" name="<?php echo esc_attr( Plugin_Constants::OPTION_AUDIENCE_LEVEL ); ?>" value="general" <?php checked( $level, 'general' ); ?>>
-				<strong><?php echo esc_html__( 'Site owners & managers', 'changelog-to-blog-post' ); ?></strong> —
-				<?php echo esc_html__( 'Plain language, no jargon.', 'changelog-to-blog-post' ); ?>
+				<strong><?php echo esc_html__( 'Site owners & managers', 'github-release-posts' ); ?></strong> —
+				<?php echo esc_html__( 'Plain language, no jargon.', 'github-release-posts' ); ?>
 			</label>
 			<br>
 			<label>
 				<input type="radio" name="<?php echo esc_attr( Plugin_Constants::OPTION_AUDIENCE_LEVEL ); ?>" value="mixed" <?php checked( $level, 'mixed' ); ?>>
-				<strong><?php echo esc_html__( 'Mixed audience', 'changelog-to-blog-post' ); ?></strong> —
-				<?php echo esc_html__( 'Accessible language, developer section when relevant (default).', 'changelog-to-blog-post' ); ?>
+				<strong><?php echo esc_html__( 'Mixed audience', 'github-release-posts' ); ?></strong> —
+				<?php echo esc_html__( 'Accessible language, developer section when relevant (default).', 'github-release-posts' ); ?>
 			</label>
 			<br>
 			<label>
 				<input type="radio" name="<?php echo esc_attr( Plugin_Constants::OPTION_AUDIENCE_LEVEL ); ?>" value="developer" <?php checked( $level, 'developer' ); ?>>
-				<strong><?php echo esc_html__( 'Developers & builders', 'changelog-to-blog-post' ); ?></strong> —
-				<?php echo esc_html__( 'Technical details woven throughout.', 'changelog-to-blog-post' ); ?>
+				<strong><?php echo esc_html__( 'Developers & builders', 'github-release-posts' ); ?></strong> —
+				<?php echo esc_html__( 'Technical details woven throughout.', 'github-release-posts' ); ?>
 			</label>
 			<br>
 			<label>
 				<input type="radio" name="<?php echo esc_attr( Plugin_Constants::OPTION_AUDIENCE_LEVEL ); ?>" value="engineering" <?php checked( $level, 'engineering' ); ?>>
-				<strong><?php echo esc_html__( 'Engineering teams', 'changelog-to-blog-post' ); ?></strong> —
-				<?php echo esc_html__( 'Full technical depth, API and hook details.', 'changelog-to-blog-post' ); ?>
+				<strong><?php echo esc_html__( 'Engineering teams', 'github-release-posts' ); ?></strong> —
+				<?php echo esc_html__( 'Full technical depth, API and hook details.', 'github-release-posts' ); ?>
 			</label>
 		</fieldset>
 		<p class="description">
-			<?php echo esc_html__( 'Controls how technical the generated posts are and who they are written for.', 'changelog-to-blog-post' ); ?>
+			<?php echo esc_html__( 'Controls how technical the generated posts are and who they are written for.', 'github-release-posts' ); ?>
 		</p>
 		<?php
 	}
@@ -542,10 +542,10 @@ class Settings_Page {
 			name="<?php echo esc_attr( Plugin_Constants::OPTION_CUSTOM_PROMPT_INSTRUCTIONS ); ?>"
 			rows="5"
 			class="large-text"
-			placeholder="<?php echo esc_attr__( 'e.g. Write in a friendly, conversational tone. Our audience is non-technical WordPress site owners. Avoid jargon. See example post: https://example.com/blog/plugin-update', 'changelog-to-blog-post' ); ?>"
+			placeholder="<?php echo esc_attr__( 'e.g. Write in a friendly, conversational tone. Our audience is non-technical WordPress site owners. Avoid jargon. See example post: https://example.com/blog/plugin-update', 'github-release-posts' ); ?>"
 		><?php echo esc_textarea( $custom_instructions ); ?></textarea>
 		<p class="description">
-			<?php echo esc_html__( 'Optional. Additional instructions sent to the AI when generating posts. Use this to guide the writing style, tone, voice, audience, or point to examples of posts you like. Best results with under 500 characters.', 'changelog-to-blog-post' ); ?>
+			<?php echo esc_html__( 'Optional. Additional instructions sent to the AI when generating posts. Use this to guide the writing style, tone, voice, audience, or point to examples of posts you like. Best results with under 500 characters.', 'github-release-posts' ); ?>
 		</p>
 		<?php
 	}
@@ -565,7 +565,7 @@ class Settings_Page {
 				value="1"
 				<?php checked( $enabled ); ?>
 			>
-			<?php echo esc_html__( 'Append a note to generated posts stating the content was created with AI assistance.', 'changelog-to-blog-post' ); ?>
+			<?php echo esc_html__( 'Append a note to generated posts stating the content was created with AI assistance.', 'github-release-posts' ); ?>
 		</label>
 		<?php
 	}
@@ -585,10 +585,10 @@ class Settings_Page {
 	 */
 	private function register_notifications_section(): void {
 		add_settings_section(
-			'ctbp_section_notifications',
-			__( 'Notifications', 'changelog-to-blog-post' ),
+			'ghrp_section_notifications',
+			__( 'Notifications', 'github-release-posts' ),
 			function () {
-				echo '<p>' . esc_html__( 'Send email notifications when posts are generated.', 'changelog-to-blog-post' ) . '</p>';
+				echo '<p>' . esc_html__( 'Send email notifications when posts are generated.', 'github-release-posts' ) . '</p>';
 			},
 			self::PAGE_SLUG
 		);
@@ -606,10 +606,10 @@ class Settings_Page {
 
 		add_settings_field(
 			Plugin_Constants::OPTION_NOTIFY_SITE_OWNER,
-			__( 'Site Owner', 'changelog-to-blog-post' ),
+			__( 'Site Owner', 'github-release-posts' ),
 			[ $this, 'render_notify_site_owner_field' ],
 			self::PAGE_SLUG,
-			'ctbp_section_notifications'
+			'ghrp_section_notifications'
 		);
 
 		// Additional email addresses.
@@ -625,20 +625,20 @@ class Settings_Page {
 
 		add_settings_field(
 			Plugin_Constants::OPTION_ADDITIONAL_EMAILS,
-			__( 'Additional Addresses', 'changelog-to-blog-post' ),
+			__( 'Additional Addresses', 'github-release-posts' ),
 			[ $this, 'render_additional_emails_field' ],
 			self::PAGE_SLUG,
-			'ctbp_section_notifications',
+			'ghrp_section_notifications',
 			[ 'label_for' => Plugin_Constants::OPTION_ADDITIONAL_EMAILS ]
 		);
 
 		add_settings_field(
-			'ctbp_test_notification',
+			'ghrp_test_notification',
 			'',
 			[ $this, 'render_test_notification_field' ],
 			self::PAGE_SLUG,
-			'ctbp_section_notifications',
-			[ 'class' => 'ctbp-test-notification-row' ]
+			'ghrp_section_notifications',
+			[ 'class' => 'ghrp-test-notification-row' ]
 		);
 	}
 
@@ -661,7 +661,7 @@ class Settings_Page {
 			<?php
 			printf(
 				/* translators: %s: admin email address */
-				esc_html__( 'Send notifications to %s (the admin email from Settings > General)', 'changelog-to-blog-post' ),
+				esc_html__( 'Send notifications to %s (the admin email from Settings > General)', 'github-release-posts' ),
 				'<code>' . esc_html( $admin_email ) . '</code>'
 			);
 			?>
@@ -686,7 +686,7 @@ class Settings_Page {
 			placeholder="editor@example.com, team@example.com"
 		>
 		<p class="description">
-			<?php echo esc_html__( 'Comma-separated list of email addresses (up to 5).', 'changelog-to-blog-post' ); ?>
+			<?php echo esc_html__( 'Comma-separated list of email addresses (up to 5).', 'github-release-posts' ); ?>
 		</p>
 		<?php
 	}
@@ -698,11 +698,11 @@ class Settings_Page {
 	 */
 	public function render_test_notification_field(): void {
 		?>
-		<button type="button" id="ctbp-test-notification" class="button">
-			<?php echo esc_html__( 'Send Test Email', 'changelog-to-blog-post' ); ?>
+		<button type="button" id="ghrp-test-notification" class="button">
+			<?php echo esc_html__( 'Send Test Email', 'github-release-posts' ); ?>
 		</button>
-		<span class="spinner ctbp-test-notification-spinner"></span>
-		<span id="ctbp-test-notification-result" style="vertical-align: middle;" aria-live="polite"></span>
+		<span class="spinner ghrp-test-notification-spinner"></span>
+		<span id="ghrp-test-notification-result" style="vertical-align: middle;" aria-live="polite"></span>
 		<?php
 	}
 
@@ -751,10 +751,10 @@ class Settings_Page {
 		if ( ! empty( $invalid ) ) {
 			add_settings_error(
 				self::OPTION_GROUP,
-				'ctbp_invalid_additional_emails',
+				'ghrp_invalid_additional_emails',
 				sprintf(
 					/* translators: %s: comma-separated list of invalid addresses */
-					__( 'The following email addresses are invalid and were removed: %s', 'changelog-to-blog-post' ),
+					__( 'The following email addresses are invalid and were removed: %s', 'github-release-posts' ),
 					esc_html( implode( ', ', $invalid ) )
 				),
 				'error'
@@ -764,8 +764,8 @@ class Settings_Page {
 		if ( count( $addresses ) > 5 ) {
 			add_settings_error(
 				self::OPTION_GROUP,
-				'ctbp_too_many_emails',
-				__( 'Only the first 5 valid email addresses were saved.', 'changelog-to-blog-post' ),
+				'ghrp_too_many_emails',
+				__( 'Only the first 5 valid email addresses were saved.', 'github-release-posts' ),
 				'warning'
 			);
 		}
@@ -784,8 +784,8 @@ class Settings_Page {
 	 */
 	private function register_schedule_section(): void {
 		add_settings_section(
-			'ctbp_section_schedule',
-			__( 'Release Check Schedule', 'changelog-to-blog-post' ),
+			'ghrp_section_schedule',
+			__( 'Release Check Schedule', 'github-release-posts' ),
 			[ $this, 'render_schedule_section' ],
 			self::PAGE_SLUG
 		);
@@ -808,12 +808,12 @@ class Settings_Page {
 				<?php
 				printf(
 					/* translators: %s: human-readable time since last run */
-					esc_html__( 'Last run: %s ago.', 'changelog-to-blog-post' ),
+					esc_html__( 'Last run: %s ago.', 'github-release-posts' ),
 					esc_html( human_time_diff( $last_run_at, $now ) )
 				);
 				?>
 			<?php else : ?>
-				<?php echo esc_html__( 'Last run: No runs yet.', 'changelog-to-blog-post' ); ?>
+				<?php echo esc_html__( 'Last run: No runs yet.', 'github-release-posts' ); ?>
 			<?php endif; ?>
 
 			<?php if ( $next_check ) : ?>
@@ -821,22 +821,22 @@ class Settings_Page {
 				<?php
 				printf(
 					/* translators: %s: human-readable time until next check */
-					esc_html__( 'Next run: in %s.', 'changelog-to-blog-post' ),
+					esc_html__( 'Next run: in %s.', 'github-release-posts' ),
 					esc_html( human_time_diff( $now, $next_check ) )
 				);
 				?>
 			<?php else : ?>
 				&nbsp;
-				<?php echo esc_html__( 'Next run: not scheduled. If this persists, check your site\'s WP-Cron health or configure a real server cron to call wp-cron.php.', 'changelog-to-blog-post' ); ?>
+				<?php echo esc_html__( 'Next run: not scheduled. If this persists, check your site\'s WP-Cron health or configure a real server cron to call wp-cron.php.', 'github-release-posts' ); ?>
 			<?php endif; ?>
 		</p>
 		<p class="description">
 			<?php
 			printf(
 				/* translators: %s: current frequency (e.g. "daily") */
-				esc_html__( 'Checks run %1$s by default. Developers can override this with the %2$s filter.', 'changelog-to-blog-post' ),
-				esc_html( (string) apply_filters( 'ctbp_check_frequency', 'daily' ) ),
-				'<code>ctbp_check_frequency</code>'
+				esc_html__( 'Checks run %1$s by default. Developers can override this with the %2$s filter.', 'github-release-posts' ),
+				esc_html( (string) apply_filters( 'ghrp_check_frequency', 'daily' ) ),
+				'<code>ghrp_check_frequency</code>'
 			);
 			?>
 		</p>

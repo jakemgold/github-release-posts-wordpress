@@ -2,14 +2,14 @@
 /**
  * GitHub API client.
  *
- * @package ChangelogToBlogPost
+ * @package GitHubReleasePosts
  */
 
-namespace TenUp\ChangelogToBlogPost\GitHub;
+namespace Jakemgold\GitHubReleasePosts\GitHub;
 
-use TenUp\ChangelogToBlogPost\Plugin_Constants;
-use TenUp\ChangelogToBlogPost\Settings\Global_Settings;
-use TenUp\ChangelogToBlogPost\Settings\Repository_Settings;
+use Jakemgold\GitHubReleasePosts\Plugin_Constants;
+use Jakemgold\GitHubReleasePosts\Settings\Global_Settings;
+use Jakemgold\GitHubReleasePosts\Settings\Repository_Settings;
 
 /**
  * Thin HTTP client for the GitHub Releases API.
@@ -89,7 +89,7 @@ class API_Client {
 			// Private repo or authentication error.
 			return new \WP_Error(
 				'github_forbidden',
-				__( 'GitHub returned 403 Forbidden. The repository may be private or require authentication.', 'changelog-to-blog-post' )
+				__( 'GitHub returned 403 Forbidden. The repository may be private or require authentication.', 'github-release-posts' )
 			);
 		}
 
@@ -98,7 +98,7 @@ class API_Client {
 				'github_http_error',
 				sprintf(
 					/* translators: %d: HTTP status code */
-					__( 'GitHub API returned HTTP %d.', 'changelog-to-blog-post' ),
+					__( 'GitHub API returned HTTP %d.', 'github-release-posts' ),
 					$code
 				)
 			);
@@ -111,7 +111,7 @@ class API_Client {
 		if ( ! is_array( $data ) ) {
 			return new \WP_Error(
 				'github_parse_error',
-				__( 'Failed to parse GitHub API response.', 'changelog-to-blog-post' )
+				__( 'Failed to parse GitHub API response.', 'github-release-posts' )
 			);
 		}
 
@@ -136,7 +136,7 @@ class API_Client {
 		$headers = [
 			'Accept'               => 'application/vnd.github+json',
 			'X-GitHub-Api-Version' => '2022-11-28',
-			'User-Agent'           => 'changelog-to-blog-post/' . CHANGELOG_TO_BLOG_POST_VERSION,
+			'User-Agent'           => 'github-release-posts/' . GITHUB_RELEASE_POSTS_VERSION,
 		];
 
 		$pat = $this->settings->get_github_pat();
@@ -172,7 +172,7 @@ class API_Client {
 		if ( 0 === (int) $remaining ) {
 			// Log as warning — never fatal (AC-011).
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-			error_log( '[changelog-to-blog-post] GitHub API rate limit exhausted. A retry has been scheduled.' );
+			error_log( '[github-release-posts] GitHub API rate limit exhausted. A retry has been scheduled.' );
 
 			// Schedule one-time retry (AC-010) — only if not already queued.
 			if ( ! wp_next_scheduled( Plugin_Constants::CRON_HOOK_RATE_LIMIT_RETRY ) ) {
@@ -184,7 +184,7 @@ class API_Client {
 
 			return new \WP_Error(
 				'github_rate_limit_exhausted',
-				__( 'GitHub API rate limit exhausted. A retry has been scheduled for one hour from now.', 'changelog-to-blog-post' )
+				__( 'GitHub API rate limit exhausted. A retry has been scheduled for one hour from now.', 'github-release-posts' )
 			);
 		}
 
@@ -268,7 +268,7 @@ class API_Client {
 				'github_compare_failed',
 				sprintf(
 					/* translators: 1: base tag, 2: head tag, 3: HTTP status code */
-					__( 'GitHub compare %1$s...%2$s returned HTTP %3$d.', 'changelog-to-blog-post' ),
+					__( 'GitHub compare %1$s...%2$s returned HTTP %3$d.', 'github-release-posts' ),
 					$base_tag,
 					$head_tag,
 					$code
@@ -278,7 +278,7 @@ class API_Client {
 
 		$data = json_decode( wp_remote_retrieve_body( $response ), true );
 		if ( ! is_array( $data ) ) {
-			return new \WP_Error( 'github_compare_parse_error', __( 'Failed to parse compare response.', 'changelog-to-blog-post' ) );
+			return new \WP_Error( 'github_compare_parse_error', __( 'Failed to parse compare response.', 'github-release-posts' ) );
 		}
 
 		// Extract commit subject lines (first line of each message), capped at 100.

@@ -2,18 +2,18 @@
 /**
  * Assigns taxonomy terms to generated posts.
  *
- * @package ChangelogToBlogPost\Post
+ * @package GitHubReleasePosts\Post
  */
 
-namespace TenUp\ChangelogToBlogPost\Post;
+namespace Jakemgold\GitHubReleasePosts\Post;
 
-use TenUp\ChangelogToBlogPost\AI\GeneratedPost;
-use TenUp\ChangelogToBlogPost\AI\ReleaseData;
+use Jakemgold\GitHubReleasePosts\AI\GeneratedPost;
+use Jakemgold\GitHubReleasePosts\AI\ReleaseData;
 
-use TenUp\ChangelogToBlogPost\Settings\Repository_Settings;
+use Jakemgold\GitHubReleasePosts\Settings\Repository_Settings;
 
 /**
- * Hooks into ctbp_post_created and applies the configured category and tags
+ * Hooks into ghrp_post_created and applies the configured category and tags
  * to the post. Uses per-repo settings with global fallback. Validates terms
  * exist before applying and logs warnings for missing ones.
  */
@@ -29,12 +29,12 @@ class Taxonomy_Assigner {
 	) {}
 
 	/**
-	 * Registers the ctbp_post_created action.
+	 * Registers the ghrp_post_created action.
 	 *
 	 * @return void
 	 */
 	public function setup(): void {
-		add_action( 'ctbp_post_created', [ $this, 'handle' ], 10, 4 );
+		add_action( 'ghrp_post_created', [ $this, 'handle' ], 10, 4 );
 	}
 
 	/**
@@ -59,7 +59,7 @@ class Taxonomy_Assigner {
 		 * @param int         $post_id WordPress post ID.
 		 * @param ReleaseData $data    Source release data.
 		 */
-		$terms = (array) apply_filters( 'ctbp_post_terms', $terms, $post_id, $data );
+		$terms = (array) apply_filters( 'ghrp_post_terms', $terms, $post_id, $data );
 
 		$this->apply_categories( $post_id, (array) ( $terms['categories'] ?? [] ), $data->identifier );
 		$this->apply_tags( $post_id, (array) ( $terms['tags'] ?? [] ), $data->identifier );

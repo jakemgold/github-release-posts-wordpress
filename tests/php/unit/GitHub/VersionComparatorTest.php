@@ -2,13 +2,13 @@
 /**
  * Tests for GitHub\Version_Comparator.
  *
- * @package ChangelogToBlogPost\Tests\GitHub
+ * @package GitHubReleasePosts\Tests\GitHub
  */
 
-namespace TenUp\ChangelogToBlogPost\Tests\GitHub;
+namespace Jakemgold\GitHubReleasePosts\Tests\GitHub;
 
-use TenUp\ChangelogToBlogPost\GitHub\Release;
-use TenUp\ChangelogToBlogPost\GitHub\Version_Comparator;
+use Jakemgold\GitHubReleasePosts\GitHub\Release;
+use Jakemgold\GitHubReleasePosts\GitHub\Version_Comparator;
 use WP_Mock\Tools\TestCase;
 
 /**

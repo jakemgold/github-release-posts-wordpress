@@ -2,14 +2,14 @@
 /**
  * Tests for AI\Connectors\WP_AI_Client_Connector.
  *
- * @package ChangelogToBlogPost\Tests\AI\Connectors
+ * @package GitHubReleasePosts\Tests\AI\Connectors
  */
 
-namespace TenUp\ChangelogToBlogPost\Tests\AI\Connectors;
+namespace Jakemgold\GitHubReleasePosts\Tests\AI\Connectors;
 
-use TenUp\ChangelogToBlogPost\AI\Connectors\WP_AI_Client_Connector;
-use TenUp\ChangelogToBlogPost\AI\GeneratedPost;
-use TenUp\ChangelogToBlogPost\AI\ReleaseData;
+use Jakemgold\GitHubReleasePosts\AI\Connectors\WP_AI_Client_Connector;
+use Jakemgold\GitHubReleasePosts\AI\GeneratedPost;
+use Jakemgold\GitHubReleasePosts\AI\ReleaseData;
 use WP_Mock\Tools\TestCase;
 
 class WP_AI_Client_ConnectorTest extends TestCase {
@@ -55,13 +55,13 @@ class WP_AI_Client_ConnectorTest extends TestCase {
 		$result = $this->connector->test_connection();
 
 		$this->assertInstanceOf( \WP_Error::class, $result );
-		$this->assertSame( 'ctbp_wp_ai_client_unavailable', $result->get_error_code() );
+		$this->assertSame( 'ghrp_wp_ai_client_unavailable', $result->get_error_code() );
 	}
 
 	public function test_generate_post_returns_wp_error_when_plugin_not_active(): void {
 		$result = $this->connector->generate_post( $this->release, 'prompt' );
 
 		$this->assertInstanceOf( \WP_Error::class, $result );
-		$this->assertSame( 'ctbp_wp_ai_client_unavailable', $result->get_error_code() );
+		$this->assertSame( 'ghrp_wp_ai_client_unavailable', $result->get_error_code() );
 	}
 }

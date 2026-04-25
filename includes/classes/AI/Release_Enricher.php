@@ -2,21 +2,21 @@
 /**
  * Enriches release body with linked PR/issue context.
  *
- * @package ChangelogToBlogPost\AI
+ * @package GitHubReleasePosts\AI
  */
 
-namespace TenUp\ChangelogToBlogPost\AI;
+namespace Jakemgold\GitHubReleasePosts\AI;
 
-use TenUp\ChangelogToBlogPost\GitHub\API_Client;
-use TenUp\ChangelogToBlogPost\GitHub\Release_State;
-use TenUp\ChangelogToBlogPost\Settings\Global_Settings;
+use Jakemgold\GitHubReleasePosts\GitHub\API_Client;
+use Jakemgold\GitHubReleasePosts\GitHub\Release_State;
+use Jakemgold\GitHubReleasePosts\Settings\Global_Settings;
 
 /**
  * Scans the release body for GitHub issue/PR references (#123 or full URLs),
  * fetches their titles and descriptions, and appends a summary section.
  * Optionally fetches commit history for deep research mode.
  *
- * Hooks into ctbp_release_body filter (fired by Prompt_Builder).
+ * Hooks into ghrp_release_body filter (fired by Prompt_Builder).
  */
 class Release_Enricher {
 
@@ -36,13 +36,13 @@ class Release_Enricher {
 	) {}
 
 	/**
-	 * Registers the ctbp_release_body filters.
+	 * Registers the ghrp_release_body filters.
 	 *
 	 * @return void
 	 */
 	public function setup(): void {
-		add_filter( 'ctbp_release_body', [ $this, 'enrich' ], 10, 2 );
-		add_filter( 'ctbp_release_body', [ $this, 'enrich_with_commits' ], 20, 2 );
+		add_filter( 'ghrp_release_body', [ $this, 'enrich' ], 10, 2 );
+		add_filter( 'ghrp_release_body', [ $this, 'enrich_with_commits' ], 20, 2 );
 	}
 
 	/**
@@ -117,7 +117,7 @@ class Release_Enricher {
 		 * @param string $depth      Current research depth.
 		 * @param string $identifier Repository identifier (owner/repo).
 		 */
-		$depth = (string) apply_filters( 'ctbp_research_depth', $settings->get_research_depth(), $data->identifier );
+		$depth = (string) apply_filters( 'ghrp_research_depth', $settings->get_research_depth(), $data->identifier );
 
 		if ( 'deep' !== $depth ) {
 			return $body;

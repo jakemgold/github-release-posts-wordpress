@@ -2,19 +2,19 @@
 /**
  * Tests for Taxonomy_Assigner.
  *
- * @package ChangelogToBlogPost\Tests\Post
+ * @package GitHubReleasePosts\Tests\Post
  */
 
-namespace TenUp\ChangelogToBlogPost\Tests\Post;
+namespace Jakemgold\GitHubReleasePosts\Tests\Post;
 
-use TenUp\ChangelogToBlogPost\AI\GeneratedPost;
-use TenUp\ChangelogToBlogPost\AI\ReleaseData;
-use TenUp\ChangelogToBlogPost\Post\Taxonomy_Assigner;
-use TenUp\ChangelogToBlogPost\Settings\Repository_Settings;
+use Jakemgold\GitHubReleasePosts\AI\GeneratedPost;
+use Jakemgold\GitHubReleasePosts\AI\ReleaseData;
+use Jakemgold\GitHubReleasePosts\Post\Taxonomy_Assigner;
+use Jakemgold\GitHubReleasePosts\Settings\Repository_Settings;
 use WP_Mock\Tools\TestCase;
 
 /**
- * @covers \TenUp\ChangelogToBlogPost\Post\Taxonomy_Assigner
+ * @covers \Jakemgold\GitHubReleasePosts\Post\Taxonomy_Assigner
  */
 class Taxonomy_AssignerTest extends TestCase {
 
@@ -33,7 +33,7 @@ class Taxonomy_AssignerTest extends TestCase {
 	// -------------------------------------------------------------------------
 
 	public function test_setup_registers_action(): void {
-		\WP_Mock::expectActionAdded( 'ctbp_post_created', [ $this->assigner, 'handle' ], 10, 4 );
+		\WP_Mock::expectActionAdded( 'ghrp_post_created', [ $this->assigner, 'handle' ], 10, 4 );
 		$this->assigner->setup();
 		$this->assertConditionsMet();
 	}
@@ -135,7 +135,7 @@ class Taxonomy_AssignerTest extends TestCase {
 	// handle() — filter hook
 	// -------------------------------------------------------------------------
 
-	public function test_handle_applies_ctbp_post_terms_filter(): void {
+	public function test_handle_applies_ghrp_post_terms_filter(): void {
 		$this->repo_settings->shouldReceive( 'get_repository' )
 			->with( 'owner/repo' )
 			->andReturn( [ 'identifier' => 'owner/repo', 'categories' => [ 5 ], 'tags' => [ 1 ] ] );
@@ -143,7 +143,7 @@ class Taxonomy_AssignerTest extends TestCase {
 		$data = $this->make_data();
 
 		// Filter overrides terms entirely.
-		\WP_Mock::onFilter( 'ctbp_post_terms' )
+		\WP_Mock::onFilter( 'ghrp_post_terms' )
 			->with( [ 'categories' => [ 5 ], 'tags' => [ 1 ] ], 42, $data )
 			->reply( [ 'categories' => [ 20 ], 'tags' => [ 8, 9 ] ] );
 

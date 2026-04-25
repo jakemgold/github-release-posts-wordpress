@@ -2,20 +2,20 @@
 /**
  * Tests for Prompt_Builder.
  *
- * @package ChangelogToBlogPost\Tests\AI
+ * @package GitHubReleasePosts\Tests\AI
  */
 
-namespace TenUp\ChangelogToBlogPost\Tests\AI;
+namespace Jakemgold\GitHubReleasePosts\Tests\AI;
 
-use TenUp\ChangelogToBlogPost\AI\Prompt_Builder;
-use TenUp\ChangelogToBlogPost\AI\Release_Significance;
-use TenUp\ChangelogToBlogPost\AI\ReleaseData;
-use TenUp\ChangelogToBlogPost\Settings\Global_Settings;
-use TenUp\ChangelogToBlogPost\Settings\Repository_Settings;
+use Jakemgold\GitHubReleasePosts\AI\Prompt_Builder;
+use Jakemgold\GitHubReleasePosts\AI\Release_Significance;
+use Jakemgold\GitHubReleasePosts\AI\ReleaseData;
+use Jakemgold\GitHubReleasePosts\Settings\Global_Settings;
+use Jakemgold\GitHubReleasePosts\Settings\Repository_Settings;
 use WP_Mock\Tools\TestCase;
 
 /**
- * @covers \TenUp\ChangelogToBlogPost\AI\Prompt_Builder
+ * @covers \Jakemgold\GitHubReleasePosts\AI\Prompt_Builder
  */
 class Prompt_BuilderTest extends TestCase {
 
@@ -40,7 +40,7 @@ class Prompt_BuilderTest extends TestCase {
 	// -------------------------------------------------------------------------
 
 	public function test_setup_registers_filter(): void {
-		\WP_Mock::expectFilterAdded( 'ctbp_generate_prompt', [ $this->builder, 'build' ], 10, 2 );
+		\WP_Mock::expectFilterAdded( 'ghrp_generate_prompt', [ $this->builder, 'build' ], 10, 2 );
 		$this->builder->setup();
 		$this->assertConditionsMet();
 	}

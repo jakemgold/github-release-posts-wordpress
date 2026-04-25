@@ -2,19 +2,19 @@
 /**
  * Tests for Publish_Workflow.
  *
- * @package ChangelogToBlogPost\Tests\Post
+ * @package GitHubReleasePosts\Tests\Post
  */
 
-namespace TenUp\ChangelogToBlogPost\Tests\Post;
+namespace Jakemgold\GitHubReleasePosts\Tests\Post;
 
-use TenUp\ChangelogToBlogPost\AI\GeneratedPost;
-use TenUp\ChangelogToBlogPost\AI\ReleaseData;
-use TenUp\ChangelogToBlogPost\Post\Publish_Workflow;
-use TenUp\ChangelogToBlogPost\Settings\Repository_Settings;
+use Jakemgold\GitHubReleasePosts\AI\GeneratedPost;
+use Jakemgold\GitHubReleasePosts\AI\ReleaseData;
+use Jakemgold\GitHubReleasePosts\Post\Publish_Workflow;
+use Jakemgold\GitHubReleasePosts\Settings\Repository_Settings;
 use WP_Mock\Tools\TestCase;
 
 /**
- * @covers \TenUp\ChangelogToBlogPost\Post\Publish_Workflow
+ * @covers \Jakemgold\GitHubReleasePosts\Post\Publish_Workflow
  */
 class Publish_WorkflowTest extends TestCase {
 
@@ -36,7 +36,7 @@ class Publish_WorkflowTest extends TestCase {
 	// -------------------------------------------------------------------------
 
 	public function test_setup_registers_hooks(): void {
-		\WP_Mock::expectActionAdded( 'ctbp_post_created', [ $this->workflow, 'handle' ], 20, 4 );
+		\WP_Mock::expectActionAdded( 'ghrp_post_created', [ $this->workflow, 'handle' ], 20, 4 );
 		\WP_Mock::expectActionAdded( 'admin_notices', [ $this->workflow, 'display_admin_notice' ] );
 		$this->workflow->setup();
 		$this->assertConditionsMet();
@@ -149,10 +149,10 @@ class Publish_WorkflowTest extends TestCase {
 	}
 
 	// -------------------------------------------------------------------------
-	// handle() — fires ctbp_post_status_set
+	// handle() — fires ghrp_post_status_set
 	// -------------------------------------------------------------------------
 
-	public function test_handle_fires_ctbp_post_status_set(): void {
+	public function test_handle_fires_ghrp_post_status_set(): void {
 		$this->repo_settings->shouldReceive( 'get_repository' )
 			->with( 'owner/repo' )
 			->andReturn( [] );
@@ -161,7 +161,7 @@ class Publish_WorkflowTest extends TestCase {
 		$this->stub_result_recording();
 
 		$data = $this->make_data();
-		\WP_Mock::expectAction( 'ctbp_post_status_set', 42, 'draft', $data, [] );
+		\WP_Mock::expectAction( 'ghrp_post_status_set', 42, 'draft', $data, [] );
 
 		$this->workflow->handle( 42, $this->make_post(), $data, [] );
 		$this->assertConditionsMet();

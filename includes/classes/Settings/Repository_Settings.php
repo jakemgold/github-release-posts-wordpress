@@ -2,12 +2,12 @@
 /**
  * Repository settings service.
  *
- * @package ChangelogToBlogPost
+ * @package GitHubReleasePosts
  */
 
-namespace TenUp\ChangelogToBlogPost\Settings;
+namespace Jakemgold\GitHubReleasePosts\Settings;
 
-use TenUp\ChangelogToBlogPost\Plugin_Constants;
+use Jakemgold\GitHubReleasePosts\Plugin_Constants;
 
 /**
  * Manages the list of tracked GitHub repositories and their per-repo configuration.
@@ -26,7 +26,7 @@ class Repository_Settings {
 
 	/**
 	 * Default maximum number of tracked repositories.
-	 * Can be raised via the `ctbp_max_repositories` filter.
+	 * Can be raised via the `ghrp_max_repositories` filter.
 	 */
 	const MAX_REPOSITORIES = 25;
 
@@ -102,7 +102,7 @@ class Repository_Settings {
 			throw new \InvalidArgumentException(
 				sprintf(
 					/* translators: %s: user-provided repository identifier */
-					__( '"%s" is not a valid GitHub repository. Use owner/repo format or a full GitHub URL.', 'changelog-to-blog-post' ), // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+					__( '"%s" is not a valid GitHub repository. Use owner/repo format or a full GitHub URL.', 'github-release-posts' ), // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
 					$input // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
 				)
 			);
@@ -151,7 +151,7 @@ class Repository_Settings {
 					'success' => false,
 					'error'   => sprintf(
 						/* translators: %s: repository identifier */
-						__( '"%s" is already being tracked.', 'changelog-to-blog-post' ),
+						__( '"%s" is already being tracked.', 'github-release-posts' ),
 						$identifier
 					),
 					'repos'   => $repos,
@@ -160,13 +160,13 @@ class Repository_Settings {
 		}
 
 		// Check limit.
-		$max = (int) apply_filters( 'ctbp_max_repositories', self::MAX_REPOSITORIES );
+		$max = (int) apply_filters( 'ghrp_max_repositories', self::MAX_REPOSITORIES );
 		if ( count( $repos ) >= $max ) {
 			return [
 				'success' => false,
 				'error'   => sprintf(
 					/* translators: %d: maximum number of repositories */
-					__( 'You have reached the maximum of %d tracked repositories.', 'changelog-to-blog-post' ),
+					__( 'You have reached the maximum of %d tracked repositories.', 'github-release-posts' ),
 					$max
 				),
 				'repos'   => $repos,
@@ -183,9 +183,9 @@ class Repository_Settings {
 			'paused'         => false,
 			'plugin_link'    => '',
 			'author'         => get_current_user_id(),
-			'post_status'    => (string) apply_filters( 'ctbp_default_post_status', 'draft' ),
-			'categories'     => (array) apply_filters( 'ctbp_default_categories', [] ),
-			'tags'           => (array) apply_filters( 'ctbp_default_tags', [] ),
+			'post_status'    => (string) apply_filters( 'ghrp_default_post_status', 'draft' ),
+			'categories'     => (array) apply_filters( 'ghrp_default_categories', [] ),
+			'tags'           => (array) apply_filters( 'ghrp_default_tags', [] ),
 			'featured_image' => 0,
 		];
 
@@ -299,7 +299,7 @@ class Repository_Settings {
 			return [
 				'valid'   => false,
 				'type'    => 'url',
-				'warning' => __( 'URL does not appear to be valid.', 'changelog-to-blog-post' ),
+				'warning' => __( 'URL does not appear to be valid.', 'github-release-posts' ),
 			];
 		}
 
@@ -322,7 +322,7 @@ class Repository_Settings {
 			return [
 				'valid'   => false,
 				'type'    => 'slug',
-				'warning' => __( 'Plugin not found on WordPress.org.', 'changelog-to-blog-post' ),
+				'warning' => __( 'Plugin not found on WordPress.org.', 'github-release-posts' ),
 			];
 		}
 

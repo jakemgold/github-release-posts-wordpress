@@ -2,13 +2,13 @@
 /**
  * Release monitoring cron run orchestrator.
  *
- * @package ChangelogToBlogPost
+ * @package GitHubReleasePosts
  */
 
-namespace TenUp\ChangelogToBlogPost\GitHub;
+namespace Jakemgold\GitHubReleasePosts\GitHub;
 
-use TenUp\ChangelogToBlogPost\Plugin_Constants;
-use TenUp\ChangelogToBlogPost\Settings\Repository_Settings;
+use Jakemgold\GitHubReleasePosts\Plugin_Constants;
+use Jakemgold\GitHubReleasePosts\Settings\Repository_Settings;
 
 /**
  * Orchestrates the release-check cron run.
@@ -16,7 +16,7 @@ use TenUp\ChangelogToBlogPost\Settings\Repository_Settings;
  * On each run, iterates all tracked (non-paused) repos, fetches their latest
  * GitHub release, compares against stored state, and queues new releases for
  * AI generation. After detection, the queue is processed in the same run by
- * firing the ctbp_process_release action for each entry.
+ * firing the ghrp_process_release action for each entry.
  *
  * Also provides the static find_post() deduplication helper used by both
  * the cron pipeline and the manual trigger AJAX.
@@ -54,7 +54,7 @@ class Release_Monitor {
 		}
 
 		// Prevent overlapping cron runs from processing the same releases.
-		$lock_key = 'ctbp_cron_lock';
+		$lock_key = 'ghrp_cron_lock';
 		if ( get_transient( $lock_key ) ) {
 			return;
 		}
@@ -118,7 +118,7 @@ class Release_Monitor {
 	/**
 	 * Processes all queued release entries in the current run.
 	 *
-	 * Fires the ctbp_process_release action for each entry. DOM-05/06 hooks
+	 * Fires the ghrp_process_release action for each entry. DOM-05/06 hooks
 	 * here to perform AI generation and post creation. After the action fires,
 	 * checks whether a post was created and, if so, updates the last-seen state
 	 * (BR-001: only the cron pipeline updates last_seen_tag).
@@ -144,7 +144,7 @@ class Release_Monitor {
 			 * @param array<string, mixed> $entry   Queue entry with release data.
 			 * @param array<string, mixed> $context Additional context flags.
 			 */
-			do_action( 'ctbp_process_release', $entry, [] );
+			do_action( 'ghrp_process_release', $entry, [] );
 
 			// Check whether a post was created (BR-001).
 			$post = self::find_post( $identifier, $tag );
@@ -213,7 +213,7 @@ class Release_Monitor {
 		// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 		error_log(
 			sprintf(
-				'[changelog-to-blog-post] %s — %s',
+				'[github-release-posts] %s — %s',
 				$identifier,
 				$message
 			)

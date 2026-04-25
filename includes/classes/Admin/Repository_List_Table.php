@@ -5,13 +5,13 @@
  * Extends WP_List_Table to render tracked repositories with the same
  * look and feel as the WordPress posts list table.
  *
- * @package ChangelogToBlogPost
+ * @package GitHubReleasePosts
  */
 
-namespace TenUp\ChangelogToBlogPost\Admin;
+namespace Jakemgold\GitHubReleasePosts\Admin;
 
-use TenUp\ChangelogToBlogPost\Plugin_Constants;
-use TenUp\ChangelogToBlogPost\Settings\Repository_Settings;
+use Jakemgold\GitHubReleasePosts\Plugin_Constants;
+use Jakemgold\GitHubReleasePosts\Settings\Repository_Settings;
 
 // WP_List_Table is not loaded automatically in all contexts.
 if ( ! class_exists( 'WP_List_Table' ) ) {
@@ -61,11 +61,11 @@ class Repository_List_Table extends \WP_List_Table {
 	 */
 	public function get_columns(): array {
 		return [
-			'title'     => __( 'Repository', 'changelog-to-blog-post' ),
-			'github'    => __( 'GitHub', 'changelog-to-blog-post' ),
-			'last_post' => __( 'Last Post', 'changelog-to-blog-post' ),
-			'status'    => __( 'Status', 'changelog-to-blog-post' ),
-			'action'    => __( 'Action', 'changelog-to-blog-post' ),
+			'title'     => __( 'Repository', 'github-release-posts' ),
+			'github'    => __( 'GitHub', 'github-release-posts' ),
+			'last_post' => __( 'Last Post', 'github-release-posts' ),
+			'status'    => __( 'Status', 'github-release-posts' ),
+			'action'    => __( 'Action', 'github-release-posts' ),
 		];
 	}
 
@@ -147,7 +147,7 @@ class Repository_List_Table extends \WP_List_Table {
 		$index      = $item['_index'] ?? 0;
 		$identifier = $item['identifier'] ?? '';
 
-		echo '<tr id="ctbp-repo-' . esc_attr( $index ) . '"';
+		echo '<tr id="ghrp-repo-' . esc_attr( $index ) . '"';
 		echo ' data-repo="' . esc_attr( $identifier ) . '"';
 		echo ' data-display-name="' . esc_attr( $item['display_name'] ?? $identifier ) . '"';
 		echo ' data-plugin-link="' . esc_attr( $item['plugin_link'] ?? '' ) . '"';
@@ -174,13 +174,13 @@ class Repository_List_Table extends \WP_List_Table {
 
 		$actions = [
 			'edit'   => sprintf(
-				'<a href="#" class="ctbp-edit-repo-btn">%s</a>',
-				esc_html__( 'Edit', 'changelog-to-blog-post' )
+				'<a href="#" class="ghrp-edit-repo-btn">%s</a>',
+				esc_html__( 'Edit', 'github-release-posts' )
 			),
 			'delete' => sprintf(
-				'<a href="#" class="ctbp-remove-repo-btn submitdelete" data-repo="%s">%s</a>',
+				'<a href="#" class="ghrp-remove-repo-btn submitdelete" data-repo="%s">%s</a>',
 				esc_attr( $identifier ),
-				esc_html__( 'Remove', 'changelog-to-blog-post' )
+				esc_html__( 'Remove', 'github-release-posts' )
 			),
 		];
 
@@ -204,8 +204,8 @@ class Repository_List_Table extends \WP_List_Table {
 			'<code>%s</code> <a href="%s" target="_blank" rel="noopener" title="%s"><span class="dashicons dashicons-external" style="font-size:14px;width:14px;height:14px;text-decoration:none;"></span><span class="screen-reader-text">%s</span></a>',
 			esc_html( $identifier ),
 			esc_url( $releases_url ),
-			esc_attr__( 'View releases on GitHub', 'changelog-to-blog-post' ),
-			esc_html__( 'View releases on GitHub', 'changelog-to-blog-post' )
+			esc_attr__( 'View releases on GitHub', 'github-release-posts' ),
+			esc_html__( 'View releases on GitHub', 'github-release-posts' )
 		);
 	}
 
@@ -220,16 +220,16 @@ class Repository_List_Table extends \WP_List_Table {
 
 		if ( $paused ) {
 			return sprintf(
-				'<span class="ctbp-status-badge ctbp-status-paused" aria-label="%s">%s</span>',
-				esc_attr__( 'Paused', 'changelog-to-blog-post' ),
-				esc_html__( 'Paused', 'changelog-to-blog-post' )
+				'<span class="ghrp-status-badge ghrp-status-paused" aria-label="%s">%s</span>',
+				esc_attr__( 'Paused', 'github-release-posts' ),
+				esc_html__( 'Paused', 'github-release-posts' )
 			);
 		}
 
 		return sprintf(
-			'<span class="ctbp-status-badge ctbp-status-active" aria-label="%s">%s</span>',
-			esc_attr__( 'Active', 'changelog-to-blog-post' ),
-			esc_html__( 'Active', 'changelog-to-blog-post' )
+			'<span class="ghrp-status-badge ghrp-status-active" aria-label="%s">%s</span>',
+			esc_attr__( 'Active', 'github-release-posts' ),
+			esc_html__( 'Active', 'github-release-posts' )
 		);
 	}
 
@@ -248,14 +248,14 @@ class Repository_List_Table extends \WP_List_Table {
 		}
 
 		$data  = $this->last_posts[ $identifier ];
-		$label = $data['tag'] ? $data['tag'] . ' ' . __( 'on', 'changelog-to-blog-post' ) . ' ' . $data['date'] : $data['date'];
+		$label = $data['tag'] ? $data['tag'] . ' ' . __( 'on', 'github-release-posts' ) . ' ' . $data['date'] : $data['date'];
 
 		// Show post status for non-published posts.
 		$status_label = '';
 		if ( 'draft' === $data['status'] ) {
-			$status_label = ' <em>(' . esc_html__( 'Draft', 'changelog-to-blog-post' ) . ')</em>';
+			$status_label = ' <em>(' . esc_html__( 'Draft', 'github-release-posts' ) . ')</em>';
 		} elseif ( 'pending' === $data['status'] ) {
-			$status_label = ' <em>(' . esc_html__( 'Pending', 'changelog-to-blog-post' ) . ')</em>';
+			$status_label = ' <em>(' . esc_html__( 'Pending', 'github-release-posts' ) . ')</em>';
 		}
 
 		return sprintf(
@@ -296,18 +296,18 @@ class Repository_List_Table extends \WP_List_Table {
 		if ( ! $has_connector ) {
 			return sprintf(
 				'<button type="button" class="button button-small" disabled aria-label="%s">%s</button>',
-				esc_attr__( 'No AI connector configured. Set one up under Settings → Connectors.', 'changelog-to-blog-post' ),
-				esc_html__( 'Generate post', 'changelog-to-blog-post' )
+				esc_attr__( 'No AI connector configured. Set one up under Settings → Connectors.', 'github-release-posts' ),
+				esc_html__( 'Generate post', 'github-release-posts' )
 			);
 		}
 
 		return sprintf(
-			'<button type="button" class="button button-small ctbp-generate-draft" data-repo="%s" title="%s">%s</button>' .
-			'<span class="spinner ctbp-generate-spinner"></span>' .
-			'<span class="ctbp-generate-status" aria-live="polite"></span>',
+			'<button type="button" class="button button-small ghrp-generate-draft" data-repo="%s" title="%s">%s</button>' .
+			'<span class="spinner ghrp-generate-spinner"></span>' .
+			'<span class="ghrp-generate-status" aria-live="polite"></span>',
 			esc_attr( $identifier ),
-			esc_attr__( 'Generate a draft post from the latest release version', 'changelog-to-blog-post' ),
-			esc_html__( 'Generate post', 'changelog-to-blog-post' )
+			esc_attr__( 'Generate a draft post from the latest release version', 'github-release-posts' ),
+			esc_html__( 'Generate post', 'github-release-posts' )
 		);
 	}
 
@@ -321,8 +321,8 @@ class Repository_List_Table extends \WP_List_Table {
 	public function render_inline_edit_template(): void {
 		$col_count = $this->get_column_count();
 		?>
-		<table style="display: none"><tbody id="ctbp-inline-edit">
-			<tr class="ctbp-repo-edit-row inline-edit-row quick-edit-row">
+		<table style="display: none"><tbody id="ghrp-inline-edit">
+			<tr class="ghrp-repo-edit-row inline-edit-row quick-edit-row">
 				<td colspan="<?php echo esc_attr( $col_count ); ?>" class="colspanchange">
 					<div class="inline-edit-wrapper" role="region">
 
@@ -330,29 +330,29 @@ class Repository_List_Table extends \WP_List_Table {
 							<legend class="inline-edit-legend"></legend>
 							<div class="inline-edit-col">
 								<label>
-									<span class="title"><?php echo esc_html__( 'Name', 'changelog-to-blog-post' ); ?></span>
+									<span class="title"><?php echo esc_html__( 'Name', 'github-release-posts' ); ?></span>
 									<span class="input-text-wrap">
 										<input type="text" data-field="display_name">
 									</span>
 								</label>
 
 								<label>
-									<span class="title"><?php echo esc_html__( 'Project Link', 'changelog-to-blog-post' ); ?></span>
+									<span class="title"><?php echo esc_html__( 'Project Link', 'github-release-posts' ); ?></span>
 									<span class="input-text-wrap">
-										<input type="text" data-field="plugin_link" class="ctbp-plugin-link-input" placeholder="URL or WordPress.org slug">
-										<span class="ctbp-plugin-link-status" aria-live="polite"></span>
+										<input type="text" data-field="plugin_link" class="ghrp-plugin-link-input" placeholder="URL or WordPress.org slug">
+										<span class="ghrp-plugin-link-status" aria-live="polite"></span>
 									</span>
 								</label>
 
 								<label>
-									<span class="title"><?php echo esc_html__( 'Status', 'changelog-to-blog-post' ); ?></span>
+									<span class="title"><?php echo esc_html__( 'Status', 'github-release-posts' ); ?></span>
 									<?php
 									$statuses = (array) apply_filters(
-										'ctbp_post_status_options',
+										'ghrp_post_status_options',
 										[
-											'draft'   => __( 'Draft', 'changelog-to-blog-post' ),
-											'pending' => __( 'Pending Review', 'changelog-to-blog-post' ),
-											'publish' => __( 'Published', 'changelog-to-blog-post' ),
+											'draft'   => __( 'Draft', 'github-release-posts' ),
+											'pending' => __( 'Pending Review', 'github-release-posts' ),
+											'publish' => __( 'Published', 'github-release-posts' ),
 										]
 									);
 									?>
@@ -364,13 +364,13 @@ class Repository_List_Table extends \WP_List_Table {
 								</label>
 
 								<label class="inline-edit-author">
-									<span class="title"><?php echo esc_html__( 'Author', 'changelog-to-blog-post' ); ?></span>
+									<span class="title"><?php echo esc_html__( 'Author', 'github-release-posts' ); ?></span>
 									<?php
 									wp_dropdown_users(
 										[
 											'name'  => '',
 											'id'    => '',
-											'class' => 'ctbp-tpl-author',
+											'class' => 'ghrp-tpl-author',
 											'who'   => 'authors',
 											'show'  => 'display_name',
 										]
@@ -381,7 +381,7 @@ class Repository_List_Table extends \WP_List_Table {
 								<div class="inline-edit-group wp-clearfix">
 									<label class="alignleft">
 										<input type="checkbox" data-field="paused" value="1">
-										<span class="checkbox-title"><?php echo esc_html__( 'Pause monitoring', 'changelog-to-blog-post' ); ?></span>
+										<span class="checkbox-title"><?php echo esc_html__( 'Pause monitoring', 'github-release-posts' ); ?></span>
 									</label>
 								</div>
 							</div>
@@ -389,9 +389,9 @@ class Repository_List_Table extends \WP_List_Table {
 
 						<fieldset class="inline-edit-col-center inline-edit-categories">
 							<div class="inline-edit-col">
-								<span class="title inline-edit-categories-label"><?php echo esc_html__( 'Categories', 'changelog-to-blog-post' ); ?></span>
-								<input type="hidden" name="" value="0" class="ctbp-tpl-cat-hidden">
-								<ul class="cat-checklist category-checklist ctbp-tpl-categories">
+								<span class="title inline-edit-categories-label"><?php echo esc_html__( 'Categories', 'github-release-posts' ); ?></span>
+								<input type="hidden" name="" value="0" class="ghrp-tpl-cat-hidden">
+								<ul class="cat-checklist category-checklist ghrp-tpl-categories">
 									<?php
 									wp_terms_checklist(
 										0,
@@ -408,21 +408,21 @@ class Repository_List_Table extends \WP_List_Table {
 							<div class="inline-edit-col">
 								<div class="inline-edit-tags-wrap">
 									<label class="inline-edit-tags">
-										<span class="title"><?php echo esc_html__( 'Tags', 'changelog-to-blog-post' ); ?></span>
+										<span class="title"><?php echo esc_html__( 'Tags', 'github-release-posts' ); ?></span>
 										<textarea data-field="tags" cols="22" rows="1"></textarea>
 									</label>
-									<p class="howto"><?php echo esc_html__( 'Separate tags with commas', 'changelog-to-blog-post' ); ?></p>
+									<p class="howto"><?php echo esc_html__( 'Separate tags with commas', 'github-release-posts' ); ?></p>
 								</div>
 
-								<div class="inline-edit-group wp-clearfix ctbp-featured-image-field">
-									<span class="title"><?php echo esc_html__( 'Featured Image', 'changelog-to-blog-post' ); ?></span>
-									<div class="ctbp-featured-image-preview"></div>
+								<div class="inline-edit-group wp-clearfix ghrp-featured-image-field">
+									<span class="title"><?php echo esc_html__( 'Featured Image', 'github-release-posts' ); ?></span>
+									<div class="ghrp-featured-image-preview"></div>
 									<input type="hidden" data-field="featured_image" value="0">
-									<button type="button" class="button button-small ctbp-select-image">
-										<?php echo esc_html__( 'Select Image', 'changelog-to-blog-post' ); ?>
+									<button type="button" class="button button-small ghrp-select-image">
+										<?php echo esc_html__( 'Select Image', 'github-release-posts' ); ?>
 									</button>
-									<button type="button" class="button-link ctbp-remove-image" style="display:none">
-										<?php echo esc_html__( 'Remove', 'changelog-to-blog-post' ); ?>
+									<button type="button" class="button-link ghrp-remove-image" style="display:none">
+										<?php echo esc_html__( 'Remove', 'github-release-posts' ); ?>
 									</button>
 								</div>
 							</div>
@@ -430,10 +430,10 @@ class Repository_List_Table extends \WP_List_Table {
 
 						<div class="submit inline-edit-save">
 							<button type="submit" class="button button-primary save">
-								<?php echo esc_html__( 'Update', 'changelog-to-blog-post' ); ?>
+								<?php echo esc_html__( 'Update', 'github-release-posts' ); ?>
 							</button>
-							<button type="button" class="button cancel ctbp-cancel-edit">
-								<?php echo esc_html__( 'Cancel', 'changelog-to-blog-post' ); ?>
+							<button type="button" class="button cancel ghrp-cancel-edit">
+								<?php echo esc_html__( 'Cancel', 'github-release-posts' ); ?>
 							</button>
 						</div>
 
@@ -450,7 +450,7 @@ class Repository_List_Table extends \WP_List_Table {
 	 * @return void
 	 */
 	public function no_items(): void {
-		esc_html_e( 'No repositories are being tracked yet. Add one below.', 'changelog-to-blog-post' );
+		esc_html_e( 'No repositories are being tracked yet. Add one below.', 'github-release-posts' );
 	}
 
 	/**

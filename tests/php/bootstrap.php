@@ -2,7 +2,7 @@
 /**
  * PHPUnit bootstrap file.
  *
- * @package ChangelogToBlogPost
+ * @package GitHubReleasePosts
  */
 
 require_once dirname( __DIR__, 2 ) . '/vendor/autoload.php';
@@ -23,17 +23,17 @@ if ( ! defined( 'DAY_IN_SECONDS' ) ) {
 if ( ! defined( 'WEEK_IN_SECONDS' ) ) {
 	define( 'WEEK_IN_SECONDS', 604800 );
 }
-if ( ! defined( 'CHANGELOG_TO_BLOG_POST_VERSION' ) ) {
-	define( 'CHANGELOG_TO_BLOG_POST_VERSION', '1.0.0-test' );
+if ( ! defined( 'GITHUB_RELEASE_POSTS_VERSION' ) ) {
+	define( 'GITHUB_RELEASE_POSTS_VERSION', '1.0.0-test' );
 }
-if ( ! defined( 'CHANGELOG_TO_BLOG_POST_URL' ) ) {
-	define( 'CHANGELOG_TO_BLOG_POST_URL', 'https://example.com/wp-content/plugins/changelog-to-blog-post/' );
+if ( ! defined( 'GITHUB_RELEASE_POSTS_URL' ) ) {
+	define( 'GITHUB_RELEASE_POSTS_URL', 'https://example.com/wp-content/plugins/github-release-posts/' );
 }
-if ( ! defined( 'CHANGELOG_TO_BLOG_POST_PATH' ) ) {
-	define( 'CHANGELOG_TO_BLOG_POST_PATH', dirname( __DIR__, 2 ) . '/' );
+if ( ! defined( 'GITHUB_RELEASE_POSTS_PATH' ) ) {
+	define( 'GITHUB_RELEASE_POSTS_PATH', dirname( __DIR__, 2 ) . '/' );
 }
-if ( ! defined( 'CHANGELOG_TO_BLOG_POST_INC' ) ) {
-	define( 'CHANGELOG_TO_BLOG_POST_INC', dirname( __DIR__, 2 ) . '/includes/' );
+if ( ! defined( 'GITHUB_RELEASE_POSTS_INC' ) ) {
+	define( 'GITHUB_RELEASE_POSTS_INC', dirname( __DIR__, 2 ) . '/includes/' );
 }
 
 // Stub WP_Error class if not already defined (WP_Mock doesn't provide it).

@@ -2,16 +2,16 @@
 /**
  * Builds the AI prompt for release-to-blog-post generation.
  *
- * @package ChangelogToBlogPost\AI
+ * @package GitHubReleasePosts\AI
  */
 
-namespace TenUp\ChangelogToBlogPost\AI;
+namespace Jakemgold\GitHubReleasePosts\AI;
 
-use TenUp\ChangelogToBlogPost\Settings\Global_Settings;
-use TenUp\ChangelogToBlogPost\Settings\Repository_Settings;
+use Jakemgold\GitHubReleasePosts\Settings\Global_Settings;
+use Jakemgold\GitHubReleasePosts\Settings\Repository_Settings;
 
 /**
- * Hooks into ctbp_generate_prompt and returns a fully constructed prompt
+ * Hooks into ghrp_generate_prompt and returns a fully constructed prompt
  * string tailored to the release content and per-repo configuration.
  *
  * The prompt uses an editorial hierarchy that lets the AI decide what's
@@ -24,7 +24,7 @@ use TenUp\ChangelogToBlogPost\Settings\Repository_Settings;
  * results with English system prompts regardless of the site's locale.
  * The generated post content respects the site's language context.
  *
- * @see AI_Processor — fires ctbp_generate_prompt with ReleaseData as 2nd arg.
+ * @see AI_Processor — fires ghrp_generate_prompt with ReleaseData as 2nd arg.
  */
 class Prompt_Builder {
 
@@ -42,18 +42,18 @@ class Prompt_Builder {
 	) {}
 
 	/**
-	 * Registers the ctbp_generate_prompt filter.
+	 * Registers the ghrp_generate_prompt filter.
 	 *
 	 * @return void
 	 */
 	public function setup(): void {
-		add_filter( 'ctbp_generate_prompt', [ $this, 'build' ], 10, 2 );
+		add_filter( 'ghrp_generate_prompt', [ $this, 'build' ], 10, 2 );
 	}
 
 	/**
 	 * Builds the complete prompt string for a release.
 	 *
-	 * Hooked to the ctbp_generate_prompt filter.
+	 * Hooked to the ghrp_generate_prompt filter.
 	 *
 	 * @param string      $existing_prompt Unused default (empty string from AI_Processor).
 	 * @param ReleaseData $data    Structured release data.
@@ -75,11 +75,11 @@ class Prompt_Builder {
 		 * @param string      $body Release body text.
 		 * @param ReleaseData $data Release data.
 		 */
-		$body = (string) apply_filters( 'ctbp_release_body', $data->body, $data );
+		$body = (string) apply_filters( 'ghrp_release_body', $data->body, $data );
 
 		// Truncate very large release bodies to avoid exceeding AI token limits.
 		// 50,000 chars ≈ 12,500 tokens, leaving room for prompt instructions.
-		$max_body_length = (int) apply_filters( 'ctbp_max_release_body_length', 50000 );
+		$max_body_length = (int) apply_filters( 'ghrp_max_release_body_length', 50000 );
 		if ( strlen( $body ) > $max_body_length ) {
 			$body = substr( $body, 0, $max_body_length ) . "\n\n[Release notes truncated due to length.]";
 		}
@@ -105,7 +105,7 @@ class Prompt_Builder {
 		 * @param string $significance     Classified significance ('patch', 'minor', 'major', 'security').
 		 * @param ReleaseData $data        Release data.
 		 */
-		$title_guidance = (string) apply_filters( 'ctbp_prompt_title_guidance', $title_guidance, $significance, $data );
+		$title_guidance = (string) apply_filters( 'ghrp_prompt_title_guidance', $title_guidance, $significance, $data );
 
 		/**
 		 * Filters the content guidance portion of the prompt.
@@ -114,7 +114,7 @@ class Prompt_Builder {
 		 * @param string $significance     Classified significance.
 		 * @param ReleaseData $data        Release data.
 		 */
-		$content_guidance = (string) apply_filters( 'ctbp_prompt_content_guidance', $content_guidance, $significance, $data );
+		$content_guidance = (string) apply_filters( 'ghrp_prompt_content_guidance', $content_guidance, $significance, $data );
 
 		$custom_instructions = trim( $this->global_settings->get_custom_prompt_instructions() );
 
@@ -137,7 +137,7 @@ class Prompt_Builder {
 		 * @param ReleaseData $data         Release data.
 		 * @param string      $significance Classified significance.
 		 */
-		return (string) apply_filters( 'ctbp_prompt', $prompt, $data, $significance );
+		return (string) apply_filters( 'ghrp_prompt', $prompt, $data, $significance );
 	}
 
 	// -------------------------------------------------------------------------

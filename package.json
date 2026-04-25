@@ -1,7 +1,7 @@
 {
-	"name": "changelog-to-blog-post",
+	"name": "github-release-posts",
 	"version": "1.0.0",
-	"description": "Convert changelog entries into WordPress blog posts.",
+	"description": "Automatically generate WordPress blog posts from GitHub releases using AI.",
 	"scripts": {
 		"start": "10up-toolkit start",
 		"build": "10up-toolkit build",

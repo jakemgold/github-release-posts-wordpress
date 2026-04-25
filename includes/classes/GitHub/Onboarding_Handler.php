@@ -2,15 +2,15 @@
 /**
  * Onboarding preview draft handler.
  *
- * @package ChangelogToBlogPost
+ * @package GitHubReleasePosts
  */
 
-namespace TenUp\ChangelogToBlogPost\GitHub;
+namespace Jakemgold\GitHubReleasePosts\GitHub;
 
 /**
  * Triggers an immediate preview draft when a repository is first added.
  *
- * Fires the ctbp_process_release action (DOM-05/06 hooks here for generation),
+ * Fires the ghrp_process_release action (DOM-05/06 hooks here for generation),
  * records the latest release tag as last-seen so the first cron run does not
  * re-process it, and returns a notice payload for the admin UI.
  */
@@ -43,7 +43,7 @@ class Onboarding_Handler {
 			return $this->failure_notice(
 				sprintf(
 					/* translators: %s: error message */
-					__( 'Could not fetch the latest release: %s Use "Generate post" once your configuration is complete.', 'changelog-to-blog-post' ),
+					__( 'Could not fetch the latest release: %s Use "Generate post" once your configuration is complete.', 'github-release-posts' ),
 					$release->get_error_message()
 				)
 			);
@@ -51,7 +51,7 @@ class Onboarding_Handler {
 
 		if ( null === $release ) {
 			return $this->failure_notice(
-				__( 'No releases found for this repository. A draft will be generated automatically after the first release is published.', 'changelog-to-blog-post' )
+				__( 'No releases found for this repository. A draft will be generated automatically after the first release is published.', 'github-release-posts' )
 			);
 		}
 
@@ -69,7 +69,7 @@ class Onboarding_Handler {
 		 * @param array<string, mixed> $context Context flags: force_draft, onboarding.
 		 */
 		do_action(
-			'ctbp_process_release',
+			'ghrp_process_release',
 			Release_Queue::from_release( $identifier, $release ),
 			[
 				'force_draft' => true,
@@ -85,7 +85,7 @@ class Onboarding_Handler {
 				'type'     => 'success',
 				'message'  => sprintf(
 					/* translators: %s: post title */
-					__( 'Preview draft created: "%s". Review it, then publish or discard to confirm your setup is working correctly.', 'changelog-to-blog-post' ),
+					__( 'Preview draft created: "%s". Review it, then publish or discard to confirm your setup is working correctly.', 'github-release-posts' ),
 					$post->post_title
 				),
 				'post_url' => get_edit_post_link( $post->ID, 'raw' ),
@@ -94,7 +94,7 @@ class Onboarding_Handler {
 
 		// AC-014: generation not available yet (no AI connector configured).
 		return $this->failure_notice(
-			__( 'Repository saved. To generate a preview draft, set up an AI connector under Settings → Connectors, then use "Generate post".', 'changelog-to-blog-post' )
+			__( 'Repository saved. To generate a preview draft, set up an AI connector under Settings → Connectors, then use "Generate post".', 'github-release-posts' )
 		);
 	}
 

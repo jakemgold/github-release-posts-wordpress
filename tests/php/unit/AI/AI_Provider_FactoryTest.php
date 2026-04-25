@@ -2,14 +2,14 @@
 /**
  * Tests for AI\AI_Provider_Factory.
  *
- * @package ChangelogToBlogPost\Tests\AI
+ * @package GitHubReleasePosts\Tests\AI
  */
 
-namespace TenUp\ChangelogToBlogPost\Tests\AI;
+namespace Jakemgold\GitHubReleasePosts\Tests\AI;
 
-use TenUp\ChangelogToBlogPost\AI\AI_Provider_Factory;
-use TenUp\ChangelogToBlogPost\AI\AIProviderInterface;
-use TenUp\ChangelogToBlogPost\Settings\Global_Settings;
+use Jakemgold\GitHubReleasePosts\AI\AI_Provider_Factory;
+use Jakemgold\GitHubReleasePosts\AI\AIProviderInterface;
+use Jakemgold\GitHubReleasePosts\Settings\Global_Settings;
 use WP_Mock\Tools\TestCase;
 
 class AI_Provider_FactoryTest extends TestCase {
@@ -37,27 +37,27 @@ class AI_Provider_FactoryTest extends TestCase {
 	public function test_get_provider_returns_wp_error_when_no_provider_set(): void {
 		$this->settings->method( 'get_ai_provider' )->willReturn( '' );
 
-		\WP_Mock::onFilter( 'ctbp_register_ai_providers' )
+		\WP_Mock::onFilter( 'ghrp_register_ai_providers' )
 			->with( \Mockery::type( 'array' ) )
 			->reply( [] );
 
 		$result = $this->factory->get_provider();
 
 		$this->assertInstanceOf( \WP_Error::class, $result );
-		$this->assertSame( 'ctbp_no_provider', $result->get_error_code() );
+		$this->assertSame( 'ghrp_no_provider', $result->get_error_code() );
 	}
 
 	public function test_get_provider_returns_wp_error_for_unknown_slug(): void {
 		$this->settings->method( 'get_ai_provider' )->willReturn( 'unknown_provider' );
 
-		\WP_Mock::onFilter( 'ctbp_register_ai_providers' )
+		\WP_Mock::onFilter( 'ghrp_register_ai_providers' )
 			->with( \Mockery::type( 'array' ) )
 			->reply( [] );
 
 		$result = $this->factory->get_provider();
 
 		$this->assertInstanceOf( \WP_Error::class, $result );
-		$this->assertSame( 'ctbp_unknown_provider', $result->get_error_code() );
+		$this->assertSame( 'ghrp_unknown_provider', $result->get_error_code() );
 	}
 
 	public function test_get_provider_returns_connector_for_wp_ai_client(): void {
@@ -65,7 +65,7 @@ class AI_Provider_FactoryTest extends TestCase {
 
 		// Let the filter pass through so built-in providers are kept.
 		\WP_Mock::userFunction( 'apply_filters' )
-			->with( 'ctbp_register_ai_providers', \WP_Mock\Functions::type( 'array' ) )
+			->with( 'ghrp_register_ai_providers', \WP_Mock\Functions::type( 'array' ) )
 			->andReturnArg( 1 );
 
 		$result = $this->factory->get_provider();
@@ -91,14 +91,14 @@ class AI_Provider_FactoryTest extends TestCase {
 	}
 
 	// -------------------------------------------------------------------------
-	// ctbp_register_ai_providers hook
+	// ghrp_register_ai_providers hook
 	// -------------------------------------------------------------------------
 
 	public function test_invalid_registered_provider_is_rejected(): void {
 		$this->settings->method( 'get_ai_provider' )->willReturn( 'bad_provider' );
 
 		// Register a non-interface value — should be stripped.
-		\WP_Mock::onFilter( 'ctbp_register_ai_providers' )
+		\WP_Mock::onFilter( 'ghrp_register_ai_providers' )
 			->with( \Mockery::type( 'array' ) )
 			->reply( [ 'bad_provider' => new \stdClass() ] );
 
@@ -117,7 +117,7 @@ class AI_Provider_FactoryTest extends TestCase {
 
 		// Let the filter pass through so built-in providers are kept.
 		\WP_Mock::userFunction( 'apply_filters' )
-			->with( 'ctbp_register_ai_providers', \WP_Mock\Functions::type( 'array' ) )
+			->with( 'ghrp_register_ai_providers', \WP_Mock\Functions::type( 'array' ) )
 			->andReturnArg( 1 );
 
 		$providers = $this->factory->get_available_providers();

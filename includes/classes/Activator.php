@@ -2,10 +2,10 @@
 /**
  * Plugin activation and deactivation handlers.
  *
- * @package ChangelogToBlogPost
+ * @package GitHubReleasePosts
  */
 
-namespace TenUp\ChangelogToBlogPost;
+namespace Jakemgold\GitHubReleasePosts;
 
 /**
  * Handles plugin activation and deactivation lifecycle events.
@@ -74,7 +74,7 @@ class Activator {
 		 *
 		 * @param string $frequency Default schedule name.
 		 */
-		$interval = (string) apply_filters( 'ctbp_check_frequency', 'daily' );
+		$interval = (string) apply_filters( 'ghrp_check_frequency', 'daily' );
 
 		if ( ! wp_next_scheduled( Plugin_Constants::CRON_HOOK_RELEASE_CHECK ) ) {
 			wp_schedule_event( time(), $interval, Plugin_Constants::CRON_HOOK_RELEASE_CHECK );

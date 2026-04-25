@@ -2,18 +2,18 @@
 /**
  * Creates WordPress posts from AI-generated content.
  *
- * @package ChangelogToBlogPost\Post
+ * @package GitHubReleasePosts\Post
  */
 
-namespace TenUp\ChangelogToBlogPost\Post;
+namespace Jakemgold\GitHubReleasePosts\Post;
 
-use TenUp\ChangelogToBlogPost\AI\GeneratedPost;
-use TenUp\ChangelogToBlogPost\AI\ReleaseData;
-use TenUp\ChangelogToBlogPost\Plugin_Constants;
-use TenUp\ChangelogToBlogPost\Settings\Repository_Settings;
+use Jakemgold\GitHubReleasePosts\AI\GeneratedPost;
+use Jakemgold\GitHubReleasePosts\AI\ReleaseData;
+use Jakemgold\GitHubReleasePosts\Plugin_Constants;
+use Jakemgold\GitHubReleasePosts\Settings\Repository_Settings;
 
 /**
- * Hooks into ctbp_post_generated and creates a WordPress post with source
+ * Hooks into ghrp_post_generated and creates a WordPress post with source
  * attribution meta. Ensures idempotency: the same repo + tag combination
  * never produces duplicate posts.
  */
@@ -29,19 +29,19 @@ class Post_Creator {
 	) {}
 
 	/**
-	 * Registers the ctbp_post_generated action.
+	 * Registers the ghrp_post_generated action.
 	 *
 	 * @return void
 	 */
 	public function setup(): void {
-		add_action( 'ctbp_post_generated', [ $this, 'handle' ], 10, 3 );
+		add_action( 'ghrp_post_generated', [ $this, 'handle' ], 10, 3 );
 	}
 
 	/**
 	 * Creates a WordPress post from AI-generated content.
 	 *
 	 * Checks idempotency first — if a post already exists for the given
-	 * repo + tag, fires ctbp_post_created with the existing post ID and
+	 * repo + tag, fires ghrp_post_created with the existing post ID and
 	 * returns without creating a duplicate.
 	 *
 	 * @param GeneratedPost $post    Generated post data (subtitle + HTML body).
@@ -64,7 +64,7 @@ class Post_Creator {
 				 * @param ReleaseData   $data     The source release data.
 				 * @param array         $context  Generation context flags.
 				 */
-				do_action( 'ctbp_post_created', $existing_id, $post, $data, $context );
+				do_action( 'ghrp_post_created', $existing_id, $post, $data, $context );
 				return;
 			}
 		}
@@ -117,7 +117,7 @@ class Post_Creator {
 		$this->set_featured_image( $post_id, $data->identifier );
 
 		/** This action is documented above. */
-		do_action( 'ctbp_post_created', $post_id, $post, $data, $context );
+		do_action( 'ghrp_post_created', $post_id, $post, $data, $context );
 	}
 
 	/**
@@ -183,7 +183,7 @@ class Post_Creator {
 			return '';
 		}
 
-		$text = __( 'This post was generated from release notes with the help of AI using GitHub Release Posts plugin for WordPress.', 'changelog-to-blog-post' );
+		$text = __( 'This post was generated from release notes with the help of AI using GitHub Release Posts plugin for WordPress.', 'github-release-posts' );
 
 		/**
 		 * Filters the AI disclosure text appended to generated posts.
@@ -194,14 +194,14 @@ class Post_Creator {
 		 * @param int         $post_id WordPress post ID (0 during initial creation).
 		 * @param ReleaseData $data    Release data.
 		 */
-		$text = (string) apply_filters( 'ctbp_ai_disclosure_text', $text, 0, $data );
+		$text = (string) apply_filters( 'ghrp_ai_disclosure_text', $text, 0, $data );
 
 		if ( '' === $text ) {
 			return '';
 		}
 
-		return "\n\n" . '<!-- wp:paragraph {"fontSize":"small","className":"ctbp-ai-disclosure"} -->' . "\n"
-			. '<p class="has-small-font-size ctbp-ai-disclosure"><em>' . esc_html( $text ) . '</em></p>' . "\n"
+		return "\n\n" . '<!-- wp:paragraph {"fontSize":"small","className":"ghrp-ai-disclosure"} -->' . "\n"
+			. '<p class="has-small-font-size ghrp-ai-disclosure"><em>' . esc_html( $text ) . '</em></p>' . "\n"
 			. '<!-- /wp:paragraph -->';
 	}
 
@@ -266,7 +266,7 @@ class Post_Creator {
 		 * @param int    $post_id      WordPress post ID.
 		 * @param string $identifier   Repository identifier.
 		 */
-		$attachment_id = (int) apply_filters( 'ctbp_post_featured_image', $attachment_id, $post_id, $identifier );
+		$attachment_id = (int) apply_filters( 'ghrp_post_featured_image', $attachment_id, $post_id, $identifier );
 
 		if ( $attachment_id > 0 ) {
 			set_post_thumbnail( $post_id, $attachment_id );
@@ -551,7 +551,7 @@ class Post_Creator {
 		$total    = 0;
 
 		$allowed_domains = (array) apply_filters(
-			'ctbp_sideload_allowed_domains',
+			'ghrp_sideload_allowed_domains',
 			[
 				'github.com',
 				'githubusercontent.com',

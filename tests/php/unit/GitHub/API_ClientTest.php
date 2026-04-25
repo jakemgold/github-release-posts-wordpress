@@ -2,15 +2,15 @@
 /**
  * Tests for GitHub\API_Client.
  *
- * @package ChangelogToBlogPost\Tests\GitHub
+ * @package GitHubReleasePosts\Tests\GitHub
  */
 
-namespace TenUp\ChangelogToBlogPost\Tests\GitHub;
+namespace Jakemgold\GitHubReleasePosts\Tests\GitHub;
 
-use TenUp\ChangelogToBlogPost\GitHub\API_Client;
-use TenUp\ChangelogToBlogPost\GitHub\Release;
-use TenUp\ChangelogToBlogPost\Plugin_Constants;
-use TenUp\ChangelogToBlogPost\Settings\Global_Settings;
+use Jakemgold\GitHubReleasePosts\GitHub\API_Client;
+use Jakemgold\GitHubReleasePosts\GitHub\Release;
+use Jakemgold\GitHubReleasePosts\Plugin_Constants;
+use Jakemgold\GitHubReleasePosts\Settings\Global_Settings;
 use WP_Mock\Tools\TestCase;
 
 /**
