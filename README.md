@@ -116,6 +116,10 @@ vendor/bin/phpcs --standard=phpcs.xml.dist includes/  # WPCS lint
 
 GPL-2.0-or-later. See [LICENSE](https://www.gnu.org/licenses/gpl-2.0.html).
 
+## Trademarks
+
+GitHub Release Posts is an independent project. It is not affiliated with, endorsed by, or sponsored by GitHub, Inc. or the WordPress Foundation. "GitHub" and "WordPress" are used here for descriptive purposes only.
+
 ## Like what you see?
 
 <a href="http://10up.com/contact/"><img src="https://github.com/10up/.github/raw/trunk/profile/10up-github-banner.jpg" width="850" alt="Work with the 10up WordPress Practice at Fueled"></a>

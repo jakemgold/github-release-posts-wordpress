@@ -52,6 +52,8 @@ You can also generate a post on demand at any time from the Repositories tab.
 * PHP 8.2 or later
 * At least one AI connector configured under Settings → Connectors (Anthropic, OpenAI, or Google recommended)
 
+*GitHub Release Posts is an independent project. It is not affiliated with, endorsed by, or sponsored by GitHub, Inc. or the WordPress Foundation. "GitHub" and "WordPress" are used here for descriptive purposes only.*
+
 == Installation ==
 
 1. Upload the plugin files to `/wp-content/plugins/github-release-posts/`, or install via the WordPress Plugins screen.
