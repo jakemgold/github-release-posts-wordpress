@@ -54,16 +54,6 @@ class UninstallTest extends TestCase {
 				->once();
 		}
 
-		// Legacy/deprecated option cleanup.
-		\WP_Mock::userFunction( 'delete_option' )->with( 'ghrp_default_post_status' )->once();
-		\WP_Mock::userFunction( 'delete_option' )->with( 'ghrp_default_category' )->once();
-		\WP_Mock::userFunction( 'delete_option' )->with( 'ghrp_default_tags' )->once();
-		\WP_Mock::userFunction( 'delete_option' )->with( 'ghrp_check_interval' )->once();
-		\WP_Mock::userFunction( 'delete_option' )->with( 'ghrp_notification_email' )->once();
-		\WP_Mock::userFunction( 'delete_option' )->with( 'ghrp_notification_email_secondary' )->once();
-		\WP_Mock::userFunction( 'delete_option' )->with( 'ghrp_notification_trigger' )->once();
-		\WP_Mock::userFunction( 'delete_option' )->with( 'ghrp_notifications_enabled' )->once();
-
 		\WP_Mock::userFunction( 'delete_post_meta_by_key' )->andReturn( true );
 		\WP_Mock::userFunction( 'wp_clear_scheduled_hook' )->andReturn( null );
 

@@ -5,7 +5,7 @@ Tags:              github, releases, blog post, ai, automation
 Requires at least: 7.0
 Tested up to:      7.0
 Requires PHP:      8.2
-Stable tag:        0.9.0
+Stable tag:        0.9.1
 License:           GPL-2.0-or-later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -97,6 +97,9 @@ A Release Attribution panel appears in the document sidebar, showing which GitHu
 
 == Changelog ==
 
+= 0.9.1 =
+* Fix: Plugin now fails gracefully on WordPress versions older than 7.0 instead of fataling. Adds explicit WordPress and PHP version checks before loading the autoloader, and shows an admin notice explaining the requirements.
+
 = 0.9.0 =
 * Plugin renamed and rebranded to **GitHub Release Posts**.
 * Folder, slug, text domain, PHP namespace, hooks, options, REST routes, and CSS/JS prefixes all updated to match the new name.
@@ -123,6 +126,9 @@ A Release Attribution panel appears in the document sidebar, showing which GitHu
 * Test notification email feature.
 
 == Upgrade Notice ==
+
+= 0.9.1 =
+Fixes a fatal error when the plugin is loaded on WordPress versions older than 7.0; now degrades gracefully with an admin notice.
 
 = 0.9.0 =
 Plugin renamed to GitHub Release Posts. Hooks, options, REST routes, and CSS prefixes all changed to `ghrp_*` / `ghrp-`. No migration from earlier pre-release versions — uninstall the old plugin and install fresh.
