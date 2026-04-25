@@ -92,6 +92,21 @@ if ( $admin_notice ) {
 		</div>
 	<?php endif; ?>
 
+	<?php if ( ! \Jakemgold\GitHubReleasePosts\Admin\Settings_Page::is_any_connector_configured() ) : ?>
+		<div class="notice notice-warning">
+			<p>
+				<strong><?php echo esc_html__( 'No AI connector is configured.', 'github-release-posts' ); ?></strong>
+				<?php
+				printf(
+					/* translators: %s: link to the WordPress Connectors settings page */
+					wp_kses( __( 'Post generation is disabled until at least one AI connector is set up and ready in %s.', 'github-release-posts' ), [ 'a' => [ 'href' => [] ] ] ),
+					'<a href="' . esc_url( admin_url( 'options-connectors.php' ) ) . '">' . esc_html__( 'WordPress Connectors', 'github-release-posts' ) . '</a>'
+				);
+				?>
+			</p>
+		</div>
+	<?php endif; ?>
+
 	<?php
 	$onboarding_repos = new \Jakemgold\GitHubReleasePosts\Settings\Repository_Settings();
 	$has_repos        = ! empty( $onboarding_repos->get_repositories() );

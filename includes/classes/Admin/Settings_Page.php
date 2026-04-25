@@ -338,6 +338,30 @@ class Settings_Page {
 	}
 
 	/**
+	 * Fast, non-cached check for whether any AI connector is configured and ready.
+	 *
+	 * Used by the plugin admin page template to show a top-of-page warning
+	 * notice. Avoids the cached status payload so the notice updates as soon
+	 * as the user toggles connectors.
+	 *
+	 * @return bool True if at least one registered provider is configured.
+	 */
+	public static function is_any_connector_configured(): bool {
+		if ( ! class_exists( 'WordPress\AiClient\AiClient' ) ) {
+			return false;
+		}
+
+		$registry = \WordPress\AiClient\AiClient::defaultRegistry();
+		foreach ( $registry->getRegisteredProviderIds() as $id ) {
+			if ( $registry->isProviderConfigured( $id ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
 	 * Returns the current connector status, cached for 1 minute.
 	 *
 	 * @return array{configured: bool, provider_name: string, provider_id: string, model_id: string, is_preferred_model: bool, is_preferred_provider: bool, recommended_model: string}

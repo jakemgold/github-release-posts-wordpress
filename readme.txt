@@ -5,7 +5,7 @@ Tags:              github, releases, blog post, ai, automation
 Requires at least: 7.0
 Tested up to:      7.0
 Requires PHP:      8.2
-Stable tag:        0.9.1
+Stable tag:        0.9.2
 License:           GPL-2.0-or-later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -97,6 +97,9 @@ A Release Attribution panel appears in the document sidebar, showing which GitHu
 
 == Changelog ==
 
+= 0.9.2 =
+* Fix: Show a warning notice at the top of the plugin admin page (both tabs) when no AI connector is configured or ready. Previously the warning was buried inside the AI Connector status field on the Settings tab and was cached for up to a minute, so it didn't always reflect the current state after toggling connectors.
+
 = 0.9.1 =
 * Fix: Plugin now fails gracefully on WordPress versions older than 7.0 instead of fataling. Adds explicit WordPress and PHP version checks before loading the autoloader, and shows an admin notice explaining the requirements.
 
@@ -126,6 +129,9 @@ A Release Attribution panel appears in the document sidebar, showing which GitHu
 * Test notification email feature.
 
 == Upgrade Notice ==
+
+= 0.9.2 =
+Adds a top-of-page warning notice on the plugin admin page when no AI connector is configured.
 
 = 0.9.1 =
 Fixes a fatal error when the plugin is loaded on WordPress versions older than 7.0; now degrades gracefully with an admin notice.
