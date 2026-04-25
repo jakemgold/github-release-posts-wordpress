@@ -39,14 +39,12 @@ if ( ! defined( 'GITHUB_RELEASE_POSTS_INC' ) ) {
 	define( 'GITHUB_RELEASE_POSTS_INC', GITHUB_RELEASE_POSTS_PATH . 'includes/' );
 }
 
-// Bail early on incompatible WordPress or PHP versions, before loading the
-// autoloader or referencing any plugin classes. This keeps the plugin from
-// fataling on older WordPress installs where the AI Client API is missing
-// or the underlying types it depends on are unavailable.
-global $wp_version;
+// Bail early on incompatible environments, before loading the autoloader
+// or referencing any plugin classes. The presence of wp_ai_client_prompt()
+// is the actual signal we care about (rather than the WordPress version
+// string, which sorts prereleases like "7.0-RC1" below "7.0").
 if (
-	version_compare( (string) ( $wp_version ?? '0' ), '7.0', '<' )
-	|| version_compare( PHP_VERSION, '8.2', '<' )
+	version_compare( PHP_VERSION, '8.2', '<' )
 	|| ! function_exists( 'wp_ai_client_prompt' )
 ) {
 	add_action(
