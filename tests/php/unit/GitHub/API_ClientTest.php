@@ -402,4 +402,116 @@ class API_ClientTest extends TestCase {
 			$this->fail( 'Rate limit exhaustion should never throw. Got: ' . $e->getMessage() );
 		}
 	}
+
+	// -------------------------------------------------------------------------
+	// fetch_releases() — list endpoint
+	// -------------------------------------------------------------------------
+
+	/**
+	 * @covers API_Client::fetch_releases
+	 */
+	public function test_fetch_releases_returns_release_array_filtered(): void {
+		$payload = [
+			[
+				'tag_name'     => 'v3.0.0',
+				'name'         => 'v3.0.0',
+				'published_at' => '2026-04-01T00:00:00Z',
+				'html_url'     => 'https://github.com/10up/plugin/releases/tag/v3.0.0',
+				'body'         => '',
+				'assets'       => [],
+				'draft'        => false,
+				'prerelease'   => false,
+			],
+			[
+				'tag_name'     => 'v3.0.0-rc1',
+				'name'         => 'v3.0.0-rc1',
+				'published_at' => '2026-03-15T00:00:00Z',
+				'html_url'     => 'https://github.com/10up/plugin/releases/tag/v3.0.0-rc1',
+				'body'         => '',
+				'assets'       => [],
+				'draft'        => false,
+				'prerelease'   => true, // Should be skipped.
+			],
+			[
+				'tag_name'     => 'v2.9.0',
+				'name'         => 'v2.9.0',
+				'published_at' => '2026-02-01T00:00:00Z',
+				'html_url'     => 'https://github.com/10up/plugin/releases/tag/v2.9.0',
+				'body'         => '',
+				'assets'       => [],
+			],
+		];
+		$body = json_encode( $payload );
+
+		\WP_Mock::userFunction( 'wp_remote_get' )->andReturn( $this->mock_response( 200, $body ) );
+		\WP_Mock::userFunction( 'is_wp_error' )->andReturn( false );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_response_code' )->andReturn( 200 );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_body' )->andReturn( $body );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_header' )->andReturn( '100' );
+		\WP_Mock::userFunction( 'set_transient' )->andReturn( true );
+
+		$client = new API_Client( $this->settings_mock() );
+		$result = $client->fetch_releases( '10up/plugin' );
+
+		$this->assertIsArray( $result );
+		$this->assertCount( 2, $result );
+		$this->assertSame( 'v3.0.0', $result[0]->tag );
+		$this->assertSame( 'v2.9.0', $result[1]->tag );
+	}
+
+	/**
+	 * @covers API_Client::fetch_releases
+	 */
+	public function test_fetch_releases_returns_empty_array_for_404(): void {
+		\WP_Mock::userFunction( 'wp_remote_get' )->andReturn( $this->mock_response( 404 ) );
+		\WP_Mock::userFunction( 'is_wp_error' )->andReturn( false );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_response_code' )->andReturn( 404 );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_header' )->andReturn( '100' );
+		\WP_Mock::userFunction( 'set_transient' )->andReturn( true );
+
+		$client = new API_Client( $this->settings_mock() );
+		$result = $client->fetch_releases( '10up/plugin' );
+
+		$this->assertSame( [], $result );
+	}
+
+	// -------------------------------------------------------------------------
+	// fetch_release_by_tag()
+	// -------------------------------------------------------------------------
+
+	/**
+	 * @covers API_Client::fetch_release_by_tag
+	 */
+	public function test_fetch_release_by_tag_returns_release(): void {
+		$body = json_encode( $this->valid_release_payload() );
+
+		\WP_Mock::userFunction( 'wp_remote_get' )->andReturn( $this->mock_response( 200, $body ) );
+		\WP_Mock::userFunction( 'is_wp_error' )->andReturn( false );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_response_code' )->andReturn( 200 );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_body' )->andReturn( $body );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_header' )->andReturn( '100' );
+		\WP_Mock::userFunction( 'set_transient' )->andReturn( true );
+
+		$client  = new API_Client( $this->settings_mock() );
+		$release = $client->fetch_release_by_tag( '10up/plugin', 'v1.2.3' );
+
+		$this->assertInstanceOf( Release::class, $release );
+		$this->assertSame( 'v1.2.3', $release->tag );
+	}
+
+	/**
+	 * @covers API_Client::fetch_release_by_tag
+	 */
+	public function test_fetch_release_by_tag_returns_null_for_unknown_tag(): void {
+		\WP_Mock::userFunction( 'wp_remote_get' )->andReturn( $this->mock_response( 404 ) );
+		\WP_Mock::userFunction( 'is_wp_error' )->andReturn( false );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_response_code' )->andReturn( 404 );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_header' )->andReturn( '100' );
+		\WP_Mock::userFunction( 'set_transient' )->andReturn( true );
+
+		$client = new API_Client( $this->settings_mock() );
+		$result = $client->fetch_release_by_tag( '10up/plugin', 'v9.9.9' );
+
+		$this->assertNull( $result );
+	}
 }

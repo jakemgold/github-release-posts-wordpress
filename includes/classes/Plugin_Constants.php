@@ -85,6 +85,15 @@ class Plugin_Constants {
 	const OPTION_RESEARCH_DEPTH = 'ghrp_research_depth';
 
 	/**
+	 * Post title format: 'full', 'version', or 'none'.
+	 * Controls the auto-prefix applied to generated post titles.
+	 *  - 'full'    "{Display Name} {tag} — {AI subtitle}" (default)
+	 *  - 'version' "Version {tag} — {AI subtitle}"
+	 *  - 'none'    AI writes the full title with no auto-prefix.
+	 */
+	const OPTION_TITLE_FORMAT = 'ghrp_title_format';
+
+	/**
 	 * Legacy notification trigger option key.
 	 *
 	 * @deprecated Use OPTION_NOTIFY_SITE_OWNER and OPTION_ADDITIONAL_EMAILS instead.
@@ -232,6 +241,7 @@ class Plugin_Constants {
 			self::OPTION_AI_PROVIDER                => 'wp_ai_client',
 			self::OPTION_AUDIENCE_LEVEL             => 'mixed',
 			self::OPTION_RESEARCH_DEPTH             => 'standard',
+			self::OPTION_TITLE_FORMAT               => 'full',
 			self::OPTION_CUSTOM_PROMPT_INSTRUCTIONS => '',
 			self::OPTION_AI_DISCLOSURE              => false,
 			self::OPTION_LAST_RUN_AT                => 0,

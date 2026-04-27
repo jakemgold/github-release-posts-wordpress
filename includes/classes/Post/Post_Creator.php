@@ -10,6 +10,7 @@ namespace Jakemgold\GitHubReleasePosts\Post;
 use Jakemgold\GitHubReleasePosts\AI\GeneratedPost;
 use Jakemgold\GitHubReleasePosts\AI\ReleaseData;
 use Jakemgold\GitHubReleasePosts\Plugin_Constants;
+use Jakemgold\GitHubReleasePosts\Settings\Global_Settings;
 use Jakemgold\GitHubReleasePosts\Settings\Repository_Settings;
 
 /**
@@ -22,10 +23,12 @@ class Post_Creator {
 	/**
 	 * Constructor.
 	 *
-	 * @param Repository_Settings $repo_settings Per-repo configuration (display name lookup).
+	 * @param Repository_Settings $repo_settings   Per-repo configuration (display name lookup).
+	 * @param Global_Settings     $global_settings Site-wide settings (title format, etc.).
 	 */
 	public function __construct(
 		private readonly Repository_Settings $repo_settings,
+		private readonly Global_Settings $global_settings,
 	) {}
 
 	/**
@@ -89,6 +92,16 @@ class Post_Creator {
 
 		if ( '' !== $slug ) {
 			$insert_args['post_name'] = $slug;
+		}
+
+		// Honor an explicit post date passed in via context (used when manually
+		// generating a post for an older release so the new draft does not appear
+		// newer than later releases).
+		if ( ! empty( $context['post_date_gmt'] ) ) {
+			$insert_args['post_date_gmt'] = (string) $context['post_date_gmt'];
+		}
+		if ( ! empty( $context['post_date'] ) ) {
+			$insert_args['post_date'] = (string) $context['post_date'];
 		}
 
 		$post_id = wp_insert_post( $insert_args, true );
@@ -274,20 +287,38 @@ class Post_Creator {
 	}
 
 	/**
-	 * Builds the full post title: "{Display Name} {tag} — {subtitle}".
+	 * Builds the full post title based on the configured title format.
 	 *
-	 * Looks up the display name from per-repo configuration; falls back to
-	 * deriving it from the repository slug.
+	 *  - 'full'    "{Display Name} {tag} — {subtitle}"
+	 *  - 'version' "Version {tag} — {subtitle}" (leading 'v' stripped)
+	 *  - 'none'    "{ai-generated full title}" (no auto-prefix)
 	 *
 	 * @param string $identifier Repository identifier (owner/repo).
 	 * @param string $tag        Release tag.
-	 * @param string $subtitle   AI-generated subtitle.
+	 * @param string $ai_title   AI-generated subtitle (or full title in 'none' mode).
 	 * @return string Full post title.
 	 */
-	private function build_title( string $identifier, string $tag, string $subtitle ): string {
+	private function build_title( string $identifier, string $tag, string $ai_title ): string {
+		$format       = $this->global_settings->get_title_format();
 		$display_name = $this->resolve_display_name( $identifier );
 		$tag          = self::format_version_tag( $tag );
-		return "{$display_name} {$tag} — {$subtitle}";
+
+		$title = match ( $format ) {
+			'none'    => $ai_title,
+			'version' => 'Version ' . ltrim( $tag, 'vV' ) . ' — ' . $ai_title,
+			default   => "{$display_name} {$tag} — {$ai_title}",
+		};
+
+		/**
+		 * Filters the full post title before it is saved.
+		 *
+		 * @param string $title       Final title built from the configured format.
+		 * @param string $identifier  Repository identifier (owner/repo).
+		 * @param string $tag         Formatted release tag.
+		 * @param string $ai_title    AI-generated subtitle (or full title in 'none' mode).
+		 * @param string $format      Active title format ('full', 'version', or 'none').
+		 */
+		return (string) apply_filters( 'ghrp_post_title', $title, $identifier, $tag, $ai_title, $format );
 	}
 
 	/**

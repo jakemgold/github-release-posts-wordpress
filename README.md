@@ -45,6 +45,8 @@ AI-written content with embedded images, plus the GitHub Release sidebar panel f
 - SEO-friendly post slugs and excerpts generated automatically by AI
 - Configurable publish/draft workflow with per-repository overrides
 - Per-repository post defaults (categories, tags, post status, author, featured image)
+- Choose your post title format — prefix with project name and version, version only, or no auto-prefix (let the AI write the full title in single-project sites)
+- Generate posts on demand for any historical release — pick from a version dropdown when a repo has multiple releases; older releases are automatically backdated to keep the archive in chronological order
 - Custom prompt instructions to guide AI writing style, tone, and voice
 - Regenerate posts with feedback — refine AI output directly from the block editor sidebar
 - Email notifications on draft creation, publication, or both
@@ -79,6 +81,7 @@ The plugin is extensible via filter hooks at every stage of the pipeline:
 | `ghrp_default_tags` | Default tags for new repos |
 | `ghrp_post_status_options` | Post status dropdown choices |
 | `ghrp_post_status` | Override status per-release before it's applied |
+| `ghrp_post_title` | Override the final post title (after format prefixing) |
 | `ghrp_post_terms` | Override categories/tags per-release |
 | `ghrp_post_featured_image` | Override featured image per-release |
 | `ghrp_ai_disclosure_text` | Customize or suppress the AI disclosure note |

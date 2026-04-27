@@ -142,7 +142,7 @@ class Plugin {
 		( new AI_Processor( new AI_Provider_Factory( $global_settings ) ) )->setup();
 
 		// Post creation — creates WordPress posts from AI-generated content.
-		( new Post_Creator( $repo_settings ) )->setup();
+		( new Post_Creator( $repo_settings, $global_settings ) )->setup();
 		( new Taxonomy_Assigner( $repo_settings ) )->setup();
 		( new Publish_Workflow( $repo_settings ) )->setup();
 

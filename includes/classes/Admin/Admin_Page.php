@@ -169,8 +169,11 @@ class Admin_Page {
 					. '<li><strong>' . esc_html__( 'Display Name', 'github-release-posts' ) . '</strong> — ' . esc_html__( 'The project name used in post titles. Defaults to a cleaned-up version of the repo name.', 'github-release-posts' ) . '</li>'
 					. '<li><strong>' . esc_html__( 'Project Link', 'github-release-posts' ) . '</strong> — ' . esc_html__( 'A URL included in the generated post as a download or project link. If the repository is a WordPress plugin, you can enter just the WordPress.org slug instead. If left blank, the GitHub release URL is used.', 'github-release-posts' ) . '</li>'
 					. '</ul>'
-					. '<h4>' . esc_html__( 'Generate Draft Now', 'github-release-posts' ) . '</h4>'
-					. '<p>' . esc_html__( 'Creates a post from the latest release immediately, bypassing the cron schedule. Useful for testing your setup or generating a post on demand.', 'github-release-posts' ) . '</p>',
+					. '<h4>' . esc_html__( 'Generate Post', 'github-release-posts' ) . '</h4>'
+					. '<p>' . esc_html__( 'Creates a post from a GitHub release immediately, bypassing the cron schedule. If the repository has multiple releases, a picker lets you choose any historical version — useful for backfilling an archive of past releases.', 'github-release-posts' ) . '</p>'
+					. '<p>' . esc_html__( 'Posts generated for older releases are automatically backdated to one hour after the release\'s GitHub publication time, so they slot into the archive in the correct chronological order. You can adjust the date in the editor before publishing.', 'github-release-posts' ) . '</p>'
+					. '<p>' . esc_html__( 'If a post already exists for the selected version, the picker shows an inline warning and re-generation creates a new revision while preserving the existing post date and URL slug.', 'github-release-posts' ) . '</p>'
+					. '<p>' . esc_html__( 'After generation succeeds, a green checkmark appears next to the Generate post button — click it to jump straight to the new post in the editor.', 'github-release-posts' ) . '</p>',
 			]
 		);
 
@@ -192,6 +195,14 @@ class Admin_Page {
 				. '<p>' . esc_html__( 'Controls how much context the AI gathers before writing. "Standard" uses the release notes, linked issues/PRs, and README. "Deep" also fetches commit messages and file change summaries between the previous and current release, giving the AI more detail to work with — especially useful for releases with sparse notes.', 'github-release-posts' ) . '</p>'
 				. '<h4>' . esc_html__( 'Post Audience', 'github-release-posts' ) . '</h4>'
 				. '<p>' . esc_html__( 'Controls the technical depth of generated posts. "Site owners & managers" avoids all jargon; "Engineering teams" includes hook signatures, code examples, and architecture details.', 'github-release-posts' ) . '</p>'
+				. '<h4>' . esc_html__( 'Post Titles', 'github-release-posts' ) . '</h4>'
+				. '<p>' . esc_html__( 'Controls the format of generated post titles:', 'github-release-posts' ) . '</p>'
+				. '<ul>'
+				. '<li><strong>' . esc_html__( 'Plugin name and version', 'github-release-posts' ) . '</strong> — ' . esc_html__( 'e.g. "My Plugin v1.2 — New dashboard widget". Recommended for sites covering multiple projects.', 'github-release-posts' ) . '</li>'
+				. '<li><strong>' . esc_html__( 'Version number only', 'github-release-posts' ) . '</strong> — ' . esc_html__( 'e.g. "Version 1.2 — New dashboard widget". Drops the project name from the prefix.', 'github-release-posts' ) . '</li>'
+				. '<li><strong>' . esc_html__( 'No prefix', 'github-release-posts' ) . '</strong> — ' . esc_html__( 'The AI writes the full title with no automatic prefix. Recommended for sites focused on a single project, where leading every title with the project name and version reads as repetitive.', 'github-release-posts' ) . '</li>'
+				. '</ul>'
+				. '<p>' . esc_html__( 'Developers can override the final title via the ghrp_post_title filter.', 'github-release-posts' ) . '</p>'
 				. '<h4>' . esc_html__( 'Custom Prompt Instructions', 'github-release-posts' ) . '</h4>'
 				. '<p>' . esc_html__( 'Add extra instructions to guide the AI\'s writing style, tone, or voice. For example: "Write in a friendly, conversational tone" or "Our readers are non-technical site owners." Keep it under 500 characters for best results.', 'github-release-posts' ) . '</p>'
 				. '<h4>' . esc_html__( 'AI Disclosure', 'github-release-posts' ) . '</h4>'
@@ -287,29 +298,33 @@ class Admin_Page {
 				'restNonce'         => wp_create_nonce( 'wp_rest' ),
 				'blockEditorActive' => self::is_block_editor_active(),
 				'i18n'              => [
-					'unsavedChanges'    => __( 'You have unsaved changes. Are you sure you want to leave this tab?', 'github-release-posts' ),
-					'confirmRemove'     => __( 'Are you sure you want to remove this repository? This cannot be undone.', 'github-release-posts' ),
-					'validating'        => __( 'Validating…', 'github-release-posts' ),
-					'slugValid'         => __( 'Found on WordPress.org.', 'github-release-posts' ),
-					'slugNotFound'      => __( 'Not found on WordPress.org.', 'github-release-posts' ),
-					'validUrl'          => __( 'Valid URL.', 'github-release-posts' ),
-					'invalidUrl'        => __( 'Invalid URL format.', 'github-release-posts' ),
-					'pluginLinkHint'    => __( 'Enter a valid URL or WordPress.org slug.', 'github-release-posts' ),
-					'selectImage'       => __( 'Select Featured Image', 'github-release-posts' ),
-					'useImage'          => __( 'Use this image', 'github-release-posts' ),
-					'removeImage'       => __( 'Remove', 'github-release-posts' ),
-					'notImplemented'    => __( 'This feature is not yet available.', 'github-release-posts' ),
-					'edit'              => __( 'Edit', 'github-release-posts' ),
-					'editLabel'         => __( 'Edit:', 'github-release-posts' ),
-					'done'              => __( 'Done', 'github-release-posts' ),
-					'generateDraft'     => __( 'Generate draft post', 'github-release-posts' ),
-					'generatePost'      => __( 'Generate post', 'github-release-posts' ),
-					'generating'        => __( 'Generating…', 'github-release-posts' ),
-					'draftCreated'      => __( 'Draft created.', 'github-release-posts' ),
-					'viewDraft'         => __( 'View draft', 'github-release-posts' ),
-					'regenerateConfirm' => __( 'A post already exists for this release. Regenerate it?', 'github-release-posts' ),
-					'valid'             => __( 'Valid', 'github-release-posts' ),
-					'connectionSuccess' => __( 'Connection successful.', 'github-release-posts' ),
+					'unsavedChanges'        => __( 'You have unsaved changes. Are you sure you want to leave this tab?', 'github-release-posts' ),
+					'confirmRemove'         => __( 'Are you sure you want to remove this repository? This cannot be undone.', 'github-release-posts' ),
+					'validating'            => __( 'Validating…', 'github-release-posts' ),
+					'slugValid'             => __( 'Found on WordPress.org.', 'github-release-posts' ),
+					'slugNotFound'          => __( 'Not found on WordPress.org.', 'github-release-posts' ),
+					'validUrl'              => __( 'Valid URL.', 'github-release-posts' ),
+					'invalidUrl'            => __( 'Invalid URL format.', 'github-release-posts' ),
+					'pluginLinkHint'        => __( 'Enter a valid URL or WordPress.org slug.', 'github-release-posts' ),
+					'selectImage'           => __( 'Select Featured Image', 'github-release-posts' ),
+					'useImage'              => __( 'Use this image', 'github-release-posts' ),
+					'removeImage'           => __( 'Remove', 'github-release-posts' ),
+					'notImplemented'        => __( 'This feature is not yet available.', 'github-release-posts' ),
+					'edit'                  => __( 'Edit', 'github-release-posts' ),
+					'editLabel'             => __( 'Edit:', 'github-release-posts' ),
+					'done'                  => __( 'Done', 'github-release-posts' ),
+					'generateDraft'         => __( 'Generate draft post', 'github-release-posts' ),
+					'generatePost'          => __( 'Generate post', 'github-release-posts' ),
+					'generating'            => __( 'Generating…', 'github-release-posts' ),
+					'draftCreated'          => __( 'Draft created.', 'github-release-posts' ),
+					'editGeneratedPost'     => __( 'Edit the generated post', 'github-release-posts' ),
+					'viewDraft'             => __( 'View draft', 'github-release-posts' ),
+					'regenerate'            => __( 'Regenerate', 'github-release-posts' ),
+					'regenerateConfirm'     => __( 'A post already exists for this release. Regenerate it?', 'github-release-posts' ),
+					'postExists'            => __( 'post exists', 'github-release-posts' ),
+					'versionPickerConflict' => __( 'A post already exists for this release. Generating will create a new revision and keep the existing post date.', 'github-release-posts' ),
+					'valid'                 => __( 'Valid', 'github-release-posts' ),
+					'connectionSuccess'     => __( 'Connection successful.', 'github-release-posts' ),
 				],
 			]
 		);
@@ -386,6 +401,23 @@ class Admin_Page {
 	public function register_rest_routes(): void {
 		register_rest_route(
 			'ghrp/v1',
+			'/releases/list',
+			[
+				'methods'             => \WP_REST_Server::READABLE,
+				'callback'            => [ $this, 'rest_list_releases' ],
+				'permission_callback' => [ $this, 'rest_permission_check' ],
+				'args'                => [
+					'repo' => [
+						'required'          => true,
+						'type'              => 'string',
+						'sanitize_callback' => 'sanitize_text_field',
+					],
+				],
+			]
+		);
+
+		register_rest_route(
+			'ghrp/v1',
 			'/releases/generate-draft',
 			[
 				'methods'             => \WP_REST_Server::CREATABLE,
@@ -395,6 +427,11 @@ class Admin_Page {
 					'repo' => [
 						'required'          => true,
 						'type'              => 'string',
+						'sanitize_callback' => 'sanitize_text_field',
+					],
+					'tag'  => [
+						'type'              => 'string',
+						'default'           => '',
 						'sanitize_callback' => 'sanitize_text_field',
 					],
 				],
@@ -648,6 +685,68 @@ class Admin_Page {
 	}
 
 	/**
+	 * REST handler: lists releases for a repository.
+	 *
+	 * Returns up to 100 releases (latest first), each annotated with whether
+	 * a post already exists for that tag. Powers the manual version-picker UI.
+	 *
+	 * @param \WP_REST_Request $request REST request containing the repo identifier.
+	 * @return \WP_REST_Response|\WP_Error
+	 */
+	public function rest_list_releases( \WP_REST_Request $request ): \WP_REST_Response|\WP_Error {
+		$identifier = (string) $request->get_param( 'repo' );
+		$api_client = new API_Client( $this->global_settings );
+
+		$releases = $api_client->fetch_releases( $identifier );
+
+		if ( is_wp_error( $releases ) ) {
+			return new \WP_Error( $releases->get_error_code(), $releases->get_error_message(), [ 'status' => 400 ] );
+		}
+
+		if ( empty( $releases ) ) {
+			return new \WP_REST_Response(
+				[
+					'releases'   => [],
+					'latest_tag' => '',
+				],
+				200
+			);
+		}
+
+		$latest_tag = $releases[0]->tag;
+
+		$payload = [];
+		foreach ( $releases as $release ) {
+			$existing = Release_Monitor::find_post( $identifier, $release->tag );
+			$entry    = [
+				'tag'           => $release->tag,
+				'name'          => $release->name,
+				'published_at'  => $release->published_at,
+				'has_post'      => $existing instanceof \WP_Post,
+				'post_id'       => 0,
+				'post_status'   => '',
+				'post_edit_url' => '',
+			];
+
+			if ( $existing instanceof \WP_Post ) {
+				$entry['post_id']       = $existing->ID;
+				$entry['post_status']   = $existing->post_status;
+				$entry['post_edit_url'] = (string) get_edit_post_link( $existing->ID, 'raw' );
+			}
+
+			$payload[] = $entry;
+		}
+
+		return new \WP_REST_Response(
+			[
+				'releases'   => $payload,
+				'latest_tag' => $latest_tag,
+			],
+			200
+		);
+	}
+
+	/**
 	 * REST handler: generates a draft post for the latest release of a repository.
 	 *
 	 * Returns conflict data when a post already exists for the tag (BR-003),
@@ -661,16 +760,34 @@ class Admin_Page {
 			return new \WP_Error( 'ghrp_no_block_editor', __( 'Post generation requires the block editor.', 'github-release-posts' ), [ 'status' => 400 ] );
 		}
 
-		$identifier = $request->get_param( 'repo' );
-		$api_client = new API_Client( $this->global_settings );
-		$release    = $api_client->fetch_latest_release( $identifier );
+		$identifier   = $request->get_param( 'repo' );
+		$selected_tag = trim( (string) $request->get_param( 'tag' ) );
+		$api_client   = new API_Client( $this->global_settings );
 
-		if ( is_wp_error( $release ) ) {
-			return new \WP_Error( $release->get_error_code(), $release->get_error_message(), [ 'status' => 400 ] );
+		// Resolve the latest release first — used for the is_latest flag and as
+		// the default when no tag was specified.
+		$latest_release = $api_client->fetch_latest_release( $identifier );
+
+		if ( is_wp_error( $latest_release ) ) {
+			return new \WP_Error( $latest_release->get_error_code(), $latest_release->get_error_message(), [ 'status' => 400 ] );
 		}
 
-		if ( null === $release ) {
+		if ( null === $latest_release ) {
 			return new \WP_Error( 'ghrp_no_release', __( 'No releases found for this repository.', 'github-release-posts' ), [ 'status' => 404 ] );
+		}
+
+		if ( '' === $selected_tag || $selected_tag === $latest_release->tag ) {
+			$release   = $latest_release;
+			$is_latest = true;
+		} else {
+			$release = $api_client->fetch_release_by_tag( $identifier, $selected_tag );
+			if ( is_wp_error( $release ) ) {
+				return new \WP_Error( $release->get_error_code(), $release->get_error_message(), [ 'status' => 400 ] );
+			}
+			if ( null === $release ) {
+				return new \WP_Error( 'ghrp_no_release', __( 'The selected release was not found on GitHub.', 'github-release-posts' ), [ 'status' => 404 ] );
+			}
+			$is_latest = false;
 		}
 
 		// Check for existing post — offer conflict resolution (BR-003).
@@ -679,11 +796,28 @@ class Admin_Page {
 		if ( $existing instanceof \WP_Post ) {
 			return new \WP_REST_Response(
 				[
-					'conflict' => true,
-					'post'     => $this->build_post_response( $existing ),
+					'conflict'  => true,
+					'is_latest' => $is_latest,
+					'post'      => $this->build_post_response( $existing ),
 				],
 				200
 			);
+		}
+
+		// Backdate older releases so the post does not appear newer than later releases.
+		// Rule: published_at + 1 hour, in GMT. Site owners can adjust before publishing.
+		$context = [
+			'force_draft' => true,
+			'manual'      => true,
+		];
+
+		if ( ! $is_latest && '' !== $release->published_at ) {
+			$timestamp = strtotime( $release->published_at );
+			if ( false !== $timestamp ) {
+				$backdated_gmt            = gmdate( 'Y-m-d H:i:s', $timestamp + HOUR_IN_SECONDS );
+				$context['post_date_gmt'] = $backdated_gmt;
+				$context['post_date']     = get_date_from_gmt( $backdated_gmt );
+			}
 		}
 
 		/**
@@ -693,15 +827,13 @@ class Admin_Page {
 		 * regardless of the global post-status setting (AC-011).
 		 *
 		 * @param array<string, mixed> $entry   Queue entry with release data.
-		 * @param array<string, mixed> $context Context flags: force_draft, manual.
+		 * @param array<string, mixed> $context Context flags: force_draft, manual,
+		 *                                     and optionally post_date / post_date_gmt for backdating.
 		 */
 		do_action(
 			'ghrp_process_release',
 			Release_Queue::from_release( $identifier, $release ),
-			[
-				'force_draft' => true,
-				'manual'      => true,
-			]
+			$context
 		);
 
 		$post = Release_Monitor::find_post( $identifier, $release->tag );
@@ -709,8 +841,9 @@ class Admin_Page {
 		if ( $post instanceof \WP_Post ) {
 			return new \WP_REST_Response(
 				[
-					'conflict' => false,
-					'post'     => $this->build_post_response( $post ),
+					'conflict'  => false,
+					'is_latest' => $is_latest,
+					'post'      => $this->build_post_response( $post ),
 				],
 				201
 			);

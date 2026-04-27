@@ -158,7 +158,6 @@ if ( $admin_notice ) {
 			<?php require __DIR__ . '/tab-repositories.php'; ?>
 		</form>
 
-		<!-- Conflict resolution dialog for "Generate draft now" (JS-driven) -->
 		<!-- Confirmation dialog for regenerating an existing post (JS-driven) -->
 		<dialog id="ghrp-conflict-dialog" class="ghrp-dialog" aria-labelledby="ghrp-conflict-dialog-title">
 			<p id="ghrp-conflict-dialog-title">
@@ -173,6 +172,35 @@ if ( $admin_notice ) {
 					<?php echo esc_html__( 'Regenerate', 'github-release-posts' ); ?>
 				</button>
 				<button type="button" id="ghrp-conflict-cancel" class="button">
+					<?php echo esc_html__( 'Cancel', 'github-release-posts' ); ?>
+				</button>
+			</div>
+		</dialog>
+
+		<!-- Version picker dialog for "Generate post" when a repo has multiple releases (JS-driven) -->
+		<dialog id="ghrp-version-picker-dialog" class="ghrp-dialog" aria-labelledby="ghrp-version-picker-title">
+			<p id="ghrp-version-picker-title">
+				<strong><?php echo esc_html__( 'Generate a post for which release?', 'github-release-posts' ); ?></strong>
+			</p>
+			<p>
+				<label for="ghrp-version-picker-select">
+					<?php echo esc_html__( 'Release version', 'github-release-posts' ); ?>
+				</label>
+				<br>
+				<select id="ghrp-version-picker-select" class="regular-text"></select>
+			</p>
+			<p id="ghrp-version-picker-conflict" class="ghrp-version-picker-conflict" hidden>
+				<span class="dashicons dashicons-warning" aria-hidden="true"></span>
+				<span id="ghrp-version-picker-conflict-text"></span>
+			</p>
+			<p id="ghrp-version-picker-backdate" class="description" hidden>
+				<?php echo esc_html__( 'Because this is an older release, the post date will be set to one hour after the release was published. You can adjust it before publishing.', 'github-release-posts' ); ?>
+			</p>
+			<div class="ghrp-dialog-actions">
+				<button type="button" id="ghrp-version-picker-confirm" class="button button-primary">
+					<?php echo esc_html__( 'Generate post', 'github-release-posts' ); ?>
+				</button>
+				<button type="button" id="ghrp-version-picker-cancel" class="button">
 					<?php echo esc_html__( 'Cancel', 'github-release-posts' ); ?>
 				</button>
 			</div>

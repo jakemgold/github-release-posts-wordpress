@@ -32,6 +32,7 @@ class Prompt_BuilderTest extends TestCase {
 		$this->global_settings = \Mockery::mock( Global_Settings::class );
 		$this->global_settings->shouldReceive( 'get_custom_prompt_instructions' )->andReturn( '' )->byDefault();
 		$this->global_settings->shouldReceive( 'get_audience_level' )->andReturn( 'mixed' )->byDefault();
+		$this->global_settings->shouldReceive( 'get_title_format' )->andReturn( 'full' )->byDefault();
 		$this->builder = new Prompt_Builder( $this->repo_settings, $this->significance, $this->global_settings );
 	}
 
@@ -244,6 +245,76 @@ $this->significance->shouldReceive( 'classify' )->andReturn( 'minor' );
 		$result = $this->builder->build( '', $data );
 
 		$this->assertStringNotContainsString( 'ADDITIONAL INSTRUCTIONS', $result );
+	}
+
+	// -------------------------------------------------------------------------
+	// build() — title format branching
+	// -------------------------------------------------------------------------
+
+	public function test_build_title_guidance_full_format_asks_for_subtitle_only(): void {
+		$data = $this->make_release_data();
+
+		$this->repo_settings->shouldReceive( 'get_repository' )->andReturn( [
+			'identifier'   => 'owner/repo',
+			'display_name' => 'My Plugin',
+		] );
+		$this->significance->shouldReceive( 'classify' )->andReturn( 'minor' );
+
+		$result = $this->builder->build( '', $data );
+
+		$this->assertStringContainsString( 'My Plugin v1.2.0 — [your subtitle here]', $result );
+		$this->assertStringContainsString( 'do NOT include the project name or version number', $result );
+		$this->assertStringContainsString( 'Line 1: Your subtitle ONLY', $result );
+	}
+
+	public function test_build_title_guidance_none_format_warns_against_repetitive_openings(): void {
+		$data = $this->make_release_data();
+
+		$this->repo_settings->shouldReceive( 'get_repository' )->andReturn( [
+			'identifier'   => 'owner/repo',
+			'display_name' => 'My Project',
+		] );
+		$this->significance->shouldReceive( 'classify' )->andReturn( 'minor' );
+		$this->global_settings->shouldReceive( 'get_title_format' )->andReturn( 'none' );
+
+		$result = $this->builder->build( '', $data );
+
+		$this->assertStringContainsString( 'reads as repetitive', $result );
+		$this->assertStringContainsString( 'arrive in My Project v1.2.0', $result );
+	}
+
+	public function test_build_title_guidance_version_format_drops_plugin_name(): void {
+		$data = $this->make_release_data();
+
+		$this->repo_settings->shouldReceive( 'get_repository' )->andReturn( [
+			'identifier'   => 'owner/repo',
+			'display_name' => 'My Plugin',
+		] );
+		$this->significance->shouldReceive( 'classify' )->andReturn( 'minor' );
+		$this->global_settings->shouldReceive( 'get_title_format' )->andReturn( 'version' );
+
+		$result = $this->builder->build( '', $data );
+
+		$this->assertStringContainsString( 'Version 1.2.0 — [your subtitle here]', $result );
+		$this->assertStringContainsString( 'do NOT include the version number', $result );
+		$this->assertStringContainsString( 'Line 1: Your subtitle ONLY', $result );
+	}
+
+	public function test_build_title_guidance_none_format_asks_for_full_title(): void {
+		$data = $this->make_release_data();
+
+		$this->repo_settings->shouldReceive( 'get_repository' )->andReturn( [
+			'identifier'   => 'owner/repo',
+			'display_name' => 'My Plugin',
+		] );
+		$this->significance->shouldReceive( 'classify' )->andReturn( 'minor' );
+		$this->global_settings->shouldReceive( 'get_title_format' )->andReturn( 'none' );
+
+		$result = $this->builder->build( '', $data );
+
+		$this->assertStringContainsString( 'Write a complete, standalone post title', $result );
+		$this->assertStringContainsString( 'Line 1: Your full post title', $result );
+		$this->assertStringNotContainsString( '[your subtitle here]', $result );
 	}
 
 	// -------------------------------------------------------------------------

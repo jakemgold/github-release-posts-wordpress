@@ -87,7 +87,8 @@ class Prompt_Builder {
 		$images = $this->extract_images( $body );
 
 		$audience_level   = $this->global_settings->get_audience_level();
-		$title_guidance   = $this->build_title_guidance( $display_name, $data->tag );
+		$title_format     = $this->global_settings->get_title_format();
+		$title_guidance   = $this->build_title_guidance( $display_name, $data->tag, $title_format );
 		$content_guidance = $this->build_content_guidance( $images, $project_link, $changelog_url, $display_name, $audience_level );
 
 		// When deep research adds commit history, instruct the AI to synthesize it.
@@ -126,6 +127,7 @@ class Prompt_Builder {
 			title_guidance:       $title_guidance,
 			content_guidance:     $content_guidance,
 			custom_instructions:  $custom_instructions,
+			title_format:         $title_format,
 		);
 
 		/**
@@ -145,23 +147,51 @@ class Prompt_Builder {
 	// -------------------------------------------------------------------------
 
 	/**
-	 * Builds instructions for the post title subtitle.
+	 * Builds instructions for the post title (or its subtitle portion).
 	 *
-	 * The full title will be "{display_name} {tag} — {subtitle}" where the
-	 * subtitle is the one line the AI must write. The AI decides what's most
-	 * compelling based on the changelog content.
+	 * Behavior depends on the configured title format:
+	 *  - 'full'    — site auto-prefixes "{display_name} {tag} — "; AI writes subtitle only.
+	 *  - 'version' — site auto-prefixes "Version {tag} — "; AI writes subtitle only.
+	 *  - 'none'    — no auto-prefix; AI writes the full standalone title.
 	 *
-	 * @param string $display_name Plugin display name.
+	 * @param string $display_name Project display name.
 	 * @param string $tag          Release tag.
+	 * @param string $title_format Title format: 'full', 'version', or 'none'.
 	 * @return string
 	 */
-	private function build_title_guidance( string $display_name, string $tag ): string {
+	private function build_title_guidance( string $display_name, string $tag, string $title_format = 'full' ): string {
+		$lead = 'Lead with whatever is most compelling and newsworthy in the release. If there are new user-facing features, highlight those. If the release is purely bug fixes or a security patch with nothing else notable, say so plainly.';
+
+		if ( 'none' === $title_format ) {
+			return <<<EOT
+Write a complete, standalone post title — no automatic prefix will be added.
+
+This blog is focused on this single project ("{$display_name}"), so readers already know which project they're reading about. Across an archive of release posts, leading every title with the project name and version reads as repetitive. Consider working the project name "{$display_name}" and the version "{$tag}" into the title in varied ways instead of always opening with them — for example:
+  - Lead with the headline change: "New bot-blocking and voice-tool integrations"
+  - Mention the project mid-title: "Faster transcripts and security fixes arrive in {$display_name} {$tag}"
+  - Lead with the version when the version itself is the story: "{$tag} update adds image generation and breaking API changes"
+
+Use whichever shape best fits this release's content. {$lead} Keep it under 14 words. Be specific — avoid generic titles like "Latest update released".
+EOT;
+		}
+
+		if ( 'version' === $title_format ) {
+			$display_tag = ltrim( $tag, 'vV' );
+			$prefix      = "Version {$display_tag} — ";
+
+			return <<<EOT
+The post title will be automatically formatted as: "{$prefix}[your subtitle here]"
+Write ONLY the subtitle — do NOT include the version number. The project name is "{$display_name}"; you may mention it in the subtitle only if it improves clarity. Vary your subtitle openings across releases — leading every post with the same kind of phrase (e.g. always a feature name) reads as repetitive in an archive.
+{$lead} Keep it under 12 words. Be specific — avoid generic subtitles like "various improvements and fixes".
+EOT;
+		}
+
 		$prefix = "{$display_name} {$tag} — ";
 
 		return <<<EOT
 The post title will be automatically formatted as: "{$prefix}[your subtitle here]"
-Write ONLY the subtitle — do NOT include the plugin name or version number.
-Lead with whatever is most compelling and newsworthy in the release. If there are new user-facing features, highlight those. If the release is purely bug fixes or a security patch with nothing else notable, say so plainly. Keep it under 12 words. Be specific — avoid generic subtitles like "various improvements and fixes".
+Write ONLY the subtitle — do NOT include the project name or version number.
+{$lead} Keep it under 12 words. Be specific — avoid generic subtitles like "various improvements and fixes".
 EOT;
 	}
 
@@ -325,6 +355,7 @@ EOT
 	 * @param string $title_guidance     Title guidance instructions.
 	 * @param string $content_guidance   Content guidance instructions.
 	 * @param string $custom_instructions Custom prompt instructions from settings.
+	 * @param string $title_format        Title format: 'full', 'version', or 'none'.
 	 * @return string
 	 */
 	private function assemble_prompt(
@@ -335,6 +366,7 @@ EOT
 		string $title_guidance,
 		string $content_guidance,
 		string $custom_instructions = '',
+		string $title_format = 'full',
 	): string {
 		$significance_label = match ( $significance ) {
 			'patch'    => 'Patch (maintenance / bug fixes)',
@@ -343,6 +375,10 @@ EOT
 			'security' => 'Contains security fix (but may also contain other changes — read the full changelog)',
 			default    => 'Release',
 		};
+
+		$line_one_label = 'none' === $title_format
+			? 'Your full post title (no automatic prefix will be added).'
+			: 'Your subtitle ONLY (not the full title — just the subtitle portion).';
 
 		$prompt = <<<EOT
 You are writing a blog post about a WordPress plugin update for the plugin's users.
@@ -365,7 +401,7 @@ TITLE INSTRUCTIONS:
 {$content_guidance}
 
 RESPONSE FORMAT:
-- Line 1: Your subtitle ONLY (not the full title — just the subtitle portion).
+- Line 1: {$line_one_label}
 - Line 2: Slug keywords — 3 to 5 lowercase hyphenated words capturing the most important topics in this release. These will be appended to the project name and version in the URL. Example: "ai-usage-tracking-security" or "block-editor-performance". Do NOT include the project name or version number.
 - Line 3: Post excerpt — a compelling 150–160 character summary suitable as a meta description. Write it as a standalone sentence that makes sense out of context and encourages clicks from search results.
 - Line 4: Blank line.

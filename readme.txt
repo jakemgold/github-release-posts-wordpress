@@ -5,7 +5,7 @@ Tags:              github, releases, blog post, ai, automation
 Requires at least: 7.0
 Tested up to:      7.0
 Requires PHP:      8.2
-Stable tag:        0.9.2
+Stable tag:        0.10.0
 License:           GPL-2.0-or-later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -32,6 +32,8 @@ You can also generate a post on demand at any time from the Repositories tab.
 * SEO-friendly post slugs and excerpts generated automatically by AI
 * Configurable publish/draft workflow with per-repository overrides
 * Per-repository post defaults (categories, tags, post status)
+* Choose your post title format — prefix with project name and version, version only, or no auto-prefix (let the AI write the full title in single-project sites)
+* Generate posts on demand for any historical release — pick from a version dropdown when a repo has multiple releases; older releases are automatically backdated to keep the archive in chronological order
 * Custom prompt instructions to guide AI writing style, tone, and voice
 * Regenerate posts with feedback — refine AI output directly from the block editor sidebar
 * Email notifications on draft creation, publication, or both
@@ -99,6 +101,15 @@ A Release Attribution panel appears in the document sidebar, showing which GitHu
 
 == Changelog ==
 
+= 0.10.0 =
+* New: **Post title format** setting (Settings → Post Creation → Post Titles). Choose between the existing "{Project name} {version} — {subtitle}" prefix, a "Version X.Y — {subtitle}" prefix, or no auto-prefix (the AI writes the full title — recommended for sites focused on a single project).
+* New: **Version picker for the "Generate post" button.** When a repository has multiple GitHub releases, an admin picker lets you generate a post for any historical release — useful for backfilling an archive. Older releases automatically have their post date set to one hour after the release was published, keeping the archive in chronological order.
+* New: Inline conflict warning in the version picker when a post already exists for the selected tag — no surprise modal.
+* New: Success affordance — after generating, a green checkmark appears next to the Generate post button, linked to the new post for one-click access.
+* New: `ghrp_post_title` filter for full programmatic override of generated post titles.
+* Tweak: Title prompt guidance is now project-neutral and gives the AI explicit direction on varying title openings across an archive (encouraging mid-title or version-led phrasings instead of always leading with project name + version).
+* Tweak: The Last Post column flash on the Repositories tab no longer fires when generating a post for a non-latest release (since the new post would not actually be the most recent).
+
 = 0.9.2 =
 * Fix: Show a warning notice at the top of the plugin admin page (both tabs) when no AI connector is configured or ready. Previously the warning was buried inside the AI Connector status field on the Settings tab and was cached for up to a minute, so it didn't always reflect the current state after toggling connectors.
 
@@ -131,6 +142,9 @@ A Release Attribution panel appears in the document sidebar, showing which GitHu
 * Test notification email feature.
 
 == Upgrade Notice ==
+
+= 0.10.0 =
+Adds a configurable post title format, a version picker for generating posts from any historical GitHub release (with automatic backdating), inline conflict warnings, and a one-click checkmark link to the generated post. Title prompt is now project-neutral and varies title openings across the archive.
 
 = 0.9.2 =
 Adds a top-of-page warning notice on the plugin admin page when no AI connector is configured.

@@ -175,6 +175,31 @@ class Global_Settings {
 	}
 
 	// -------------------------------------------------------------------------
+	// Post Title Format
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Supported post title format identifiers.
+	 *
+	 *  - 'full'    "{Display Name} {tag} — {AI subtitle}" (default)
+	 *  - 'version' "Version {tag} — {AI subtitle}"
+	 *  - 'none'    AI writes the full title; no auto-prefix.
+	 *
+	 * @var string[]
+	 */
+	const SUPPORTED_TITLE_FORMATS = [ 'full', 'version', 'none' ];
+
+	/**
+	 * Returns the configured post title format.
+	 *
+	 * @return string One of: 'full', 'version', 'none'. Defaults to 'full'.
+	 */
+	public function get_title_format(): string {
+		$format = (string) get_option( Plugin_Constants::OPTION_TITLE_FORMAT, 'full' );
+		return in_array( $format, self::SUPPORTED_TITLE_FORMATS, true ) ? $format : 'full';
+	}
+
+	// -------------------------------------------------------------------------
 	// Check Frequency
 	// -------------------------------------------------------------------------
 

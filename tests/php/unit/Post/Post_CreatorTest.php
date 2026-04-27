@@ -11,6 +11,7 @@ use Jakemgold\GitHubReleasePosts\AI\GeneratedPost;
 use Jakemgold\GitHubReleasePosts\AI\ReleaseData;
 use Jakemgold\GitHubReleasePosts\Plugin_Constants;
 use Jakemgold\GitHubReleasePosts\Post\Post_Creator;
+use Jakemgold\GitHubReleasePosts\Settings\Global_Settings;
 use Jakemgold\GitHubReleasePosts\Settings\Repository_Settings;
 use WP_Mock\Tools\TestCase;
 
@@ -21,6 +22,7 @@ class Post_CreatorTest extends TestCase {
 
 	private Post_Creator $creator;
 	private Repository_Settings $repo_settings;
+	private Global_Settings $global_settings;
 
 	public function setUp(): void {
 		parent::setUp();
@@ -39,7 +41,10 @@ class Post_CreatorTest extends TestCase {
 			} )
 			->byDefault();
 
-		$this->creator = new Post_Creator( $this->repo_settings );
+		$this->global_settings = \Mockery::mock( Global_Settings::class );
+		$this->global_settings->shouldReceive( 'get_title_format' )->andReturn( 'full' )->byDefault();
+
+		$this->creator = new Post_Creator( $this->repo_settings, $this->global_settings );
 
 		// Stub get_post for sideload_images — return a post with no remote images.
 		\WP_Mock::userFunction( 'get_post' )->andReturnUsing( function ( $id ) {
@@ -229,6 +234,120 @@ class Post_CreatorTest extends TestCase {
 	// -------------------------------------------------------------------------
 	// handle() — title building
 	// -------------------------------------------------------------------------
+
+	public function test_handle_uses_full_title_format_by_default(): void {
+		$post = $this->make_generated_post();
+		$data = $this->make_release_data();
+
+		\WP_Mock::userFunction( 'wp_insert_post' )
+			->once()
+			->with(
+				\Mockery::on( function ( $args ) {
+					return 'My Plugin v1.2 — Improved performance and stability' === $args['post_title'];
+				} ),
+				true
+			)
+			->andReturn( 1 );
+
+		\WP_Mock::userFunction( 'update_post_meta' )->andReturn( true );
+		$this->mock_wp_query_no_results();
+
+		$this->creator->handle( $post, $data, [] );
+		$this->assertConditionsMet();
+	}
+
+	public function test_handle_uses_version_only_title_format(): void {
+		$post = $this->make_generated_post();
+		$data = $this->make_release_data();
+
+		$this->global_settings->shouldReceive( 'get_title_format' )->andReturn( 'version' );
+
+		\WP_Mock::userFunction( 'wp_insert_post' )
+			->once()
+			->with(
+				\Mockery::on( function ( $args ) {
+					return 'Version 1.2 — Improved performance and stability' === $args['post_title'];
+				} ),
+				true
+			)
+			->andReturn( 1 );
+
+		\WP_Mock::userFunction( 'update_post_meta' )->andReturn( true );
+		$this->mock_wp_query_no_results();
+
+		$this->creator->handle( $post, $data, [] );
+		$this->assertConditionsMet();
+	}
+
+	public function test_handle_honors_post_date_context_for_backdating(): void {
+		$post    = $this->make_generated_post();
+		$data    = $this->make_release_data();
+		$context = [
+			'post_date'     => '2024-06-15 13:00:00',
+			'post_date_gmt' => '2024-06-15 13:00:00',
+		];
+
+		\WP_Mock::userFunction( 'wp_insert_post' )
+			->once()
+			->with(
+				\Mockery::on( function ( $args ) use ( $context ) {
+					return ( $args['post_date'] ?? '' ) === $context['post_date']
+						&& ( $args['post_date_gmt'] ?? '' ) === $context['post_date_gmt'];
+				} ),
+				true
+			)
+			->andReturn( 1 );
+
+		\WP_Mock::userFunction( 'update_post_meta' )->andReturn( true );
+		$this->mock_wp_query_no_results();
+
+		$this->creator->handle( $post, $data, $context );
+		$this->assertConditionsMet();
+	}
+
+	public function test_handle_omits_post_date_when_not_in_context(): void {
+		$post = $this->make_generated_post();
+		$data = $this->make_release_data();
+
+		\WP_Mock::userFunction( 'wp_insert_post' )
+			->once()
+			->with(
+				\Mockery::on( function ( $args ) {
+					return ! isset( $args['post_date'] ) && ! isset( $args['post_date_gmt'] );
+				} ),
+				true
+			)
+			->andReturn( 1 );
+
+		\WP_Mock::userFunction( 'update_post_meta' )->andReturn( true );
+		$this->mock_wp_query_no_results();
+
+		$this->creator->handle( $post, $data, [] );
+		$this->assertConditionsMet();
+	}
+
+	public function test_handle_uses_no_prefix_title_format(): void {
+		$post = $this->make_generated_post();
+		$data = $this->make_release_data();
+
+		$this->global_settings->shouldReceive( 'get_title_format' )->andReturn( 'none' );
+
+		\WP_Mock::userFunction( 'wp_insert_post' )
+			->once()
+			->with(
+				\Mockery::on( function ( $args ) {
+					return 'Improved performance and stability' === $args['post_title'];
+				} ),
+				true
+			)
+			->andReturn( 1 );
+
+		\WP_Mock::userFunction( 'update_post_meta' )->andReturn( true );
+		$this->mock_wp_query_no_results();
+
+		$this->creator->handle( $post, $data, [] );
+		$this->assertConditionsMet();
+	}
 
 	public function test_handle_derives_display_name_when_not_configured(): void {
 		$post = $this->make_generated_post();

@@ -196,6 +196,25 @@ class Settings_Page {
 			'ghrp_section_ai_provider'
 		);
 
+		// Post title format.
+		register_setting(
+			self::OPTION_GROUP,
+			Plugin_Constants::OPTION_TITLE_FORMAT,
+			[
+				'type'              => 'string',
+				'sanitize_callback' => [ $this, 'sanitize_title_format' ],
+				'autoload'          => false,
+			]
+		);
+
+		add_settings_field(
+			Plugin_Constants::OPTION_TITLE_FORMAT,
+			__( 'Post Titles', 'github-release-posts' ),
+			[ $this, 'render_title_format_field' ],
+			self::PAGE_SLUG,
+			'ghrp_section_ai_provider'
+		);
+
 		// Audience level.
 		register_setting(
 			self::OPTION_GROUP,
@@ -501,6 +520,49 @@ class Settings_Page {
 	public function sanitize_research_depth( $value ): string {
 		$allowed = [ 'standard', 'deep' ];
 		return in_array( $value, $allowed, true ) ? $value : 'standard';
+	}
+
+	/**
+	 * Renders the post title format radio buttons.
+	 *
+	 * @return void
+	 */
+	public function render_title_format_field(): void {
+		$format = $this->global_settings->get_title_format();
+		?>
+		<fieldset>
+			<label>
+				<input type="radio" name="<?php echo esc_attr( Plugin_Constants::OPTION_TITLE_FORMAT ); ?>" value="full" <?php checked( $format, 'full' ); ?>>
+				<strong><?php echo esc_html__( 'Plugin name and version', 'github-release-posts' ); ?></strong> —
+				<?php echo esc_html__( 'e.g. "My Plugin v1.2 — New dashboard widget"', 'github-release-posts' ); ?>
+			</label>
+			<br>
+			<label>
+				<input type="radio" name="<?php echo esc_attr( Plugin_Constants::OPTION_TITLE_FORMAT ); ?>" value="version" <?php checked( $format, 'version' ); ?>>
+				<strong><?php echo esc_html__( 'Version number only', 'github-release-posts' ); ?></strong> —
+				<?php echo esc_html__( 'e.g. "Version 1.2 — New dashboard widget"', 'github-release-posts' ); ?>
+			</label>
+			<br>
+			<label>
+				<input type="radio" name="<?php echo esc_attr( Plugin_Constants::OPTION_TITLE_FORMAT ); ?>" value="none" <?php checked( $format, 'none' ); ?>>
+				<strong><?php echo esc_html__( 'No prefix', 'github-release-posts' ); ?></strong> —
+				<?php echo esc_html__( 'The AI writes the full title with no automatic prefix.', 'github-release-posts' ); ?>
+			</label>
+		</fieldset>
+		<p class="description">
+			<?php echo esc_html__( 'For sites covering multiple plugins, the plugin name prefix is recommended. For single-plugin sites, the version-only or no-prefix options give more variety.', 'github-release-posts' ); ?>
+		</p>
+		<?php
+	}
+
+	/**
+	 * Sanitizes the post title format setting.
+	 *
+	 * @param mixed $value Submitted value.
+	 * @return string Validated format identifier.
+	 */
+	public function sanitize_title_format( $value ): string {
+		return in_array( $value, Global_Settings::SUPPORTED_TITLE_FORMATS, true ) ? (string) $value : 'full';
 	}
 
 	/**

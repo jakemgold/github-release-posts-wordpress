@@ -160,6 +160,30 @@
 	margin-top: 16px;
 }
 
+#ghrp-version-picker-dialog {
+	max-width: 480px;
+}
+
+#ghrp-version-picker-select {
+	width: 100%;
+	margin-top: 4px;
+}
+
+.ghrp-version-picker-conflict {
+	background: #fcf9e8;
+	border-left: 4px solid #dba617;
+	padding: 8px 12px;
+	margin: 12px 0 0;
+	display: flex;
+	align-items: flex-start;
+	gap: 6px;
+}
+
+.ghrp-version-picker-conflict .dashicons {
+	color: #dba617;
+	margin-top: 2px;
+}
+
 /* Inline notice adjustments */
 .notice.inline {
 	margin: 8px 0;

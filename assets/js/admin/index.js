@@ -591,16 +591,34 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	}
 
 	/**
+	 * Builds a clickable success-checkmark icon linked to the post's edit screen.
+	 *
+	 * @param {string} editUrl Post edit URL.
+	 * @param {string} label   Tooltip / screen-reader label.
+	 * @returns {string} HTML markup.
+	 */
+	function successLinkIcon( editUrl, label ) {
+		return '<a href="' + encodeURI( editUrl ) + '" class="ghrp-generate-success" title="' + label + '" aria-label="' + label + '">' +
+			'<span class="dashicons dashicons-yes-alt" style="color: #00a32a;" aria-hidden="true"></span>' +
+			'<span class="screen-reader-text">' + label + '</span>' +
+			'</a>';
+	}
+
+	/**
 	 * Shows a result indicator next to the generate button.
 	 *
-	 * Success: green check icon, updates the Last Post column.
+	 * Success: green check icon linking to the edit screen, with tooltip.
+	 *          The Last Post column is only updated when the new post is the
+	 *          latest release for the repo (otherwise an older release would
+	 *          appear to overwrite a newer post in that column).
 	 * Error: yellow warning icon with error message as tooltip.
 	 *
-	 * @param {HTMLElement} btn     The generate button.
-	 * @param {Object|null} post    Post data on success, null on error.
-	 * @param {string}      [error] Error message on failure.
+	 * @param {HTMLElement} btn      The generate button.
+	 * @param {Object|null} post     Post data on success, null on error.
+	 * @param {string}      [error]  Error message on failure.
+	 * @param {boolean}     [isLatest] Whether this generation was for the latest release.
 	 */
-	function showGenerateResult( btn, post, error ) {
+	function showGenerateResult( btn, post, error, isLatest ) {
 		// Hide any active spinner.
 		var spinner = btn.closest( 'td' ).querySelector( '.ghrp-generate-spinner' );
 		if ( spinner ) {
@@ -613,8 +631,13 @@ document.addEventListener( 'DOMContentLoaded', function () {
 		}
 
 		if ( post ) {
-			statusEl.innerHTML = validIcon( ctbpAdmin.i18n.draftCreated || 'Post created' );
-			updateLastPostColumn( btn, post );
+			var label = ctbpAdmin.i18n.editGeneratedPost || 'Edit the generated post';
+			statusEl.innerHTML = post.edit_url
+				? successLinkIcon( post.edit_url, label )
+				: validIcon( ctbpAdmin.i18n.draftCreated || 'Post created' );
+			if ( isLatest !== false ) {
+				updateLastPostColumn( btn, post );
+			}
 		} else {
 			var msg = error || ctbpAdmin.i18n.notImplemented;
 			statusEl.innerHTML = warningIcon( msg );
@@ -661,8 +684,12 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	 */
 	/**
 	 * Regenerates an existing post via the regenerate endpoint (creates a revision).
+	 *
+	 * @param {HTMLElement} btn      Generate button that initiated the flow.
+	 * @param {number}      postId   Existing post ID to regenerate.
+	 * @param {boolean}     isLatest Whether the post is for the latest release (controls Last Post flash).
 	 */
-	function regenerateExisting( btn, postId ) {
+	function regenerateExisting( btn, postId, isLatest ) {
 		if ( conflictDialog ) {
 			conflictDialog.close();
 		}
@@ -684,7 +711,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 			function ( data ) {
 				btn.disabled = false;
 				enableRowActions( btn );
-				showGenerateResult( btn, data && data.post, null );
+				showGenerateResult( btn, data && data.post, null, isLatest );
 			},
 			function ( data ) {
 				btn.disabled = false;
@@ -694,15 +721,214 @@ document.addEventListener( 'DOMContentLoaded', function () {
 		);
 	}
 
+	// -------------------------------------------------------------------------
+	// Version picker dialog
+	// -------------------------------------------------------------------------
+	var versionDialog       = document.getElementById( 'ghrp-version-picker-dialog' );
+	var versionSelect       = document.getElementById( 'ghrp-version-picker-select' );
+	var versionConfirm      = document.getElementById( 'ghrp-version-picker-confirm' );
+	var versionCancel       = document.getElementById( 'ghrp-version-picker-cancel' );
+	var versionConflictRow  = document.getElementById( 'ghrp-version-picker-conflict' );
+	var versionConflictText = document.getElementById( 'ghrp-version-picker-conflict-text' );
+	var versionBackdateHint = document.getElementById( 'ghrp-version-picker-backdate' );
+
+	function formatReleasePublishedAt( iso ) {
+		if ( ! iso ) {
+			return '';
+		}
+		var d = new Date( iso );
+		if ( isNaN( d.getTime() ) ) {
+			return '';
+		}
+		return d.toLocaleDateString( undefined, { year: 'numeric', month: 'short', day: 'numeric' } );
+	}
+
+	/**
+	 * Sends the generate request with an explicit tag.
+	 *
+	 * @param {HTMLElement} btn  Generate button that initiated the flow.
+	 * @param {string}      tag  Selected release tag (empty = latest).
+	 */
+	function generateForTag( btn, tag ) {
+		btn.disabled = true;
+		disableRowActions( btn );
+
+		var spinner = btn.closest( 'td' ).querySelector( '.ghrp-generate-spinner' );
+		if ( spinner ) {
+			spinner.style.display = 'inline-block';
+			spinner.classList.add( 'is-active' );
+		}
+
+		var statusEl = btn.closest( 'td' ).querySelector( '.ghrp-generate-status' );
+		if ( statusEl ) {
+			statusEl.innerHTML = '<span class="screen-reader-text">' + ctbpAdmin.i18n.generating + '</span>';
+		}
+
+		window.ctbpFetch(
+			'POST',
+			'/releases/generate-draft',
+			{ repo: btn.dataset.repo, tag: tag || '' },
+			function ( data ) {
+				btn.disabled = false;
+
+				var sp = btn.closest( 'td' ).querySelector( '.ghrp-generate-spinner' );
+				if ( sp ) {
+					sp.style.display = 'none';
+				}
+
+				var isLatest = ! data || data.is_latest !== false;
+
+				if ( data && data.conflict ) {
+					var existing = data.post;
+
+					if ( conflictInfo ) {
+						conflictInfo.textContent =
+							'"' + ( existing ? existing.title : '' ) + '" (' + ( existing ? existing.status : '' ) + ')';
+					}
+
+					function onConfirm() {
+						cleanup();
+						regenerateExisting( btn, existing ? existing.id : 0, isLatest );
+					}
+					function onCancel() {
+						cleanup();
+						if ( conflictDialog ) {
+							conflictDialog.close();
+						}
+						var s = btn.closest( 'td' ).querySelector( '.ghrp-generate-status' );
+						if ( s ) {
+							s.innerHTML = '';
+						}
+						enableRowActions( btn );
+						btn.focus();
+					}
+					function cleanup() {
+						if ( conflictConfirm ) { conflictConfirm.removeEventListener( 'click', onConfirm ); }
+						if ( conflictCancel )  { conflictCancel.removeEventListener( 'click', onCancel ); }
+					}
+
+					if ( conflictConfirm ) { conflictConfirm.addEventListener( 'click', onConfirm ); }
+					if ( conflictCancel )  { conflictCancel.addEventListener( 'click', onCancel ); }
+
+					if ( conflictDialog ) {
+						conflictDialog.showModal();
+					} else if ( window.confirm( ctbpAdmin.i18n.regenerateConfirm || 'A post already exists. Regenerate it?' ) ) {
+						regenerateExisting( btn, existing ? existing.id : 0, isLatest );
+					}
+				} else {
+					enableRowActions( btn );
+					showGenerateResult( btn, data && data.post, null, isLatest );
+				}
+			},
+			function ( data ) {
+				btn.disabled = false;
+				enableRowActions( btn );
+				showGenerateResult( btn, null, ( data && data.message ) || null );
+			}
+		);
+	}
+
+	/**
+	 * Opens the version picker dialog populated with the given releases.
+	 *
+	 * @param {HTMLElement} btn       Generate button that initiated the flow.
+	 * @param {Array}       releases  Releases from /releases/list.
+	 * @param {string}      latestTag Tag of the most recent release.
+	 */
+	function openVersionPicker( btn, releases, latestTag ) {
+		if ( ! versionDialog || ! versionSelect ) {
+			generateForTag( btn, '' );
+			return;
+		}
+
+		// Build the option list. Latest is preselected.
+		versionSelect.innerHTML = '';
+		releases.forEach( function ( r ) {
+			var opt = document.createElement( 'option' );
+			opt.value = r.tag;
+			var dateLabel = formatReleasePublishedAt( r.published_at );
+			opt.textContent = r.tag + ( dateLabel ? '  —  ' + dateLabel : '' ) +
+				( r.has_post ? '  (' + ( ctbpAdmin.i18n.postExists || 'post exists' ) + ')' : '' );
+			opt.dataset.hasPost = r.has_post ? '1' : '';
+			opt.dataset.postTitle = ( r.post_status && r.post_status ) || '';
+			opt.dataset.postEditUrl = r.post_edit_url || '';
+			opt.dataset.published = r.published_at || '';
+			if ( r.tag === latestTag ) {
+				opt.selected = true;
+			}
+			versionSelect.appendChild( opt );
+		} );
+
+		function refreshHints() {
+			var opt = versionSelect.options[ versionSelect.selectedIndex ];
+			if ( ! opt ) {
+				return;
+			}
+			var isOlder = opt.value !== latestTag;
+			var hasPost = '1' === opt.dataset.hasPost;
+
+			if ( versionBackdateHint ) {
+				versionBackdateHint.hidden = ! isOlder;
+			}
+
+			if ( versionConflictRow && versionConflictText ) {
+				if ( hasPost ) {
+					versionConflictText.textContent =
+						ctbpAdmin.i18n.versionPickerConflict || 'A post already exists for this release. Generating will create a new revision and keep the existing post date.';
+					versionConflictRow.hidden = false;
+					if ( versionConfirm ) {
+						versionConfirm.textContent = ctbpAdmin.i18n.regenerate || 'Regenerate';
+					}
+				} else {
+					versionConflictRow.hidden = true;
+					if ( versionConfirm ) {
+						versionConfirm.textContent = ctbpAdmin.i18n.generatePost || 'Generate post';
+					}
+				}
+			}
+		}
+
+		refreshHints();
+		versionSelect.onchange = refreshHints;
+
+		function onConfirm() {
+			cleanup();
+			var tag = versionSelect.value || '';
+			versionDialog.close();
+			generateForTag( btn, tag );
+		}
+		function onCancel() {
+			cleanup();
+			versionDialog.close();
+			var spinner = btn.closest( 'td' ).querySelector( '.ghrp-generate-spinner' );
+			if ( spinner ) {
+				spinner.style.display = 'none';
+			}
+			var s = btn.closest( 'td' ).querySelector( '.ghrp-generate-status' );
+			if ( s ) {
+				s.innerHTML = '';
+			}
+			btn.disabled = false;
+			enableRowActions( btn );
+			btn.focus();
+		}
+		function cleanup() {
+			if ( versionConfirm ) { versionConfirm.removeEventListener( 'click', onConfirm ); }
+			if ( versionCancel )  { versionCancel.removeEventListener( 'click', onCancel ); }
+		}
+
+		if ( versionConfirm ) { versionConfirm.addEventListener( 'click', onConfirm ); }
+		if ( versionCancel )  { versionCancel.addEventListener( 'click', onCancel ); }
+
+		versionDialog.showModal();
+	}
+
 	document.querySelectorAll( '.ghrp-generate-draft' ).forEach( function ( btn ) {
 		btn.addEventListener( 'click', function () {
-			const repo = btn.dataset.repo;
-
 			btn.disabled = true;
 			disableRowActions( btn );
 
-			// Show the adjacent spinner.
-			const spinner = btn.closest( 'td' ).querySelector( '.ghrp-generate-spinner' );
+			var spinner = btn.closest( 'td' ).querySelector( '.ghrp-generate-spinner' );
 			if ( spinner ) {
 				spinner.style.display = 'inline-block';
 				spinner.classList.add( 'is-active' );
@@ -710,73 +936,34 @@ document.addEventListener( 'DOMContentLoaded', function () {
 
 			var statusEl = btn.closest( 'td' ).querySelector( '.ghrp-generate-status' );
 			if ( statusEl ) {
-				statusEl.innerHTML = '<span class="screen-reader-text">' + ctbpAdmin.i18n.generating + '</span>';
+				statusEl.innerHTML = '';
 			}
 
+			// Step 1: list releases. If 0/1, skip the picker.
 			window.ctbpFetch(
-				'POST',
-				'/releases/generate-draft',
-				{ repo },
+				'GET',
+				'/releases/list',
+				{ repo: btn.dataset.repo },
 				function ( data ) {
-					btn.disabled = false;
-
-					// Hide spinner — either showing dialog or result.
 					var sp = btn.closest( 'td' ).querySelector( '.ghrp-generate-spinner' );
-					if ( sp ) {
-						sp.style.display = 'none';
-					}
+					if ( sp ) { sp.style.display = 'none'; }
 
-					if ( data && data.conflict ) {
-						// Existing post — show regenerate confirmation.
-						var post = data.post;
+					var releases  = ( data && data.releases ) || [];
+					var latestTag = ( data && data.latest_tag ) || '';
 
-						if ( conflictInfo ) {
-							conflictInfo.textContent =
-								'"' + ( post ? post.title : '' ) + '" (' + ( post ? post.status : '' ) + ')';
-						}
-
-						function onConfirm() {
-							cleanup();
-							regenerateExisting( btn, post ? post.id : 0 );
-						}
-						function onCancel() {
-							cleanup();
-							if ( conflictDialog ) {
-								conflictDialog.close();
-							}
-							var s = btn.closest( 'td' ).querySelector( '.ghrp-generate-status' );
-							if ( s ) {
-								s.innerHTML = '';
-							}
-							enableRowActions( btn );
-							btn.focus();
-						}
-						function cleanup() {
-							if ( conflictConfirm ) { conflictConfirm.removeEventListener( 'click', onConfirm ); }
-							if ( conflictCancel )  { conflictCancel.removeEventListener( 'click', onCancel ); }
-						}
-
-						if ( conflictConfirm ) { conflictConfirm.addEventListener( 'click', onConfirm ); }
-						if ( conflictCancel )  { conflictCancel.addEventListener( 'click', onCancel ); }
-
-						if ( conflictDialog ) {
-							conflictDialog.showModal();
-						} else {
-							// Fallback: no <dialog> support.
-							if ( window.confirm( ctbpAdmin.i18n.regenerateConfirm || 'A post already exists. Regenerate it?' ) ) {
-								regenerateExisting( btn, post ? post.id : 0 );
-							}
-						}
+					if ( releases.length <= 1 ) {
+						// Single release (or empty — backend will error) — go directly.
+						generateForTag( btn, '' );
 					} else {
-						// Draft created without conflict.
+						btn.disabled = false;
 						enableRowActions( btn );
-						showGenerateResult( btn, data && data.post, null );
+						openVersionPicker( btn, releases, latestTag );
 					}
 				},
-				function ( data ) {
+				function ( errData ) {
 					btn.disabled = false;
 					enableRowActions( btn );
-					showGenerateResult( btn, null, ( data && data.message ) || null );
+					showGenerateResult( btn, null, ( errData && errData.message ) || null );
 				}
 			);
 		} );

@@ -102,6 +102,34 @@ class Global_SettingsTest extends TestCase {
 	}
 
 	// -------------------------------------------------------------------------
+	// Post Title Format
+	// -------------------------------------------------------------------------
+
+	public function test_get_title_format_returns_default(): void {
+		\WP_Mock::userFunction( 'get_option' )
+			->with( Plugin_Constants::OPTION_TITLE_FORMAT, 'full' )
+			->andReturn( 'full' );
+
+		$this->assertSame( 'full', ( new Global_Settings() )->get_title_format() );
+	}
+
+	public function test_get_title_format_accepts_supported_values(): void {
+		\WP_Mock::userFunction( 'get_option' )
+			->with( Plugin_Constants::OPTION_TITLE_FORMAT, 'full' )
+			->andReturn( 'version' );
+
+		$this->assertSame( 'version', ( new Global_Settings() )->get_title_format() );
+	}
+
+	public function test_get_title_format_rejects_invalid_value(): void {
+		\WP_Mock::userFunction( 'get_option' )
+			->with( Plugin_Constants::OPTION_TITLE_FORMAT, 'full' )
+			->andReturn( 'bogus' );
+
+		$this->assertSame( 'full', ( new Global_Settings() )->get_title_format() );
+	}
+
+	// -------------------------------------------------------------------------
 	// Notification settings
 	// -------------------------------------------------------------------------
 

@@ -192,6 +192,128 @@ class API_Client {
 	}
 
 	/**
+	 * Fetches a list of releases for a repository (latest first, capped at 100).
+	 *
+	 * Used by the manual "Generate post" flow to let admins pick an older release.
+	 * Excludes drafts and pre-releases by filtering server-side.
+	 *
+	 * @param string $identifier Repository identifier (owner/repo or full URL).
+	 * @return Release[]|\WP_Error Releases in newest-first order, or WP_Error on failure.
+	 */
+	public function fetch_releases( string $identifier ): array|\WP_Error {
+		try {
+			$identifier = $this->normalize_identifier( $identifier );
+		} catch ( \InvalidArgumentException $e ) {
+			return new \WP_Error( 'github_invalid_identifier', $e->getMessage() );
+		}
+
+		[ $owner, $repo ] = explode( '/', $identifier, 2 );
+		$url              = sprintf( '%s/repos/%s/%s/releases?per_page=100', self::API_BASE, $owner, $repo );
+		$args             = $this->build_request_args();
+
+		$response = wp_remote_get( $url, $args );
+		if ( is_wp_error( $response ) ) {
+			return $response;
+		}
+
+		$rate_limit = $this->handle_rate_limit( $response );
+		if ( is_wp_error( $rate_limit ) ) {
+			return $rate_limit;
+		}
+
+		$code = (int) wp_remote_retrieve_response_code( $response );
+		if ( 404 === $code ) {
+			return [];
+		}
+		if ( 200 !== $code ) {
+			return new \WP_Error(
+				'github_http_error',
+				sprintf(
+					/* translators: %d: HTTP status code */
+					__( 'GitHub API returned HTTP %d.', 'github-release-posts' ),
+					$code
+				)
+			);
+		}
+
+		$data = json_decode( wp_remote_retrieve_body( $response ), true );
+		if ( ! is_array( $data ) ) {
+			return new \WP_Error( 'github_parse_error', __( 'Failed to parse GitHub API response.', 'github-release-posts' ) );
+		}
+
+		$releases = [];
+		foreach ( $data as $entry ) {
+			if ( ! is_array( $entry ) ) {
+				continue;
+			}
+			// Skip drafts and pre-releases — they should not be published as blog posts.
+			if ( ! empty( $entry['draft'] ) || ! empty( $entry['prerelease'] ) ) {
+				continue;
+			}
+			$releases[] = Release::from_api_response( $entry );
+		}
+
+		return $releases;
+	}
+
+	/**
+	 * Fetches a single release by tag.
+	 *
+	 * @param string $identifier Repository identifier (owner/repo or full URL).
+	 * @param string $tag        Release tag (e.g. 'v2.3.0').
+	 * @return Release|null|\WP_Error Release on success; null if the tag is not a published release;
+	 *                                 WP_Error on network or parse failure.
+	 */
+	public function fetch_release_by_tag( string $identifier, string $tag ): Release|null|\WP_Error {
+		try {
+			$identifier = $this->normalize_identifier( $identifier );
+		} catch ( \InvalidArgumentException $e ) {
+			return new \WP_Error( 'github_invalid_identifier', $e->getMessage() );
+		}
+
+		[ $owner, $repo ] = explode( '/', $identifier, 2 );
+		$url              = sprintf(
+			'%s/repos/%s/%s/releases/tags/%s',
+			self::API_BASE,
+			$owner,
+			$repo,
+			rawurlencode( $tag )
+		);
+
+		$response = wp_remote_get( $url, $this->build_request_args() );
+		if ( is_wp_error( $response ) ) {
+			return $response;
+		}
+
+		$rate_limit = $this->handle_rate_limit( $response );
+		if ( is_wp_error( $rate_limit ) ) {
+			return $rate_limit;
+		}
+
+		$code = (int) wp_remote_retrieve_response_code( $response );
+		if ( 404 === $code ) {
+			return null;
+		}
+		if ( 200 !== $code ) {
+			return new \WP_Error(
+				'github_http_error',
+				sprintf(
+					/* translators: %d: HTTP status code */
+					__( 'GitHub API returned HTTP %d.', 'github-release-posts' ),
+					$code
+				)
+			);
+		}
+
+		$data = json_decode( wp_remote_retrieve_body( $response ), true );
+		if ( ! is_array( $data ) ) {
+			return new \WP_Error( 'github_parse_error', __( 'Failed to parse GitHub API response.', 'github-release-posts' ) );
+		}
+
+		return Release::from_api_response( $data );
+	}
+
+	/**
 	 * Fetches a single issue or pull request by number.
 	 *
 	 * GitHub's Issues API returns both issues and PRs. No caching — these
