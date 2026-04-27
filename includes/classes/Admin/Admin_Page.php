@@ -168,7 +168,14 @@ class Admin_Page {
 					. '<ul>'
 					. '<li><strong>' . esc_html__( 'Display Name', 'github-release-posts' ) . '</strong> — ' . esc_html__( 'The project name used in post titles. Defaults to a cleaned-up version of the repo name.', 'github-release-posts' ) . '</li>'
 					. '<li><strong>' . esc_html__( 'Project Link', 'github-release-posts' ) . '</strong> — ' . esc_html__( 'A URL included in the generated post as a download or project link. If the repository is a WordPress plugin, you can enter just the WordPress.org slug instead. If left blank, the GitHub release URL is used.', 'github-release-posts' ) . '</li>'
+					. '<li><strong>' . esc_html__( 'Author', 'github-release-posts' ) . '</strong> — ' . esc_html__( 'The WordPress user assigned as the author of generated posts for this repository.', 'github-release-posts' ) . '</li>'
+					. '<li><strong>' . esc_html__( 'Post Status', 'github-release-posts' ) . '</strong> — ' . esc_html__( 'Whether new posts are created as drafts, pending review, or published immediately. Defaults to draft.', 'github-release-posts' ) . '</li>'
+					. '<li><strong>' . esc_html__( 'Categories', 'github-release-posts' ) . '</strong> — ' . esc_html__( 'Categories applied to every post generated for this repository.', 'github-release-posts' ) . '</li>'
+					. '<li><strong>' . esc_html__( 'Tags', 'github-release-posts' ) . '</strong> — ' . esc_html__( 'Tags applied to every post generated for this repository. Tags must already exist in WordPress; new ones are not created automatically.', 'github-release-posts' ) . '</li>'
+					. '<li><strong>' . esc_html__( 'Featured Image', 'github-release-posts' ) . '</strong> — ' . esc_html__( 'A featured image used as a fallback when the release notes do not contain any images suitable for promotion.', 'github-release-posts' ) . '</li>'
+					. '<li><strong>' . esc_html__( 'Paused', 'github-release-posts' ) . '</strong> — ' . esc_html__( 'Temporarily skip this repository during scheduled checks. The repo and its history are preserved; uncheck to resume monitoring.', 'github-release-posts' ) . '</li>'
 					. '</ul>'
+					. '<p>' . esc_html__( 'Use the Edit row action to change any of these inline, then click Save Repositories at the bottom of the page.', 'github-release-posts' ) . '</p>'
 					. '<h4>' . esc_html__( 'Generate Post', 'github-release-posts' ) . '</h4>'
 					. '<p>' . esc_html__( 'Creates a post from a GitHub release immediately, bypassing the cron schedule. If the repository has multiple releases, a picker lets you choose any historical version — useful for backfilling an archive of past releases.', 'github-release-posts' ) . '</p>'
 					. '<p>' . esc_html__( 'Posts generated for older releases are automatically backdated to one hour after the release\'s GitHub publication time, so they slot into the archive in the correct chronological order. You can adjust the date in the editor before publishing.', 'github-release-posts' ) . '</p>'
@@ -190,7 +197,11 @@ class Admin_Page {
 				. '<li>' . esc_html__( 'OpenAI — GPT-5.5', 'github-release-posts' ) . '</li>'
 				. '<li>' . esc_html__( 'Google — Gemini 2.5 Pro', 'github-release-posts' ) . '</li>'
 				. '</ul>'
-				. '<p>' . esc_html__( 'If none of these models are available, the plugin falls back to whatever model your connector provides. Developers can customize the preferred model list via the ghrp_wp_ai_client_model_preferences filter.', 'github-release-posts' ) . '</p>'
+				. '<p>' . sprintf(
+					/* translators: %s: filter name wrapped in <code> tags */
+					esc_html__( 'If none of these models are available, the plugin falls back to whatever model your connector provides. Developers can customize the preferred model list via the %s filter.', 'github-release-posts' ),
+					'<code>ghrp_wp_ai_client_model_preferences</code>'
+				) . '</p>'
 				. '<h4>' . esc_html__( 'Research Depth', 'github-release-posts' ) . '</h4>'
 				. '<p>' . esc_html__( 'Controls how much context the AI gathers before writing. "Standard" uses the release notes, linked issues/PRs, and README. "Deep" also fetches commit messages and file change summaries between the previous and current release, giving the AI more detail to work with — especially useful for releases with sparse notes.', 'github-release-posts' ) . '</p>'
 				. '<h4>' . esc_html__( 'Post Audience', 'github-release-posts' ) . '</h4>'
@@ -202,13 +213,21 @@ class Admin_Page {
 				. '<li><strong>' . esc_html__( 'Version number only', 'github-release-posts' ) . '</strong> — ' . esc_html__( 'e.g. "Version 1.2 — New dashboard widget". Drops the project name from the prefix.', 'github-release-posts' ) . '</li>'
 				. '<li><strong>' . esc_html__( 'No prefix', 'github-release-posts' ) . '</strong> — ' . esc_html__( 'The AI writes the full title with no automatic prefix. Recommended for sites focused on a single project, where leading every title with the project name and version reads as repetitive.', 'github-release-posts' ) . '</li>'
 				. '</ul>'
-				. '<p>' . esc_html__( 'Developers can override the final title via the ghrp_post_title filter.', 'github-release-posts' ) . '</p>'
+				. '<p>' . sprintf(
+					/* translators: %s: filter name wrapped in <code> tags */
+					esc_html__( 'Developers can override the final title via the %s filter.', 'github-release-posts' ),
+					'<code>ghrp_post_title</code>'
+				) . '</p>'
 				. '<h4>' . esc_html__( 'Custom Prompt Instructions', 'github-release-posts' ) . '</h4>'
 				. '<p>' . esc_html__( 'Add extra instructions to guide the AI\'s writing style, tone, or voice. For example: "Write in a friendly, conversational tone" or "Our readers are non-technical site owners." Keep it under 500 characters for best results.', 'github-release-posts' ) . '</p>'
 				. '<h4>' . esc_html__( 'AI Disclosure', 'github-release-posts' ) . '</h4>'
 				. '<p>' . esc_html__( 'When enabled, the following note is appended to the end of each generated post in small italic text:', 'github-release-posts' ) . '</p>'
 				. '<blockquote><em>' . esc_html__( 'This post was generated from release notes with the help of AI using GitHub Release Posts plugin for WordPress.', 'github-release-posts' ) . '</em></blockquote>'
-				. '<p>' . esc_html__( 'This text is part of the post content and can be edited or removed. Developers can customize it with the ghrp_ai_disclosure_text filter.', 'github-release-posts' ) . '</p>'
+				. '<p>' . sprintf(
+					/* translators: %s: filter name wrapped in <code> tags */
+					esc_html__( 'This text is part of the post content and can be edited or removed. Developers can customize it with the %s filter.', 'github-release-posts' ),
+					'<code>ghrp_ai_disclosure_text</code>'
+				) . '</p>'
 				. '<h4>' . esc_html__( 'SEO: Excerpts & Slugs', 'github-release-posts' ) . '</h4>'
 				. '<p>' . esc_html__( 'Each generated post includes an AI-written excerpt (150–160 characters, optimized as a meta description) and an SEO-friendly URL slug based on the project name, version, and key topics. Published posts keep their existing slug when regenerated to preserve live URLs.', 'github-release-posts' ) . '</p>',
 			]
