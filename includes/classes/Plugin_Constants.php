@@ -138,6 +138,18 @@ class Plugin_Constants {
 	 */
 	const TRANSIENT_RATE_LIMIT_REMAINING = 'ghrp_rate_limit_remaining';
 
+	/**
+	 * Prefix for the cached list of repositories accessible to the configured PAT.
+	 * Full key: TRANSIENT_USER_REPOS_PREFIX . md5( PAT )
+	 */
+	const TRANSIENT_USER_REPOS_PREFIX = 'ghrp_user_repos_';
+
+	/**
+	 * Name of the env var / PHP constant that supplies the GitHub PAT
+	 * outside of the WordPress database.
+	 */
+	const PAT_ENV_NAME = 'GITHUB_RELEASE_POSTS_PAT';
+
 	// -------------------------------------------------------------------------
 	// Cron hook names
 	// -------------------------------------------------------------------------

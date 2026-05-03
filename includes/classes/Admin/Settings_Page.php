@@ -113,7 +113,10 @@ class Settings_Page {
 	 * @return void
 	 */
 	public function render_github_pat_field(): void {
-		$masked_pat = $this->global_settings->get_masked_github_pat();
+		$masked_pat       = $this->global_settings->get_masked_github_pat();
+		$source           = $this->global_settings->get_github_pat_source();
+		$externally_set   = 'constant' === $source || 'env' === $source;
+		$refresh_disabled = 'none' === $source;
 		?>
 		<input
 			type="password"
@@ -122,10 +125,23 @@ class Settings_Page {
 			value="<?php echo esc_attr( $masked_pat ); ?>"
 			class="regular-text"
 			autocomplete="new-password"
+			<?php disabled( $externally_set ); ?>
 		>
-		<p class="description">
-			<?php echo esc_html__( 'Optional. Raises the GitHub API rate limit from 60 to 5,000 requests per hour.', 'github-release-posts' ); ?>
-		</p>
+		<?php if ( ! $externally_set ) : ?>
+			<p class="description">
+				<?php echo esc_html__( 'Optional. Raises the GitHub API rate limit from 60 to 5,000 requests per hour.', 'github-release-posts' ); ?>
+			</p>
+		<?php endif; ?>
+		<button
+			type="button"
+			id="ghrp-refresh-repos"
+			class="button"
+			<?php disabled( $refresh_disabled ); ?>
+		>
+			<?php echo esc_html__( 'Refresh repository list', 'github-release-posts' ); ?>
+		</button>
+		<span class="spinner ghrp-refresh-repos-spinner"></span>
+		<span id="ghrp-refresh-repos-result" style="vertical-align: middle;" aria-live="polite"></span>
 		<?php
 	}
 
