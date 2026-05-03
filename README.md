@@ -68,6 +68,32 @@ AI-written content with embedded images, plus the GitHub Release sidebar panel f
 3. Activate the plugin.
 4. Go to **Tools → Release Posts** to configure your AI provider and add repositories.
 
+## GitHub access
+
+The plugin uses a GitHub Personal Access Token (PAT) to read release data. A PAT is optional for public repositories — without one, GitHub limits the plugin to 60 API requests per hour. Adding a PAT raises that to 5,000 per hour and is required to access private repositories.
+
+<details>
+<summary><strong>Create a fine-grained PAT and add it to WordPress</strong></summary>
+
+A fine-grained token can be scoped to a single user or organization and to specific repositories — ideal for a "service account" that monitors a known set of releases.
+
+1. Go to [github.com/settings/personal-access-tokens/new](https://github.com/settings/personal-access-tokens/new).
+2. **Token name** — something descriptive, e.g. `My Site — GitHub Release Posts`.
+3. **Expiration** — pick a value that fits your security policy.
+4. **Resource owner** — choose your user account or an organization you belong to.
+5. **Repository access** — choose **Only select repositories** and pick the repos you want to monitor. (Or **All repositories** if you'd rather not maintain the list here.)
+6. **Repository permissions** — set all four to **Read-only**:
+   - **Contents** — required for releases and commit comparisons.
+   - **Metadata** — required (auto-selected).
+   - **Issues** — used during AI prompt enrichment.
+   - **Pull requests** — used during AI prompt enrichment.
+7. Click **Generate token** and copy the `github_pat_…` value immediately — GitHub won't show it again.
+8. Provide the token to the plugin in one of two ways:
+   - **Environment variable or constant (recommended)** — define `GITHUB_RELEASE_POSTS_PAT` as an environment variable or as a PHP constant in `wp-config.php`. The plugin reads the constant first, then the env var, then the database. When set this way, the value never lives in the WordPress database, and the Settings field becomes read-only.
+   - **WordPress admin** — go to **Tools → Release Posts → Settings**, paste the token into the **Personal Access Token** field, and click **Save Settings**.
+
+</details>
+
 ## For developers
 
 ### Filters

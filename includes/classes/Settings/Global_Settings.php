@@ -223,17 +223,65 @@ class Global_Settings {
 	/**
 	 * Returns the decrypted GitHub Personal Access Token, or empty string if not set.
 	 *
+	 * Resolution order:
+	 *   1. PHP constant `GITHUB_RELEASE_POSTS_PAT` (Plugin_Constants::PAT_ENV_NAME).
+	 *   2. Environment variable of the same name.
+	 *   3. Encrypted value from the WordPress database.
+	 *
 	 * Never call this method from within the admin UI display path.
 	 *
 	 * @return string Plaintext PAT, or empty string.
 	 */
 	public function get_github_pat(): string {
+		if ( defined( Plugin_Constants::PAT_ENV_NAME ) ) {
+			$value = (string) constant( Plugin_Constants::PAT_ENV_NAME );
+			if ( '' !== $value ) {
+				return $value;
+			}
+		}
+
+		$env_value = getenv( Plugin_Constants::PAT_ENV_NAME );
+		if ( false !== $env_value && '' !== $env_value ) {
+			return (string) $env_value;
+		}
+
 		$encrypted = (string) get_option( Plugin_Constants::OPTION_GITHUB_PAT, '' );
 		return '' !== $encrypted ? $this->decrypt( $encrypted ) : '';
 	}
 
 	/**
+	 * Returns the source of the active PAT.
+	 *
+	 *  - 'constant' — supplied by the PHP constant `GITHUB_RELEASE_POSTS_PAT`.
+	 *  - 'env'      — supplied by an environment variable of the same name.
+	 *  - 'db'       — supplied by the encrypted wp_options value.
+	 *  - 'none'     — no PAT is configured.
+	 *
+	 * @return string One of: 'constant', 'env', 'db', 'none'.
+	 */
+	public function get_github_pat_source(): string {
+		if ( defined( Plugin_Constants::PAT_ENV_NAME ) && '' !== (string) constant( Plugin_Constants::PAT_ENV_NAME ) ) {
+			return 'constant';
+		}
+
+		$env_value = getenv( Plugin_Constants::PAT_ENV_NAME );
+		if ( false !== $env_value && '' !== $env_value ) {
+			return 'env';
+		}
+
+		if ( '' !== (string) get_option( Plugin_Constants::OPTION_GITHUB_PAT, '' ) ) {
+			return 'db';
+		}
+
+		return 'none';
+	}
+
+	/**
 	 * Saves (or clears) the GitHub PAT. Encrypts non-empty values at rest.
+	 *
+	 * No-op (returns true) when the active PAT is supplied by the constant or
+	 * environment variable — the database value is intentionally bypassed in
+	 * those modes, so writes here would be silently shadowed.
 	 *
 	 * Pass the masked placeholder to leave the existing value unchanged.
 	 * Pass an empty string to remove the stored PAT.
@@ -242,6 +290,11 @@ class Global_Settings {
 	 * @return bool Whether the option was updated.
 	 */
 	public function save_github_pat( string $pat ): bool {
+		$source = $this->get_github_pat_source();
+		if ( 'constant' === $source || 'env' === $source ) {
+			return true; // Externally managed.
+		}
+
 		if ( self::MASKED_PLACEHOLDER === $pat ) {
 			return true; // No change.
 		}
@@ -254,15 +307,15 @@ class Global_Settings {
 	}
 
 	/**
-	 * Returns the masked placeholder if a GitHub PAT is stored, empty string otherwise.
+	 * Returns the masked placeholder if a GitHub PAT is configured by any source,
+	 * empty string otherwise.
 	 *
 	 * Used to populate the admin UI field without exposing the actual token.
 	 *
 	 * @return string Masked placeholder or empty string.
 	 */
 	public function get_masked_github_pat(): string {
-		$stored = (string) get_option( Plugin_Constants::OPTION_GITHUB_PAT, '' );
-		return '' !== $stored ? self::MASKED_PLACEHOLDER : '';
+		return 'none' === $this->get_github_pat_source() ? '' : self::MASKED_PLACEHOLDER;
 	}
 
 	// -------------------------------------------------------------------------

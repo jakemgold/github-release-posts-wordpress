@@ -495,6 +495,16 @@ class Admin_Page {
 
 		register_rest_route(
 			'ghrp/v1',
+			'/repos/refresh',
+			[
+				'methods'             => \WP_REST_Server::CREATABLE,
+				'callback'            => [ $this, 'rest_refresh_accessible_repos' ],
+				'permission_callback' => [ $this, 'rest_permission_check' ],
+			]
+		);
+
+		register_rest_route(
+			'ghrp/v1',
 			'/wporg/validate',
 			[
 				'methods'             => \WP_REST_Server::READABLE,
@@ -977,6 +987,40 @@ class Admin_Page {
 					__( 'Test email sent to %s.', 'github-release-posts' ),
 					implode( ', ', $recipients )
 				),
+			],
+			200
+		);
+	}
+
+	/**
+	 * REST handler: clears and re-fetches the cached list of repositories
+	 * accessible to the configured PAT.
+	 *
+	 * @return \WP_REST_Response|\WP_Error
+	 */
+	public function rest_refresh_accessible_repos(): \WP_REST_Response|\WP_Error {
+		if ( 'none' === $this->global_settings->get_github_pat_source() ) {
+			return new \WP_Error(
+				'ghrp_no_pat',
+				__( 'No Personal Access Token is configured.', 'github-release-posts' ),
+				[ 'status' => 400 ]
+			);
+		}
+
+		$result = ( new API_Client( $this->global_settings ) )->list_accessible_repos( true );
+
+		if ( is_wp_error( $result ) ) {
+			$result->add_data( [ 'status' => 502 ] );
+			return $result;
+		}
+
+		$count = count( $result );
+
+		return new \WP_REST_Response(
+			[
+				'count'   => $count,
+				/* translators: %d: number of repositories */
+				'message' => sprintf( _n( '%d repository available.', '%d repositories available.', $count, 'github-release-posts' ), $count ),
 			],
 			200
 		);

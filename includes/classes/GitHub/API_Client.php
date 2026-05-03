@@ -472,6 +472,139 @@ class API_Client {
 	}
 
 	/**
+	 * Lists repositories the configured PAT can access.
+	 *
+	 * Calls `GET /user/repos` with pagination. Caches the resulting list in a
+	 * 5-minute transient keyed by md5(PAT) so that rotating the token
+	 * automatically invalidates the cache. Archived repos are filtered out.
+	 *
+	 * Returns a flat list of `[ 'identifier' => 'owner/repo', 'owner' => ..., 'name' => ... ]`
+	 * sorted alphabetically by owner, then by name.
+	 *
+	 * @param bool $force_refresh Bypass the transient cache when true.
+	 * @return array<int, array{identifier: string, owner: string, name: string}>|\WP_Error
+	 */
+	public function list_accessible_repos( bool $force_refresh = false ): array|\WP_Error {
+		$pat = $this->settings->get_github_pat();
+		if ( '' === $pat ) {
+			return new \WP_Error(
+				'github_no_pat',
+				__( 'A GitHub Personal Access Token is required to list accessible repositories.', 'github-release-posts' )
+			);
+		}
+
+		$cache_key = Cache_Keys::user_repos( $pat );
+
+		if ( ! $force_refresh ) {
+			$cached = get_transient( $cache_key );
+			if ( is_array( $cached ) ) {
+				return $cached;
+			}
+		}
+
+		$args     = $this->build_request_args();
+		$repos    = [];
+		$page     = 1;
+		$max_page = 10; // Safety cap: 1,000 repos.
+
+		while ( $page <= $max_page ) {
+			$url = sprintf(
+				'%s/user/repos?per_page=100&sort=full_name&affiliation=owner,collaborator,organization_member&page=%d',
+				self::API_BASE,
+				$page
+			);
+
+			$response = wp_remote_get( $url, $args );
+			if ( is_wp_error( $response ) ) {
+				return $response;
+			}
+
+			$rate_limit = $this->handle_rate_limit( $response );
+			if ( is_wp_error( $rate_limit ) ) {
+				return $rate_limit;
+			}
+
+			$code = (int) wp_remote_retrieve_response_code( $response );
+			if ( 401 === $code ) {
+				return new \WP_Error(
+					'github_unauthorized',
+					__( 'GitHub rejected the Personal Access Token. Check that it is valid and has not expired.', 'github-release-posts' )
+				);
+			}
+			if ( 200 !== $code ) {
+				return new \WP_Error(
+					'github_http_error',
+					sprintf(
+						/* translators: %d: HTTP status code */
+						__( 'GitHub API returned HTTP %d.', 'github-release-posts' ),
+						$code
+					)
+				);
+			}
+
+			$data = json_decode( wp_remote_retrieve_body( $response ), true );
+			if ( ! is_array( $data ) ) {
+				return new \WP_Error( 'github_parse_error', __( 'Failed to parse GitHub API response.', 'github-release-posts' ) );
+			}
+
+			foreach ( $data as $entry ) {
+				if ( ! is_array( $entry ) ) {
+					continue;
+				}
+				if ( ! empty( $entry['archived'] ) ) {
+					continue;
+				}
+
+				$full_name = (string) ( $entry['full_name'] ?? '' );
+				$owner     = (string) ( $entry['owner']['login'] ?? '' );
+				$name      = (string) ( $entry['name'] ?? '' );
+
+				if ( '' === $full_name || '' === $owner || '' === $name ) {
+					continue;
+				}
+
+				$repos[] = [
+					'identifier' => $full_name,
+					'owner'      => $owner,
+					'name'       => $name,
+				];
+			}
+
+			// Stop when the page returned fewer than the page size.
+			if ( count( $data ) < 100 ) {
+				break;
+			}
+
+			++$page;
+		}
+
+		usort(
+			$repos,
+			static function ( $a, $b ) {
+				$cmp = strcasecmp( $a['owner'], $b['owner'] );
+				return 0 !== $cmp ? $cmp : strcasecmp( $a['name'], $b['name'] );
+			}
+		);
+
+		set_transient( $cache_key, $repos, 5 * MINUTE_IN_SECONDS );
+
+		return $repos;
+	}
+
+	/**
+	 * Deletes the cached accessible-repos list for the active PAT, if any.
+	 *
+	 * @return void
+	 */
+	public function clear_accessible_repos_cache(): void {
+		$pat = $this->settings->get_github_pat();
+		if ( '' === $pat ) {
+			return;
+		}
+		delete_transient( Cache_Keys::user_repos( $pat ) );
+	}
+
+	/**
 	 * Normalises a repository identifier to `owner/repo` format.
 	 *
 	 * Delegates to Repository_Settings for consistent normalisation logic (BR-002).

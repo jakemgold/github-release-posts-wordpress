@@ -196,9 +196,10 @@ class Repository_Settings {
 			];
 		}
 
-		// Derive display name from repo slug.
+		// Use the raw repo slug as the display name.
+		// Owners can edit it later via the inline editor.
 		$repo_parts   = explode( '/', $identifier );
-		$display_name = $this->derive_display_name( end( $repo_parts ) );
+		$display_name = end( $repo_parts );
 
 		$repos[] = [
 			'identifier'     => $identifier,

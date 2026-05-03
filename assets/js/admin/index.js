@@ -177,6 +177,51 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	}
 
 	// -------------------------------------------------------------------------
+	// Refresh accessible-repos cache.
+	// -------------------------------------------------------------------------
+	const refreshReposBtn = document.getElementById( 'ghrp-refresh-repos' );
+	if ( refreshReposBtn ) {
+		refreshReposBtn.addEventListener( 'click', function () {
+			const resultEl = document.getElementById( 'ghrp-refresh-repos-result' );
+			const spinner = refreshReposBtn.parentNode.querySelector( '.ghrp-refresh-repos-spinner' );
+
+			if ( spinner ) {
+				spinner.style.display = 'inline-block';
+				spinner.classList.add( 'is-active' );
+			}
+			if ( resultEl ) {
+				resultEl.textContent = '';
+			}
+
+			window.ctbpFetch(
+				'POST',
+				'/repos/refresh',
+				{},
+				function ( data ) {
+					if ( spinner ) {
+						spinner.classList.remove( 'is-active' );
+						spinner.style.display = 'none';
+					}
+					if ( resultEl ) {
+						var msg = ( data && data.message ) ? data.message : 'Refreshed.';
+						resultEl.innerHTML = validIcon( msg ) + ' ' + msg;
+					}
+				},
+				function ( data ) {
+					if ( spinner ) {
+						spinner.classList.remove( 'is-active' );
+						spinner.style.display = 'none';
+					}
+					if ( resultEl ) {
+						var msg = ( data && data.message ) ? data.message : 'Failed to refresh repository list.';
+						resultEl.innerHTML = warningIcon( msg ) + ' ' + msg;
+					}
+				}
+			);
+		} );
+	}
+
+	// -------------------------------------------------------------------------
 	// Repository inline edit — WP Quick Edit clone pattern.
 	// -------------------------------------------------------------------------
 	const editTemplate = document.getElementById( 'ghrp-inline-edit' );
