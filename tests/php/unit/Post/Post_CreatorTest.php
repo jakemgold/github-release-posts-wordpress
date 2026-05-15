@@ -433,6 +433,124 @@ class Post_CreatorTest extends TestCase {
 	}
 
 	// -------------------------------------------------------------------------
+	// convert_html_to_blocks() — figure / image extraction
+	// -------------------------------------------------------------------------
+
+	public function test_convert_html_to_blocks_wraps_paragraph(): void {
+		\WP_Mock::userFunction( 'get_option' )->andReturn( false )->byDefault();
+
+		$result = Post_Creator::convert_html_to_blocks( '<p>Hello world.</p>' );
+		$this->assertSame( "<!-- wp:paragraph -->\n<p>Hello world.</p>\n<!-- /wp:paragraph -->", $result );
+	}
+
+	public function test_convert_html_to_blocks_extracts_figure_with_img(): void {
+		\WP_Mock::userFunction( 'esc_url' )->andReturnUsing( fn( $v ) => $v )->byDefault();
+		\WP_Mock::userFunction( 'esc_attr' )->andReturnUsing( fn( $v ) => $v )->byDefault();
+
+		$input = '<figure><img src="https://example.com/a.png" alt="An image"></figure>';
+
+		$result = Post_Creator::convert_html_to_blocks( $input );
+
+		$this->assertStringContainsString( '<!-- wp:image {"sizeSlug":"full"} -->', $result );
+		$this->assertStringContainsString( '<figure class="wp-block-image size-full">', $result );
+		$this->assertStringContainsString( 'src="https://example.com/a.png"', $result );
+		$this->assertStringContainsString( 'alt="An image"', $result );
+	}
+
+	public function test_convert_html_to_blocks_preserves_figcaption(): void {
+		\WP_Mock::userFunction( 'esc_url' )->andReturnUsing( fn( $v ) => $v )->byDefault();
+		\WP_Mock::userFunction( 'esc_attr' )->andReturnUsing( fn( $v ) => $v )->byDefault();
+
+		$input = '<figure><img src="https://example.com/b.jpg" alt=""><figcaption>A caption.</figcaption></figure>';
+
+		$result = Post_Creator::convert_html_to_blocks( $input );
+
+		$this->assertStringContainsString( '<figcaption class="wp-element-caption">A caption.</figcaption>', $result );
+	}
+
+	public function test_convert_html_to_blocks_unwraps_p_around_figure(): void {
+		\WP_Mock::userFunction( 'esc_url' )->andReturnUsing( fn( $v ) => $v )->byDefault();
+		\WP_Mock::userFunction( 'esc_attr' )->andReturnUsing( fn( $v ) => $v )->byDefault();
+
+		$input = '<p><figure><img src="https://example.com/c.png" alt=""></figure></p>';
+
+		$result = Post_Creator::convert_html_to_blocks( $input );
+
+		$this->assertStringContainsString( '<!-- wp:image', $result );
+		$this->assertStringNotContainsString( '<!-- wp:paragraph -->', $result );
+	}
+
+	public function test_convert_html_to_blocks_handles_standalone_img(): void {
+		\WP_Mock::userFunction( 'esc_url' )->andReturnUsing( fn( $v ) => $v )->byDefault();
+		\WP_Mock::userFunction( 'esc_attr' )->andReturnUsing( fn( $v ) => $v )->byDefault();
+
+		$input = '<img src="https://example.com/d.gif" alt="bare img">';
+
+		$result = Post_Creator::convert_html_to_blocks( $input );
+
+		$this->assertStringContainsString( '<!-- wp:image', $result );
+		$this->assertStringContainsString( 'src="https://example.com/d.gif"', $result );
+	}
+
+	public function test_convert_html_to_blocks_handles_figure_without_img(): void {
+		// A <figure> with no <img> should not pretend to be an image block.
+		$input  = '<figure><blockquote>Some quote</blockquote></figure>';
+		$result = Post_Creator::convert_html_to_blocks( $input );
+
+		$this->assertStringContainsString( '<!-- wp:html -->', $result );
+		$this->assertStringNotContainsString( '<!-- wp:image', $result );
+	}
+
+	public function test_convert_html_to_blocks_handles_attributes_before_src(): void {
+		// Attribute order varies — regex that assumed `src` comes first would miss this.
+		\WP_Mock::userFunction( 'esc_url' )->andReturnUsing( fn( $v ) => $v )->byDefault();
+		\WP_Mock::userFunction( 'esc_attr' )->andReturnUsing( fn( $v ) => $v )->byDefault();
+
+		$input  = '<figure><img alt="alt first" width="200" src="https://example.com/f.png"></figure>';
+		$result = Post_Creator::convert_html_to_blocks( $input );
+
+		$this->assertStringContainsString( 'src="https://example.com/f.png"', $result );
+		$this->assertStringContainsString( 'alt="alt first"', $result );
+	}
+
+	public function test_convert_html_to_blocks_handles_single_quoted_attributes(): void {
+		\WP_Mock::userFunction( 'esc_url' )->andReturnUsing( fn( $v ) => $v )->byDefault();
+		\WP_Mock::userFunction( 'esc_attr' )->andReturnUsing( fn( $v ) => $v )->byDefault();
+
+		$input  = "<figure><img src='https://example.com/g.png' alt='single quotes'></figure>";
+		$result = Post_Creator::convert_html_to_blocks( $input );
+
+		$this->assertStringContainsString( 'src="https://example.com/g.png"', $result );
+		$this->assertStringContainsString( 'alt="single quotes"', $result );
+	}
+
+	public function test_convert_html_to_blocks_preserves_figcaption_inner_markup(): void {
+		// DOMDocument preserves inline markup inside <figcaption>; the old
+		// regex captured raw inner text but with nested elements intact.
+		\WP_Mock::userFunction( 'esc_url' )->andReturnUsing( fn( $v ) => $v )->byDefault();
+		\WP_Mock::userFunction( 'esc_attr' )->andReturnUsing( fn( $v ) => $v )->byDefault();
+
+		$input  = '<figure><img src="https://example.com/h.png" alt=""><figcaption>Bold <strong>word</strong> caption.</figcaption></figure>';
+		$result = Post_Creator::convert_html_to_blocks( $input );
+
+		$this->assertStringContainsString( '<strong>word</strong>', $result );
+	}
+
+	public function test_convert_html_to_blocks_handles_mixed_content(): void {
+		\WP_Mock::userFunction( 'esc_url' )->andReturnUsing( fn( $v ) => $v )->byDefault();
+		\WP_Mock::userFunction( 'esc_attr' )->andReturnUsing( fn( $v ) => $v )->byDefault();
+
+		$input = '<h2>Title</h2><p>Para.</p><figure><img src="https://example.com/e.png" alt=""></figure><p>Done.</p>';
+
+		$result = Post_Creator::convert_html_to_blocks( $input );
+
+		$this->assertStringContainsString( '<!-- wp:heading -->', $result );
+		$this->assertStringContainsString( '<!-- wp:image', $result );
+		// Two paragraph blocks expected.
+		$this->assertSame( 2, substr_count( $result, '<!-- wp:paragraph -->' ) );
+	}
+
+	// -------------------------------------------------------------------------
 	// is_host_allowed() — SSRF defense for sideloaded images
 	// -------------------------------------------------------------------------
 

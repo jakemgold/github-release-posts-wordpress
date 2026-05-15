@@ -465,38 +465,77 @@ class Post_Creator {
 	 *
 	 * Ensures the <figure> has the required `wp-block-image` class and
 	 * determines whether it contains an image (wp:image) or should fall
-	 * back to a generic HTML block.
+	 * back to a generic HTML block. Uses DOMDocument for attribute and
+	 * caption extraction so attribute order, quote style, escaped quotes,
+	 * and nested elements inside <figcaption> can't mis-match a regex.
 	 *
 	 * @param string $html The full <figure> HTML element.
 	 * @return string Block-wrapped markup.
 	 */
 	private static function wrap_figure_block( string $html ): string {
-		// Only treat as an image block if the figure contains an <img>.
-		if ( ! preg_match( '/<img\s/i', $html ) ) {
+		$figure_node = self::parse_single_element( $html, 'figure' );
+		if ( null === $figure_node ) {
 			return "<!-- wp:html -->\n{$html}\n<!-- /wp:html -->";
 		}
 
-		// Extract src and alt from the <img> tag.
-		$src = '';
-		$alt = '';
-		if ( preg_match( '/<img[^>]+src=["\']([^"\']+)["\']/i', $html, $src_match ) ) {
-			$src = $src_match[1];
+		$img_nodes = $figure_node->getElementsByTagName( 'img' );
+		if ( 0 === $img_nodes->length ) {
+			return "<!-- wp:html -->\n{$html}\n<!-- /wp:html -->";
 		}
-		if ( preg_match( '/<img[^>]+alt=["\']([^"\']*)["\']/', $html, $alt_match ) ) {
-			$alt = $alt_match[1];
-		}
+
+		$img = $img_nodes->item( 0 );
+		$src = (string) $img->getAttribute( 'src' );
+		$alt = (string) $img->getAttribute( 'alt' );
 
 		if ( '' === $src ) {
 			return "<!-- wp:html -->\n{$html}\n<!-- /wp:html -->";
 		}
 
-		// Extract figcaption if present.
-		$caption = '';
-		if ( preg_match( '/<figcaption[^>]*>(.*?)<\/figcaption>/si', $html, $cap_match ) ) {
-			$caption = trim( $cap_match[1] );
+		// Extract figcaption inner HTML (preserves nested markup).
+		$caption   = '';
+		$cap_nodes = $figure_node->getElementsByTagName( 'figcaption' );
+		if ( $cap_nodes->length > 0 ) {
+			$caption = trim( self::inner_html( $cap_nodes->item( 0 ) ) );
 		}
 
-		// Rebuild the block with exact markup Gutenberg expects.
+		return self::build_image_block( $src, $alt, $caption );
+	}
+
+	/**
+	 * Wraps a standalone <img> element as a Gutenberg image block.
+	 *
+	 * @param string $html The <img> HTML element.
+	 * @return string Block-wrapped markup.
+	 */
+	private static function wrap_img_block( string $html ): string {
+		$img_node = self::parse_single_element( $html, 'img' );
+		if ( null === $img_node ) {
+			return "<!-- wp:html -->\n{$html}\n<!-- /wp:html -->";
+		}
+
+		$src = (string) $img_node->getAttribute( 'src' );
+		$alt = (string) $img_node->getAttribute( 'alt' );
+
+		if ( '' === $src ) {
+			return "<!-- wp:html -->\n{$html}\n<!-- /wp:html -->";
+		}
+
+		return self::build_image_block( $src, $alt, '' );
+	}
+
+	/**
+	 * Builds the canonical wp:image block markup from parsed attributes.
+	 *
+	 * Rebuilding from scratch (rather than mutating the input HTML) is what
+	 * lets us satisfy Gutenberg's block-validation, which compares the saved
+	 * markup to a re-rendered serialization byte-for-byte.
+	 *
+	 * @param string $src     Image URL.
+	 * @param string $alt     Alt text (may be empty).
+	 * @param string $caption Inner HTML of the figcaption (may be empty).
+	 * @return string
+	 */
+	private static function build_image_block( string $src, string $alt, string $caption ): string {
 		$figure = '<figure class="wp-block-image size-full">'
 			. '<img src="' . esc_url( $src ) . '" alt="' . esc_attr( $alt ) . '" />';
 
@@ -510,30 +549,54 @@ class Post_Creator {
 	}
 
 	/**
-	 * Wraps a standalone <img> element as a Gutenberg image block.
+	 * Parses a single-element HTML fragment and returns the matching node.
 	 *
-	 * @param string $html The <img> HTML element.
-	 * @return string Block-wrapped markup.
+	 * Wraps the fragment in a synthetic root so DOMDocument doesn't inject
+	 * <html><body>. Returns null if no element of the expected tag is found,
+	 * letting callers fall back to a generic HTML block.
+	 *
+	 * @param string $html        HTML fragment expected to contain a single root element.
+	 * @param string $expected_tag Tag name to locate (e.g. 'figure', 'img').
+	 * @return \DOMElement|null
 	 */
-	private static function wrap_img_block( string $html ): string {
-		$src = '';
-		$alt = '';
-		if ( preg_match( '/src=["\']([^"\']+)["\']/i', $html, $src_match ) ) {
-			$src = $src_match[1];
-		}
-		if ( preg_match( '/alt=["\']([^"\']*)["\']/', $html, $alt_match ) ) {
-			$alt = $alt_match[1];
+	private static function parse_single_element( string $html, string $expected_tag ): ?\DOMElement {
+		$doc      = new \DOMDocument();
+		$previous = libxml_use_internal_errors( true );
+
+		// Force UTF-8 — DOMDocument defaults to ISO-8859-1.
+		$wrapped = '<?xml encoding="UTF-8"?><div>' . $html . '</div>';
+		$loaded  = $doc->loadHTML( $wrapped, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD );
+
+		libxml_clear_errors();
+		libxml_use_internal_errors( $previous );
+
+		if ( ! $loaded ) {
+			return null;
 		}
 
-		if ( '' === $src ) {
-			return "<!-- wp:html -->\n{$html}\n<!-- /wp:html -->";
+		$nodes = $doc->getElementsByTagName( $expected_tag );
+		if ( 0 === $nodes->length ) {
+			return null;
 		}
 
-		$figure = '<figure class="wp-block-image size-full">'
-			. '<img src="' . esc_url( $src ) . '" alt="' . esc_attr( $alt ) . '" />'
-			. '</figure>';
+		$node = $nodes->item( 0 );
+		return $node instanceof \DOMElement ? $node : null;
+	}
 
-		return "<!-- wp:image {\"sizeSlug\":\"full\"} -->\n{$figure}\n<!-- /wp:image -->";
+	/**
+	 * Returns the concatenated inner HTML of a DOM node.
+	 *
+	 * @param \DOMNode $node Parent node.
+	 * @return string
+	 */
+	private static function inner_html( \DOMNode $node ): string {
+		$html = '';
+		// phpcs:disable WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase -- DOMDocument native property names.
+		foreach ( $node->childNodes as $child ) {
+			$html .= $node->ownerDocument->saveHTML( $child );
+		}
+		// phpcs:enable WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
+		return $html;
 	}
 
 	/**
