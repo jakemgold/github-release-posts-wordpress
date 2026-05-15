@@ -16,6 +16,7 @@ use GitHubReleasePosts\GitHub\Release_Queue;
 use GitHubReleasePosts\GitHub\Release_State;
 use GitHubReleasePosts\Notification\Email_Notifier;
 use GitHubReleasePosts\Plugin_Constants;
+use GitHubReleasePosts\Post\Post_Status;
 use GitHubReleasePosts\Settings\Global_Settings;
 use GitHubReleasePosts\Settings\Repository_Settings;
 
@@ -921,7 +922,7 @@ class Admin_Page {
 
 		// Build subject matching the real notification format, prefixed with [Test].
 		$display = $entry['display_name'] . ' ' . $entry['tag'];
-		if ( 'publish' === $entry['status'] ) {
+		if ( Post_Status::is_public( $entry['status'] ) ) {
 			/* translators: %s: project name and version */
 			$subject = sprintf( __( '[Test] %s — release post published', 'github-release-posts' ), $display );
 		} else {
@@ -1111,7 +1112,7 @@ class Admin_Page {
 		}
 
 		// Only update the slug if the post is not yet published (preserve live URLs).
-		if ( '' !== $result->slug_keywords && ! in_array( $post->post_status, [ 'publish', 'private' ], true ) ) {
+		if ( '' !== $result->slug_keywords && ! Post_Status::has_permalink( $post->post_status ) ) {
 			$version                  = strtolower( ltrim( $data->tag, 'vV' ) );
 			$version                  = str_replace( '.', '-', $version );
 			$update_args['post_name'] = sanitize_title( $display_name . '-' . $version . '-' . $result->slug_keywords );

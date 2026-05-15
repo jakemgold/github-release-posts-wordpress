@@ -11,6 +11,7 @@
 namespace GitHubReleasePosts\Admin;
 
 use GitHubReleasePosts\Plugin_Constants;
+use GitHubReleasePosts\Post\Post_Status;
 use GitHubReleasePosts\Settings\Repository_Settings;
 
 // WP_List_Table is not loaded automatically in all contexts.
@@ -250,12 +251,14 @@ class Repository_List_Table extends \WP_List_Table {
 		$data  = $this->last_posts[ $identifier ];
 		$label = $data['tag'] ? $data['tag'] . ' ' . __( 'on', 'github-release-posts' ) . ' ' . $data['date'] : $data['date'];
 
-		// Show post status for non-published posts.
+		// Show post status for non-published posts. Pulled from WP's status
+		// registry so custom statuses (Edit Flow's "Pitch", etc.) render too.
 		$status_label = '';
-		if ( 'draft' === $data['status'] ) {
-			$status_label = ' <em>(' . esc_html__( 'Draft', 'github-release-posts' ) . ')</em>';
-		} elseif ( 'pending' === $data['status'] ) {
-			$status_label = ' <em>(' . esc_html__( 'Pending', 'github-release-posts' ) . ')</em>';
+		if ( ! Post_Status::is_public( $data['status'] ) ) {
+			$label = Post_Status::label( $data['status'] );
+			if ( '' !== $label ) {
+				$status_label = ' <em>(' . esc_html( $label ) . ')</em>';
+			}
 		}
 
 		return sprintf(

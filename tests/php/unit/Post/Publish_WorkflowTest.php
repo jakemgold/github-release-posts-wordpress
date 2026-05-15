@@ -12,6 +12,7 @@ use GitHubReleasePosts\AI\ReleaseData;
 use GitHubReleasePosts\Cache_Keys;
 use GitHubReleasePosts\Post\Publish_Workflow;
 use GitHubReleasePosts\Settings\Repository_Settings;
+use GitHubReleasePosts\Tests\Post_Status_Defaults;
 use WP_Mock\Tools\TestCase;
 
 /**
@@ -19,11 +20,14 @@ use WP_Mock\Tools\TestCase;
  */
 class Publish_WorkflowTest extends TestCase {
 
+	use Post_Status_Defaults;
+
 	private Publish_Workflow $workflow;
 	private Repository_Settings $repo_settings;
 
 	public function setUp(): void {
 		parent::setUp();
+		$this->install_post_status_defaults();
 
 		$this->repo_settings = \Mockery::mock( Repository_Settings::class );
 		$this->workflow      = new Publish_Workflow( $this->repo_settings );

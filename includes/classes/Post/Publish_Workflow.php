@@ -69,7 +69,7 @@ class Publish_Workflow {
 			'post_status' => $status,
 		];
 
-		if ( 'publish' === $status ) {
+		if ( Post_Status::is_public( $status ) ) {
 			$update_args['post_date']     = current_time( 'mysql' );
 			$update_args['post_date_gmt'] = current_time( 'mysql', true );
 		}
@@ -143,7 +143,7 @@ class Publish_Workflow {
 			'edit_url'   => get_edit_post_link( $post_id, 'raw' ),
 		];
 
-		if ( 'publish' === $status ) {
+		if ( Post_Status::is_public( $status ) ) {
 			$results['published'][] = $entry;
 		} else {
 			$results['drafted'][] = $entry;

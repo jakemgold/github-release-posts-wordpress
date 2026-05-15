@@ -10,6 +10,7 @@ namespace GitHubReleasePosts\Notification;
 use GitHubReleasePosts\AI\ReleaseData;
 use GitHubReleasePosts\AI\Release_Significance;
 use GitHubReleasePosts\Plugin_Constants;
+use GitHubReleasePosts\Post\Post_Status;
 use GitHubReleasePosts\Settings\Global_Settings;
 use GitHubReleasePosts\Settings\Repository_Settings;
 
@@ -210,7 +211,7 @@ class Email_Notifier {
 			$entry  = $entries[0];
 			$prefix = $entry['display_name'] . ' ' . $entry['tag'];
 
-			if ( 'publish' === $entry['status'] ) {
+			if ( Post_Status::is_public( $entry['status'] ) ) {
 				/* translators: %s: project name and version, e.g. "Gutenberg 19.0" */
 				return sprintf( __( '%s — release post published', 'github-release-posts' ), $prefix );
 			}
@@ -249,7 +250,7 @@ class Email_Notifier {
 			$title   = ! empty( $entry['post_title'] ) ? $entry['post_title'] : $entry['display_name'] . ' ' . $entry['tag'];
 			$lines[] = sprintf( '• %s', $title );
 
-			if ( 'publish' === $entry['status'] ) {
+			if ( Post_Status::is_public( $entry['status'] ) ) {
 				$lines[] = sprintf( '  %s: %s', __( 'View post', 'github-release-posts' ), get_permalink( $entry['post_id'] ) );
 			} else {
 				$lines[] = sprintf( '  %s: %s', __( 'Review draft', 'github-release-posts' ), (string) get_edit_post_link( $entry['post_id'], 'raw' ) );
@@ -309,7 +310,7 @@ class Email_Notifier {
 			$html .= '<br>';
 
 			if ( $entry['post_id'] > 0 ) {
-				if ( 'publish' === $entry['status'] ) {
+				if ( Post_Status::is_public( $entry['status'] ) ) {
 					$view_url = esc_url( get_permalink( $entry['post_id'] ) );
 					$edit_url = esc_url( (string) get_edit_post_link( $entry['post_id'], 'raw' ) );
 					$html    .= '<a href="' . $view_url . '">' . esc_html__( 'View post', 'github-release-posts' ) . '</a>';

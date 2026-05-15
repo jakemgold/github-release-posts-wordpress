@@ -12,12 +12,15 @@ use GitHubReleasePosts\AI\Release_Significance;
 use GitHubReleasePosts\Notification\Email_Notifier;
 use GitHubReleasePosts\Settings\Global_Settings;
 use GitHubReleasePosts\Settings\Repository_Settings;
+use GitHubReleasePosts\Tests\Post_Status_Defaults;
 use WP_Mock\Tools\TestCase;
 
 /**
  * @covers \GitHubReleasePosts\Notification\Email_Notifier
  */
 class Email_NotifierTest extends TestCase {
+
+	use Post_Status_Defaults;
 
 	private Email_Notifier $notifier;
 	private Global_Settings $global_settings;
@@ -26,6 +29,7 @@ class Email_NotifierTest extends TestCase {
 	public function setUp(): void {
 		parent::setUp();
 		\WP_Mock::setUp();
+		$this->install_post_status_defaults();
 
 		\WP_Mock::userFunction( 'get_the_title' )->andReturn( 'Test Post Title' )->byDefault();
 		\WP_Mock::userFunction( 'home_url' )->andReturn( 'https://example.com' )->byDefault();
