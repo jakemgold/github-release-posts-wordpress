@@ -813,7 +813,14 @@ class Admin_Page {
 		}
 
 		// Check for existing post — offer conflict resolution (BR-003).
+		// Trashed posts are treated as not-existing here: the user clicked
+		// "Generate post" deliberately, and surfacing a conflict over an
+		// already-trashed draft would be confusing. The cron pipeline still
+		// honors trash as a "skip this release" signal (Post_Creator::handle).
 		$existing = Release_Monitor::find_post( $identifier, $release->tag );
+		if ( $existing instanceof \WP_Post && 'trash' === $existing->post_status ) {
+			$existing = null;
+		}
 
 		if ( $existing instanceof \WP_Post ) {
 			return new \WP_REST_Response(
