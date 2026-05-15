@@ -159,17 +159,38 @@ class Release_Monitor {
 	}
 
 	/**
+	 * Request-scoped cache for find_post() results.
+	 *
+	 * Keyed by "identifier:tag". Stores both positive (WP_Post) and negative
+	 * (null) results so a repeat lookup in the same request avoids the
+	 * meta_query join. Callers that mutate state for a key (post insert,
+	 * delete) must invalidate via forget_post() to prevent stale reads.
+	 *
+	 * @var array<string, \WP_Post|null>
+	 */
+	private static array $find_post_cache = [];
+
+	/**
 	 * Finds an existing WordPress post for a given repo + tag combination.
 	 *
 	 * Used by both the cron pipeline and the manual trigger AJAX for
 	 * deduplication (BR-003). Checks all non-auto-draft post statuses
 	 * including trash, consistent with AC-003 from PRD-04.2.01.
 	 *
+	 * Results are cached for the duration of the request. The same (identifier,
+	 * tag) pair is queried twice per cron tick — once by Post_Creator before
+	 * insertion, once by Release_Monitor after — so caching halves the work.
+	 *
 	 * @param string $identifier Normalised `owner/repo` identifier.
 	 * @param string $tag        Release tag string.
 	 * @return \WP_Post|null First matching post, or null if none found.
 	 */
 	public static function find_post( string $identifier, string $tag ): ?\WP_Post {
+		$cache_key = $identifier . ':' . $tag;
+		if ( array_key_exists( $cache_key, self::$find_post_cache ) ) {
+			return self::$find_post_cache[ $cache_key ];
+		}
+
 		$posts = get_posts(
 			[
 				'post_type'      => 'post',
@@ -191,7 +212,33 @@ class Release_Monitor {
 			]
 		);
 
-		return ! empty( $posts ) ? $posts[0] : null;
+		$result                              = ! empty( $posts ) ? $posts[0] : null;
+		self::$find_post_cache[ $cache_key ] = $result;
+		return $result;
+	}
+
+	/**
+	 * Invalidates the cached find_post() entry for a repo + tag.
+	 *
+	 * Call this after inserting, deleting, or trashing a post so subsequent
+	 * lookups in the same request observe the change.
+	 *
+	 * @param string $identifier Repository identifier.
+	 * @param string $tag        Release tag.
+	 * @return void
+	 */
+	public static function forget_post( string $identifier, string $tag ): void {
+		unset( self::$find_post_cache[ $identifier . ':' . $tag ] );
+	}
+
+	/**
+	 * Clears the entire find_post() cache. Intended for tests.
+	 *
+	 * @internal
+	 * @return void
+	 */
+	public static function reset_find_post_cache(): void {
+		self::$find_post_cache = [];
 	}
 
 	/**

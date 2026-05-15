@@ -23,6 +23,11 @@ class API_ClientTest extends TestCase {
 	public function setUp(): void {
 		parent::setUp();
 		\WP_Mock::setUp();
+
+		// Stampede lock — default to "we acquired it" / "delete succeeds".
+		// Tests that exercise the contended path override these.
+		\WP_Mock::userFunction( 'wp_cache_add' )->andReturn( true )->byDefault();
+		\WP_Mock::userFunction( 'wp_cache_delete' )->andReturn( true )->byDefault();
 	}
 
 	public function tearDown(): void {
@@ -401,6 +406,47 @@ class API_ClientTest extends TestCase {
 		} catch ( \Throwable $e ) {
 			$this->fail( 'Rate limit exhaustion should never throw. Got: ' . $e->getMessage() );
 		}
+	}
+
+	// -------------------------------------------------------------------------
+	// Stampede lock — contended path returns the cached value from the winner
+	// -------------------------------------------------------------------------
+
+	/**
+	 * When wp_cache_add returns false (another process holds the lock) and the
+	 * transient appears on retry, the contender should return that value
+	 * without firing its own wp_remote_get.
+	 *
+	 * @covers API_Client::fetch_latest_release
+	 */
+	public function test_contended_fetch_returns_winner_cached_value(): void {
+		$release = new Release(
+			tag:          'v9.9.9',
+			name:         'Cached',
+			body:         '',
+			html_url:     'https://github.com/10up/plugin/releases/tag/v9.9.9',
+			published_at: '2026-04-01T00:00:00Z',
+			assets:       [],
+		);
+
+		// First get_transient (pre-lock): miss.
+		// Second get_transient (post-sleep, lock holder finished): hit.
+		\WP_Mock::userFunction( 'get_transient' )
+			->andReturnValues( [ false, $release ] );
+
+		\WP_Mock::userFunction( 'wp_cache_add' )->once()->andReturn( false );
+
+		// wp_remote_get must NOT be called — the contender returns the winner's value.
+		\WP_Mock::userFunction( 'wp_remote_get' )->never();
+
+		// Lock was not owned, so wp_cache_delete must not run either.
+		\WP_Mock::userFunction( 'wp_cache_delete' )->never();
+
+		$client = new API_Client( $this->settings_mock() );
+		$result = $client->fetch_latest_release( '10up/plugin' );
+
+		$this->assertInstanceOf( Release::class, $result );
+		$this->assertSame( 'v9.9.9', $result->tag );
 	}
 
 	// -------------------------------------------------------------------------

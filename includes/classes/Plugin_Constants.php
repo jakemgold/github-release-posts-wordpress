@@ -134,6 +134,12 @@ class Plugin_Constants {
 	const TRANSIENT_RELEASE_PREFIX = 'ghrp_rel_';
 
 	/**
+	 * Prefix for the stampede lock guarding a per-repo release fetch.
+	 * Held via wp_cache_add() for the duration of an in-flight HTTP request.
+	 */
+	const RELEASE_FETCH_LOCK_PREFIX = 'ghrp_rel_lock_';
+
+	/**
 	 * Stores the last-known GitHub API rate limit remaining count.
 	 */
 	const TRANSIENT_RATE_LIMIT_REMAINING = 'ghrp_rate_limit_remaining';

@@ -59,68 +59,93 @@ class API_Client {
 			return $cached;
 		}
 
-		// Build request.
-		[ $owner, $repo ] = explode( '/', $identifier, 2 );
-		$url              = sprintf( '%s/repos/%s/%s/releases/latest', self::API_BASE, $owner, $repo );
-		$args             = $this->build_request_args();
-
-		// Make HTTP call (BR-004).
-		$response = wp_remote_get( $url, $args );
-
-		if ( is_wp_error( $response ) ) {
-			return $response; // Propagate network error (BR-005).
+		// Defend against cache stampede when the transient expires under
+		// concurrent load. wp_cache_add() is atomic when a persistent object
+		// cache is installed; with the default in-process cache it has no
+		// effect, leaving us no worse off than before.
+		$lock_key  = Plugin_Constants::RELEASE_FETCH_LOCK_PREFIX . md5( $identifier );
+		$owns_lock = (bool) wp_cache_add( $lock_key, 1, '', 30 );
+		if ( ! $owns_lock ) {
+			// Another process is fetching. Wait briefly for it to populate
+			// the transient — up to ~750ms total — then return whatever it
+			// produced. If it never appears, fall through and fetch ourselves.
+			for ( $attempt = 0; $attempt < 3; $attempt++ ) {
+				usleep( 250000 );
+				$cached = get_transient( $cache_key );
+				if ( $cached instanceof Release ) {
+					return $cached;
+				}
+			}
 		}
 
-		// Inspect and record rate limit headers (AC-009).
-		$rate_limit_result = $this->handle_rate_limit( $response );
-		if ( is_wp_error( $rate_limit_result ) ) {
-			return $rate_limit_result; // Rate limit exhausted (AC-010).
+		try {
+			// Build request.
+			[ $owner, $repo ] = explode( '/', $identifier, 2 );
+			$url              = sprintf( '%s/repos/%s/%s/releases/latest', self::API_BASE, $owner, $repo );
+			$args             = $this->build_request_args();
+
+			// Make HTTP call (BR-004).
+			$response = wp_remote_get( $url, $args );
+
+			if ( is_wp_error( $response ) ) {
+				return $response; // Propagate network error (BR-005).
+			}
+
+			// Inspect and record rate limit headers (AC-009).
+			$rate_limit_result = $this->handle_rate_limit( $response );
+			if ( is_wp_error( $rate_limit_result ) ) {
+				return $rate_limit_result; // Rate limit exhausted (AC-010).
+			}
+
+			$code = (int) wp_remote_retrieve_response_code( $response );
+
+			if ( 404 === $code ) {
+				// Repo has no releases, or does not exist (BR-001: private repos rejected upstream).
+				// Treat as "no release found" rather than a hard error (AC-003).
+				return null;
+			}
+
+			if ( 403 === $code ) {
+				// Private repo or authentication error.
+				return new \WP_Error(
+					'github_forbidden',
+					__( 'GitHub returned 403 Forbidden. The repository may be private or require authentication.', 'github-release-posts' )
+				);
+			}
+
+			if ( 200 !== $code ) {
+				return new \WP_Error(
+					'github_http_error',
+					sprintf(
+						/* translators: %d: HTTP status code */
+						__( 'GitHub API returned HTTP %d.', 'github-release-posts' ),
+						$code
+					)
+				);
+			}
+
+			// Parse JSON body.
+			$body = wp_remote_retrieve_body( $response );
+			$data = json_decode( $body, true );
+
+			if ( ! is_array( $data ) ) {
+				return new \WP_Error(
+					'github_parse_error',
+					__( 'Failed to parse GitHub API response.', 'github-release-posts' )
+				);
+			}
+
+			$release = Release::from_api_response( $data );
+
+			// Cache successful result for 15 minutes (AC-005).
+			set_transient( $cache_key, $release, 15 * MINUTE_IN_SECONDS );
+
+			return $release;
+		} finally {
+			if ( $owns_lock ) {
+				wp_cache_delete( $lock_key );
+			}
 		}
-
-		$code = (int) wp_remote_retrieve_response_code( $response );
-
-		if ( 404 === $code ) {
-			// Repo has no releases, or does not exist (BR-001: private repos rejected upstream).
-			// Treat as "no release found" rather than a hard error (AC-003).
-			return null;
-		}
-
-		if ( 403 === $code ) {
-			// Private repo or authentication error.
-			return new \WP_Error(
-				'github_forbidden',
-				__( 'GitHub returned 403 Forbidden. The repository may be private or require authentication.', 'github-release-posts' )
-			);
-		}
-
-		if ( 200 !== $code ) {
-			return new \WP_Error(
-				'github_http_error',
-				sprintf(
-					/* translators: %d: HTTP status code */
-					__( 'GitHub API returned HTTP %d.', 'github-release-posts' ),
-					$code
-				)
-			);
-		}
-
-		// Parse JSON body.
-		$body = wp_remote_retrieve_body( $response );
-		$data = json_decode( $body, true );
-
-		if ( ! is_array( $data ) ) {
-			return new \WP_Error(
-				'github_parse_error',
-				__( 'Failed to parse GitHub API response.', 'github-release-posts' )
-			);
-		}
-
-		$release = Release::from_api_response( $data );
-
-		// Cache successful result for 15 minutes (AC-005).
-		set_transient( $cache_key, $release, 15 * MINUTE_IN_SECONDS );
-
-		return $release;
 	}
 
 	/**

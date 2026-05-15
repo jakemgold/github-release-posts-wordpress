@@ -9,6 +9,7 @@ namespace Jakemgold\GitHubReleasePosts\Tests\Post;
 
 use Jakemgold\GitHubReleasePosts\AI\GeneratedPost;
 use Jakemgold\GitHubReleasePosts\AI\ReleaseData;
+use Jakemgold\GitHubReleasePosts\GitHub\Release_Monitor;
 use Jakemgold\GitHubReleasePosts\Plugin_Constants;
 use Jakemgold\GitHubReleasePosts\Post\Post_Creator;
 use Jakemgold\GitHubReleasePosts\Settings\Global_Settings;
@@ -74,6 +75,7 @@ class Post_CreatorTest extends TestCase {
 
 	public function tearDown(): void {
 		\WP_Query::reset_mock();
+		Release_Monitor::reset_find_post_cache();
 		parent::tearDown();
 	}
 
@@ -383,10 +385,42 @@ class Post_CreatorTest extends TestCase {
 	// -------------------------------------------------------------------------
 
 	public function test_find_existing_post_checks_all_post_statuses(): void {
-		\WP_Query::$mock_posts = [];
+		\WP_Mock::userFunction( 'get_posts' )
+			->once()
+			->andReturnUsing( function ( $args ) {
+				$this->assertContains( 'trash', $args['post_status'], 'must search trashed posts (AC-006)' );
+				$this->assertContains( 'draft', $args['post_status'] );
+				$this->assertContains( 'publish', $args['post_status'] );
+				return [];
+			} );
 
 		$result = $this->creator->find_existing_post( 'owner/repo', 'v1.0.0' );
 		$this->assertNull( $result );
+	}
+
+	public function test_find_existing_post_returns_id_when_post_exists(): void {
+		$post              = new \WP_Post( (object) [] );
+		$post->ID          = 42;
+		$post->post_status = 'draft';
+
+		\WP_Mock::userFunction( 'get_posts' )->once()->andReturn( [ $post ] );
+
+		$this->assertSame( 42, $this->creator->find_existing_post( 'owner/repo', 'v1.0.0' ) );
+	}
+
+	public function test_find_existing_post_cached_within_request(): void {
+		$post              = new \WP_Post( (object) [] );
+		$post->ID          = 42;
+		$post->post_status = 'draft';
+
+		// get_posts should run exactly once across two calls with the same args.
+		\WP_Mock::userFunction( 'get_posts' )->once()->andReturn( [ $post ] );
+
+		$first  = $this->creator->find_existing_post( 'owner/repo', 'v1.0.0' );
+		$second = $this->creator->find_existing_post( 'owner/repo', 'v1.0.0' );
+
+		$this->assertSame( 42, $first );
+		$this->assertSame( 42, $second );
 	}
 
 	// -------------------------------------------------------------------------
@@ -447,10 +481,13 @@ class Post_CreatorTest extends TestCase {
 	}
 
 	private function mock_wp_query_no_results(): void {
-		\WP_Query::$mock_posts = [];
+		\WP_Mock::userFunction( 'get_posts' )->andReturn( [] )->byDefault();
 	}
 
 	private function mock_wp_query_with_result( int $post_id ): void {
-		\WP_Query::$mock_posts = [ $post_id ];
+		$post              = new \WP_Post( (object) [] );
+		$post->ID          = $post_id;
+		$post->post_status = 'draft';
+		\WP_Mock::userFunction( 'get_posts' )->andReturn( [ $post ] )->byDefault();
 	}
 }

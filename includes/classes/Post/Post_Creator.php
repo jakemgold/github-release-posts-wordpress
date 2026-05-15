@@ -9,6 +9,7 @@ namespace Jakemgold\GitHubReleasePosts\Post;
 
 use Jakemgold\GitHubReleasePosts\AI\GeneratedPost;
 use Jakemgold\GitHubReleasePosts\AI\ReleaseData;
+use Jakemgold\GitHubReleasePosts\GitHub\Release_Monitor;
 use Jakemgold\GitHubReleasePosts\Plugin_Constants;
 use Jakemgold\GitHubReleasePosts\Settings\Global_Settings;
 use Jakemgold\GitHubReleasePosts\Settings\Repository_Settings;
@@ -123,6 +124,10 @@ class Post_Creator {
 
 		$this->store_meta( $post_id, $data, $post->provider_slug );
 
+		// Invalidate the find_post() cache so the cron pipeline's
+		// post-creation confirmation observes the new post.
+		Release_Monitor::forget_post( $data->identifier, $data->tag );
+
 		// Sideload remote images into the WordPress media library.
 		$this->sideload_images( $post_id );
 
@@ -136,35 +141,17 @@ class Post_Creator {
 	/**
 	 * Finds an existing post for the given repo + tag combination.
 	 *
-	 * Checks all post statuses including trash (AC-006).
+	 * Checks all post statuses including trash (AC-006). Delegates to
+	 * Release_Monitor::find_post so the request-scoped cache is shared
+	 * with the cron pipeline's post-insertion confirmation lookup.
 	 *
 	 * @param string $identifier Repository identifier (owner/repo).
 	 * @param string $tag        Release tag.
 	 * @return int|null Post ID if found, null otherwise.
 	 */
 	public function find_existing_post( string $identifier, string $tag ): ?int {
-		$query = new \WP_Query(
-			[
-				'post_type'      => 'post',
-				'post_status'    => 'any',
-				'posts_per_page' => 1,
-				'fields'         => 'ids',
-				'meta_query'     => [ // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
-					'relation' => 'AND',
-					[
-						'key'   => Plugin_Constants::META_SOURCE_REPO,
-						'value' => $identifier,
-					],
-					[
-						'key'   => Plugin_Constants::META_RELEASE_TAG,
-						'value' => $tag,
-					],
-				],
-			]
-		);
-
-		$posts = $query->posts;
-		return ! empty( $posts ) ? (int) $posts[0] : null;
+		$post = Release_Monitor::find_post( $identifier, $tag );
+		return $post instanceof \WP_Post ? (int) $post->ID : null;
 	}
 
 	/**

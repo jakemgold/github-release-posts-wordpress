@@ -49,6 +49,7 @@ class Release_MonitorTest extends TestCase {
 	}
 
 	public function tearDown(): void {
+		Release_Monitor::reset_find_post_cache();
 		\WP_Mock::tearDown();
 		parent::tearDown();
 	}
