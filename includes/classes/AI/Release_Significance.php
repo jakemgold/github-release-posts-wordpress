@@ -5,7 +5,7 @@
  * @package GitHubReleasePosts\AI
  */
 
-namespace Jakemgold\GitHubReleasePosts\AI;
+namespace GitHubReleasePosts\AI;
 
 /**
  * Determines whether a release is a patch, minor, major, or security update.

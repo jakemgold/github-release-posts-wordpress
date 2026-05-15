@@ -5,10 +5,10 @@
  * @package GitHubReleasePosts\Tests
  */
 
-namespace Jakemgold\GitHubReleasePosts\Tests;
+namespace GitHubReleasePosts\Tests;
 
-use Jakemgold\GitHubReleasePosts\Activator;
-use Jakemgold\GitHubReleasePosts\Plugin_Constants;
+use GitHubReleasePosts\Activator;
+use GitHubReleasePosts\Plugin_Constants;
 use WP_Mock\Tools\TestCase;
 
 /**

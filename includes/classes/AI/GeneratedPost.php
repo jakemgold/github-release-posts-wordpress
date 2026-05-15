@@ -5,7 +5,7 @@
  * @package GitHubReleasePosts\AI
  */
 
-namespace Jakemgold\GitHubReleasePosts\AI;
+namespace GitHubReleasePosts\AI;
 
 /**
  * Immutable output of a successful AI generation call.

@@ -16,7 +16,7 @@
  * @package           GitHubReleasePosts
  */
 
-namespace Jakemgold\GitHubReleasePosts;
+namespace GitHubReleasePosts;
 
 // Prevent direct access.
 if ( ! defined( 'ABSPATH' ) ) {
@@ -74,5 +74,5 @@ function github_release_posts() {
 
 add_action( 'plugins_loaded', __NAMESPACE__ . '\github_release_posts' );
 
-register_activation_hook( __FILE__, [ 'Jakemgold\GitHubReleasePosts\Activator', 'activate' ] );
-register_deactivation_hook( __FILE__, [ 'Jakemgold\GitHubReleasePosts\Activator', 'deactivate' ] );
+register_activation_hook( __FILE__, [ 'GitHubReleasePosts\Activator', 'activate' ] );
+register_deactivation_hook( __FILE__, [ 'GitHubReleasePosts\Activator', 'deactivate' ] );

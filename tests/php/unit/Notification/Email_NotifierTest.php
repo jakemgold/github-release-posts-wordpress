@@ -5,17 +5,17 @@
  * @package GitHubReleasePosts\Tests\Notification
  */
 
-namespace Jakemgold\GitHubReleasePosts\Tests\Notification;
+namespace GitHubReleasePosts\Tests\Notification;
 
-use Jakemgold\GitHubReleasePosts\AI\ReleaseData;
-use Jakemgold\GitHubReleasePosts\AI\Release_Significance;
-use Jakemgold\GitHubReleasePosts\Notification\Email_Notifier;
-use Jakemgold\GitHubReleasePosts\Settings\Global_Settings;
-use Jakemgold\GitHubReleasePosts\Settings\Repository_Settings;
+use GitHubReleasePosts\AI\ReleaseData;
+use GitHubReleasePosts\AI\Release_Significance;
+use GitHubReleasePosts\Notification\Email_Notifier;
+use GitHubReleasePosts\Settings\Global_Settings;
+use GitHubReleasePosts\Settings\Repository_Settings;
 use WP_Mock\Tools\TestCase;
 
 /**
- * @covers \Jakemgold\GitHubReleasePosts\Notification\Email_Notifier
+ * @covers \GitHubReleasePosts\Notification\Email_Notifier
  */
 class Email_NotifierTest extends TestCase {
 

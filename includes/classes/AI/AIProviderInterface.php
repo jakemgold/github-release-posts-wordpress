@@ -5,7 +5,7 @@
  * @package GitHubReleasePosts\AI
  */
 
-namespace Jakemgold\GitHubReleasePosts\AI;
+namespace GitHubReleasePosts\AI;
 
 /**
  * All AI provider connectors must implement this interface.

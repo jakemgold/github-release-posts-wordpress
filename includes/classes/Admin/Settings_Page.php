@@ -9,11 +9,11 @@
  * @package GitHubReleasePosts
  */
 
-namespace Jakemgold\GitHubReleasePosts\Admin;
+namespace GitHubReleasePosts\Admin;
 
-use Jakemgold\GitHubReleasePosts\Cache_Keys;
-use Jakemgold\GitHubReleasePosts\Plugin_Constants;
-use Jakemgold\GitHubReleasePosts\Settings\Global_Settings;
+use GitHubReleasePosts\Cache_Keys;
+use GitHubReleasePosts\Plugin_Constants;
+use GitHubReleasePosts\Settings\Global_Settings;
 
 /**
  * Handles WordPress Settings API registration for the plugin's Settings tab.

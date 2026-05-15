@@ -1,5 +1,5 @@
 {
-	"name": "jakemgold/github-release-posts",
+	"name": "github-release-posts/github-release-posts",
 	"description": "Automatically generate WordPress blog posts from GitHub releases using AI.",
 	"type": "wordpress-plugin",
 	"license": "GPL-2.0-or-later",
@@ -17,12 +17,12 @@
 	},
 	"autoload": {
 		"psr-4": {
-			"Jakemgold\\GitHubReleasePosts\\": "includes/classes/"
+			"GitHubReleasePosts\\": "includes/classes/"
 		}
 	},
 	"autoload-dev": {
 		"psr-4": {
-			"Jakemgold\\GitHubReleasePosts\\Tests\\": "tests/php/unit/"
+			"GitHubReleasePosts\\Tests\\": "tests/php/unit/"
 		}
 	},
 	"scripts": {

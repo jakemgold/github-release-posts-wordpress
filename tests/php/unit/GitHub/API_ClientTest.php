@@ -5,13 +5,13 @@
  * @package GitHubReleasePosts\Tests\GitHub
  */
 
-namespace Jakemgold\GitHubReleasePosts\Tests\GitHub;
+namespace GitHubReleasePosts\Tests\GitHub;
 
-use Jakemgold\GitHubReleasePosts\Cache_Keys;
-use Jakemgold\GitHubReleasePosts\GitHub\API_Client;
-use Jakemgold\GitHubReleasePosts\GitHub\Release;
-use Jakemgold\GitHubReleasePosts\Plugin_Constants;
-use Jakemgold\GitHubReleasePosts\Settings\Global_Settings;
+use GitHubReleasePosts\Cache_Keys;
+use GitHubReleasePosts\GitHub\API_Client;
+use GitHubReleasePosts\GitHub\Release;
+use GitHubReleasePosts\Plugin_Constants;
+use GitHubReleasePosts\Settings\Global_Settings;
 use WP_Mock\Tools\TestCase;
 
 /**

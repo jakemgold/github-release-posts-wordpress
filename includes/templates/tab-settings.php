@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-use Jakemgold\GitHubReleasePosts\Admin\Settings_Page;
+use GitHubReleasePosts\Admin\Settings_Page;
 
 settings_fields( Settings_Page::OPTION_GROUP );
 do_settings_sections( Settings_Page::PAGE_SLUG );

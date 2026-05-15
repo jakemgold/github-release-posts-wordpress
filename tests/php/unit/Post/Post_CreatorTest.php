@@ -5,19 +5,19 @@
  * @package GitHubReleasePosts\Tests\Post
  */
 
-namespace Jakemgold\GitHubReleasePosts\Tests\Post;
+namespace GitHubReleasePosts\Tests\Post;
 
-use Jakemgold\GitHubReleasePosts\AI\GeneratedPost;
-use Jakemgold\GitHubReleasePosts\AI\ReleaseData;
-use Jakemgold\GitHubReleasePosts\GitHub\Release_Monitor;
-use Jakemgold\GitHubReleasePosts\Plugin_Constants;
-use Jakemgold\GitHubReleasePosts\Post\Post_Creator;
-use Jakemgold\GitHubReleasePosts\Settings\Global_Settings;
-use Jakemgold\GitHubReleasePosts\Settings\Repository_Settings;
+use GitHubReleasePosts\AI\GeneratedPost;
+use GitHubReleasePosts\AI\ReleaseData;
+use GitHubReleasePosts\GitHub\Release_Monitor;
+use GitHubReleasePosts\Plugin_Constants;
+use GitHubReleasePosts\Post\Post_Creator;
+use GitHubReleasePosts\Settings\Global_Settings;
+use GitHubReleasePosts\Settings\Repository_Settings;
 use WP_Mock\Tools\TestCase;
 
 /**
- * @covers \Jakemgold\GitHubReleasePosts\Post\Post_Creator
+ * @covers \GitHubReleasePosts\Post\Post_Creator
  */
 class Post_CreatorTest extends TestCase {
 

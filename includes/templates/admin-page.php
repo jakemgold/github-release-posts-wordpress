@@ -15,7 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 // phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound -- Template included from Admin_Page::render_page().
 
-use Jakemgold\GitHubReleasePosts\Cache_Keys;
+use GitHubReleasePosts\Cache_Keys;
 
 $allowed_tabs = [ 'repositories', 'settings' ];
 $active_tab   = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : 'repositories'; // phpcs:ignore WordPress.Security.NonceVerification
@@ -54,7 +54,7 @@ if ( $admin_notice ) {
 	<?php
 	// Display Settings API validation errors (e.g. invalid email).
 	if ( 'settings' === $active_tab ) {
-		settings_errors( \Jakemgold\GitHubReleasePosts\Admin\Settings_Page::OPTION_GROUP );
+		settings_errors( \GitHubReleasePosts\Admin\Settings_Page::OPTION_GROUP );
 	}
 	?>
 
@@ -83,7 +83,7 @@ if ( $admin_notice ) {
 		</div>
 	<?php endif; ?>
 
-	<?php $block_editor_active = \Jakemgold\GitHubReleasePosts\Admin\Admin_Page::is_block_editor_active(); ?>
+	<?php $block_editor_active = \GitHubReleasePosts\Admin\Admin_Page::is_block_editor_active(); ?>
 
 	<?php if ( ! $block_editor_active ) : ?>
 		<div class="notice notice-error">
@@ -94,7 +94,7 @@ if ( $admin_notice ) {
 		</div>
 	<?php endif; ?>
 
-	<?php if ( ! \Jakemgold\GitHubReleasePosts\Admin\Settings_Page::is_any_connector_configured() ) : ?>
+	<?php if ( ! \GitHubReleasePosts\Admin\Settings_Page::is_any_connector_configured() ) : ?>
 		<div class="notice notice-warning">
 			<p>
 				<strong><?php echo esc_html__( 'No AI connector is configured.', 'github-release-posts' ); ?></strong>
@@ -110,7 +110,7 @@ if ( $admin_notice ) {
 	<?php endif; ?>
 
 	<?php
-	$onboarding_repos = new \Jakemgold\GitHubReleasePosts\Settings\Repository_Settings();
+	$onboarding_repos = new \GitHubReleasePosts\Settings\Repository_Settings();
 	$has_repos        = ! empty( $onboarding_repos->get_repositories() );
 
 	if ( ! $has_repos ) :

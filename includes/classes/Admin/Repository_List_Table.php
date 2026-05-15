@@ -8,10 +8,10 @@
  * @package GitHubReleasePosts
  */
 
-namespace Jakemgold\GitHubReleasePosts\Admin;
+namespace GitHubReleasePosts\Admin;
 
-use Jakemgold\GitHubReleasePosts\Plugin_Constants;
-use Jakemgold\GitHubReleasePosts\Settings\Repository_Settings;
+use GitHubReleasePosts\Plugin_Constants;
+use GitHubReleasePosts\Settings\Repository_Settings;
 
 // WP_List_Table is not loaded automatically in all contexts.
 if ( ! class_exists( 'WP_List_Table' ) ) {

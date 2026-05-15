@@ -5,11 +5,11 @@
  * @package GitHubReleasePosts\Tests\AI\Connectors
  */
 
-namespace Jakemgold\GitHubReleasePosts\Tests\AI\Connectors;
+namespace GitHubReleasePosts\Tests\AI\Connectors;
 
-use Jakemgold\GitHubReleasePosts\AI\Connectors\WP_AI_Client_Connector;
-use Jakemgold\GitHubReleasePosts\AI\GeneratedPost;
-use Jakemgold\GitHubReleasePosts\AI\ReleaseData;
+use GitHubReleasePosts\AI\Connectors\WP_AI_Client_Connector;
+use GitHubReleasePosts\AI\GeneratedPost;
+use GitHubReleasePosts\AI\ReleaseData;
 use WP_Mock\Tools\TestCase;
 
 class WP_AI_Client_ConnectorTest extends TestCase {

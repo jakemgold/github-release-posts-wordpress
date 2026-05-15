@@ -5,10 +5,10 @@
  * @package GitHubReleasePosts\AI
  */
 
-namespace Jakemgold\GitHubReleasePosts\AI;
+namespace GitHubReleasePosts\AI;
 
-use Jakemgold\GitHubReleasePosts\AI\Connectors\WP_AI_Client_Connector;
-use Jakemgold\GitHubReleasePosts\Settings\Global_Settings;
+use GitHubReleasePosts\AI\Connectors\WP_AI_Client_Connector;
+use GitHubReleasePosts\Settings\Global_Settings;
 
 /**
  * Instantiates the correct AI provider connector based on plugin settings.

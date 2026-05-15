@@ -5,9 +5,9 @@
  * @package GitHubReleasePosts\Tests\AI
  */
 
-namespace Jakemgold\GitHubReleasePosts\Tests\AI;
+namespace GitHubReleasePosts\Tests\AI;
 
-use Jakemgold\GitHubReleasePosts\AI\GeneratedPost;
+use GitHubReleasePosts\AI\GeneratedPost;
 use WP_Mock\Tools\TestCase;
 
 class GeneratedPostTest extends TestCase {

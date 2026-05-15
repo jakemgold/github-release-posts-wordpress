@@ -5,11 +5,11 @@
  * @package GitHubReleasePosts\AI
  */
 
-namespace Jakemgold\GitHubReleasePosts\AI;
+namespace GitHubReleasePosts\AI;
 
-use Jakemgold\GitHubReleasePosts\GitHub\API_Client;
-use Jakemgold\GitHubReleasePosts\GitHub\Release_State;
-use Jakemgold\GitHubReleasePosts\Settings\Global_Settings;
+use GitHubReleasePosts\GitHub\API_Client;
+use GitHubReleasePosts\GitHub\Release_State;
+use GitHubReleasePosts\Settings\Global_Settings;
 
 /**
  * Scans the release body for GitHub issue/PR references (#123 or full URLs),

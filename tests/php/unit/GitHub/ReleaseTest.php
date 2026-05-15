@@ -5,9 +5,9 @@
  * @package GitHubReleasePosts\Tests\GitHub
  */
 
-namespace Jakemgold\GitHubReleasePosts\Tests\GitHub;
+namespace GitHubReleasePosts\Tests\GitHub;
 
-use Jakemgold\GitHubReleasePosts\GitHub\Release;
+use GitHubReleasePosts\GitHub\Release;
 use WP_Mock\Tools\TestCase;
 
 /**

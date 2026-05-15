@@ -5,9 +5,9 @@
  * @package GitHubReleasePosts\Tests\AI
  */
 
-namespace Jakemgold\GitHubReleasePosts\Tests\AI;
+namespace GitHubReleasePosts\Tests\AI;
 
-use Jakemgold\GitHubReleasePosts\AI\ReleaseData;
+use GitHubReleasePosts\AI\ReleaseData;
 use WP_Mock\Tools\TestCase;
 
 class ReleaseDataTest extends TestCase {

@@ -5,17 +5,17 @@
  * @package GitHubReleasePosts\Tests\GitHub
  */
 
-namespace Jakemgold\GitHubReleasePosts\Tests\GitHub;
+namespace GitHubReleasePosts\Tests\GitHub;
 
-use Jakemgold\GitHubReleasePosts\Cache_Keys;
-use Jakemgold\GitHubReleasePosts\GitHub\API_Client;
-use Jakemgold\GitHubReleasePosts\GitHub\Release;
-use Jakemgold\GitHubReleasePosts\GitHub\Release_Monitor;
-use Jakemgold\GitHubReleasePosts\GitHub\Release_Queue;
-use Jakemgold\GitHubReleasePosts\GitHub\Release_State;
-use Jakemgold\GitHubReleasePosts\GitHub\Version_Comparator;
-use Jakemgold\GitHubReleasePosts\Plugin_Constants;
-use Jakemgold\GitHubReleasePosts\Settings\Repository_Settings;
+use GitHubReleasePosts\Cache_Keys;
+use GitHubReleasePosts\GitHub\API_Client;
+use GitHubReleasePosts\GitHub\Release;
+use GitHubReleasePosts\GitHub\Release_Monitor;
+use GitHubReleasePosts\GitHub\Release_Queue;
+use GitHubReleasePosts\GitHub\Release_State;
+use GitHubReleasePosts\GitHub\Version_Comparator;
+use GitHubReleasePosts\Plugin_Constants;
+use GitHubReleasePosts\Settings\Repository_Settings;
 use WP_Mock\Tools\TestCase;
 
 /**

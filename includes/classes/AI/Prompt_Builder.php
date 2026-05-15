@@ -5,10 +5,10 @@
  * @package GitHubReleasePosts\AI
  */
 
-namespace Jakemgold\GitHubReleasePosts\AI;
+namespace GitHubReleasePosts\AI;
 
-use Jakemgold\GitHubReleasePosts\Settings\Global_Settings;
-use Jakemgold\GitHubReleasePosts\Settings\Repository_Settings;
+use GitHubReleasePosts\Settings\Global_Settings;
+use GitHubReleasePosts\Settings\Repository_Settings;
 
 /**
  * Hooks into ghrp_generate_prompt and returns a fully constructed prompt

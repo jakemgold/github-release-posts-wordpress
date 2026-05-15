@@ -16,8 +16,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 // phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound -- Template included from admin-page.php.
 
-use Jakemgold\GitHubReleasePosts\Admin\Repository_List_Table;
-use Jakemgold\GitHubReleasePosts\Settings\Repository_Settings;
+use GitHubReleasePosts\Admin\Repository_List_Table;
+use GitHubReleasePosts\Settings\Repository_Settings;
 
 $repo_settings = new Repository_Settings();
 $repos         = $repo_settings->get_repositories();

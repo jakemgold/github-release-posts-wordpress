@@ -5,14 +5,14 @@
  * @package GitHubReleasePosts\Tests\AI
  */
 
-namespace Jakemgold\GitHubReleasePosts\Tests\AI;
+namespace GitHubReleasePosts\Tests\AI;
 
-use Jakemgold\GitHubReleasePosts\AI\AI_Processor;
-use Jakemgold\GitHubReleasePosts\AI\AI_Provider_Factory;
-use Jakemgold\GitHubReleasePosts\AI\AIProviderInterface;
-use Jakemgold\GitHubReleasePosts\AI\GeneratedPost;
-use Jakemgold\GitHubReleasePosts\AI\ReleaseData;
-use Jakemgold\GitHubReleasePosts\Plugin_Constants;
+use GitHubReleasePosts\AI\AI_Processor;
+use GitHubReleasePosts\AI\AI_Provider_Factory;
+use GitHubReleasePosts\AI\AIProviderInterface;
+use GitHubReleasePosts\AI\GeneratedPost;
+use GitHubReleasePosts\AI\ReleaseData;
+use GitHubReleasePosts\Plugin_Constants;
 use WP_Mock\Tools\TestCase;
 
 class AI_ProcessorTest extends TestCase {

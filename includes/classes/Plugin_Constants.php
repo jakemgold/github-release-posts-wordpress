@@ -8,7 +8,7 @@
  * @package GitHubReleasePosts
  */
 
-namespace Jakemgold\GitHubReleasePosts;
+namespace GitHubReleasePosts;
 
 /**
  * Centralises all option key strings and their default values.

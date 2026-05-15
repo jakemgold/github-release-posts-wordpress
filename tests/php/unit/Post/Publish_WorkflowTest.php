@@ -5,17 +5,17 @@
  * @package GitHubReleasePosts\Tests\Post
  */
 
-namespace Jakemgold\GitHubReleasePosts\Tests\Post;
+namespace GitHubReleasePosts\Tests\Post;
 
-use Jakemgold\GitHubReleasePosts\AI\GeneratedPost;
-use Jakemgold\GitHubReleasePosts\AI\ReleaseData;
-use Jakemgold\GitHubReleasePosts\Cache_Keys;
-use Jakemgold\GitHubReleasePosts\Post\Publish_Workflow;
-use Jakemgold\GitHubReleasePosts\Settings\Repository_Settings;
+use GitHubReleasePosts\AI\GeneratedPost;
+use GitHubReleasePosts\AI\ReleaseData;
+use GitHubReleasePosts\Cache_Keys;
+use GitHubReleasePosts\Post\Publish_Workflow;
+use GitHubReleasePosts\Settings\Repository_Settings;
 use WP_Mock\Tools\TestCase;
 
 /**
- * @covers \Jakemgold\GitHubReleasePosts\Post\Publish_Workflow
+ * @covers \GitHubReleasePosts\Post\Publish_Workflow
  */
 class Publish_WorkflowTest extends TestCase {
 

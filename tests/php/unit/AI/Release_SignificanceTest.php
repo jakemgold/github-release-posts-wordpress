@@ -5,14 +5,14 @@
  * @package GitHubReleasePosts\Tests\AI
  */
 
-namespace Jakemgold\GitHubReleasePosts\Tests\AI;
+namespace GitHubReleasePosts\Tests\AI;
 
-use Jakemgold\GitHubReleasePosts\AI\Release_Significance;
-use Jakemgold\GitHubReleasePosts\AI\ReleaseData;
+use GitHubReleasePosts\AI\Release_Significance;
+use GitHubReleasePosts\AI\ReleaseData;
 use WP_Mock\Tools\TestCase;
 
 /**
- * @covers \Jakemgold\GitHubReleasePosts\AI\Release_Significance
+ * @covers \GitHubReleasePosts\AI\Release_Significance
  */
 class Release_SignificanceTest extends TestCase {
 

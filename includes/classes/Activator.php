@@ -5,7 +5,7 @@
  * @package GitHubReleasePosts
  */
 
-namespace Jakemgold\GitHubReleasePosts;
+namespace GitHubReleasePosts;
 
 /**
  * Handles plugin activation and deactivation lifecycle events.

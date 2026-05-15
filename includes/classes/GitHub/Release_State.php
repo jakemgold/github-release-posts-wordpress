@@ -5,9 +5,9 @@
  * @package GitHubReleasePosts
  */
 
-namespace Jakemgold\GitHubReleasePosts\GitHub;
+namespace GitHubReleasePosts\GitHub;
 
-use Jakemgold\GitHubReleasePosts\Plugin_Constants;
+use GitHubReleasePosts\Plugin_Constants;
 
 /**
  * Manages per-repository monitoring state: last seen release tag,

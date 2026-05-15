@@ -5,13 +5,13 @@
  * @package GitHubReleasePosts\Notification
  */
 
-namespace Jakemgold\GitHubReleasePosts\Notification;
+namespace GitHubReleasePosts\Notification;
 
-use Jakemgold\GitHubReleasePosts\AI\ReleaseData;
-use Jakemgold\GitHubReleasePosts\AI\Release_Significance;
-use Jakemgold\GitHubReleasePosts\Plugin_Constants;
-use Jakemgold\GitHubReleasePosts\Settings\Global_Settings;
-use Jakemgold\GitHubReleasePosts\Settings\Repository_Settings;
+use GitHubReleasePosts\AI\ReleaseData;
+use GitHubReleasePosts\AI\Release_Significance;
+use GitHubReleasePosts\Plugin_Constants;
+use GitHubReleasePosts\Settings\Global_Settings;
+use GitHubReleasePosts\Settings\Repository_Settings;
 
 /**
  * Hooks into ghrp_post_status_set, collects results during a cron run,

@@ -5,12 +5,12 @@
  * @package GitHubReleasePosts\Post
  */
 
-namespace Jakemgold\GitHubReleasePosts\Post;
+namespace GitHubReleasePosts\Post;
 
-use Jakemgold\GitHubReleasePosts\AI\GeneratedPost;
-use Jakemgold\GitHubReleasePosts\AI\ReleaseData;
+use GitHubReleasePosts\AI\GeneratedPost;
+use GitHubReleasePosts\AI\ReleaseData;
 
-use Jakemgold\GitHubReleasePosts\Settings\Repository_Settings;
+use GitHubReleasePosts\Settings\Repository_Settings;
 
 /**
  * Hooks into ghrp_post_created and applies the configured category and tags

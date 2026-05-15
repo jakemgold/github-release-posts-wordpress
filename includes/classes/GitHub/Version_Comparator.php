@@ -5,7 +5,7 @@
  * @package GitHubReleasePosts
  */
 
-namespace Jakemgold\GitHubReleasePosts\GitHub;
+namespace GitHubReleasePosts\GitHub;
 
 /**
  * Determines whether a candidate release is newer than the last-seen release.

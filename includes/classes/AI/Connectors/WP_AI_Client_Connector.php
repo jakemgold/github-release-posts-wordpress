@@ -5,11 +5,11 @@
  * @package GitHubReleasePosts\AI\Connectors
  */
 
-namespace Jakemgold\GitHubReleasePosts\AI\Connectors;
+namespace GitHubReleasePosts\AI\Connectors;
 
-use Jakemgold\GitHubReleasePosts\AI\AIProviderInterface;
-use Jakemgold\GitHubReleasePosts\AI\GeneratedPost;
-use Jakemgold\GitHubReleasePosts\AI\ReleaseData;
+use GitHubReleasePosts\AI\AIProviderInterface;
+use GitHubReleasePosts\AI\GeneratedPost;
+use GitHubReleasePosts\AI\ReleaseData;
 
 /**
  * Delegates generation to the WordPress AI Client API (Connectors).

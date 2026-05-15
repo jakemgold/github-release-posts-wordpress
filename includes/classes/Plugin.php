@@ -5,24 +5,24 @@
  * @package GitHubReleasePosts
  */
 
-namespace Jakemgold\GitHubReleasePosts;
+namespace GitHubReleasePosts;
 
-use Jakemgold\GitHubReleasePosts\AI\AI_Processor;
-use Jakemgold\GitHubReleasePosts\AI\AI_Provider_Factory;
-use Jakemgold\GitHubReleasePosts\AI\Prompt_Builder;
-use Jakemgold\GitHubReleasePosts\AI\Release_Enricher;
-use Jakemgold\GitHubReleasePosts\AI\Release_Significance;
-use Jakemgold\GitHubReleasePosts\Notification\Email_Notifier;
-use Jakemgold\GitHubReleasePosts\Post\Post_Creator;
-use Jakemgold\GitHubReleasePosts\Post\Publish_Workflow;
-use Jakemgold\GitHubReleasePosts\Post\Taxonomy_Assigner;
-use Jakemgold\GitHubReleasePosts\GitHub\API_Client;
-use Jakemgold\GitHubReleasePosts\GitHub\Release_Monitor;
-use Jakemgold\GitHubReleasePosts\GitHub\Release_Queue;
-use Jakemgold\GitHubReleasePosts\GitHub\Release_State;
-use Jakemgold\GitHubReleasePosts\GitHub\Version_Comparator;
-use Jakemgold\GitHubReleasePosts\Settings\Global_Settings;
-use Jakemgold\GitHubReleasePosts\Settings\Repository_Settings;
+use GitHubReleasePosts\AI\AI_Processor;
+use GitHubReleasePosts\AI\AI_Provider_Factory;
+use GitHubReleasePosts\AI\Prompt_Builder;
+use GitHubReleasePosts\AI\Release_Enricher;
+use GitHubReleasePosts\AI\Release_Significance;
+use GitHubReleasePosts\Notification\Email_Notifier;
+use GitHubReleasePosts\Post\Post_Creator;
+use GitHubReleasePosts\Post\Publish_Workflow;
+use GitHubReleasePosts\Post\Taxonomy_Assigner;
+use GitHubReleasePosts\GitHub\API_Client;
+use GitHubReleasePosts\GitHub\Release_Monitor;
+use GitHubReleasePosts\GitHub\Release_Queue;
+use GitHubReleasePosts\GitHub\Release_State;
+use GitHubReleasePosts\GitHub\Version_Comparator;
+use GitHubReleasePosts\Settings\Global_Settings;
+use GitHubReleasePosts\Settings\Repository_Settings;
 
 /**
  * Plugin singleton — the single entry point for all feature classes.
@@ -107,7 +107,7 @@ class Plugin {
 	 * This is the single place where feature objects are created. To add a
 	 * new feature, instantiate its class here and call ->setup() on it:
 	 *
-	 *   ( new \Jakemgold\GitHubReleasePosts\Feature\MyFeature() )->setup();
+	 *   ( new \GitHubReleasePosts\Feature\MyFeature() )->setup();
 	 *
 	 * Feature classes must not instantiate other feature classes.
 	 *
@@ -116,7 +116,7 @@ class Plugin {
 	public function init(): void {
 		// Admin page — registers menu, REST routes, post meta, and editor assets.
 		// Must run outside is_admin() because REST API requests need the routes.
-		( new \Jakemgold\GitHubReleasePosts\Admin\Admin_Page() )->setup();
+		( new \GitHubReleasePosts\Admin\Admin_Page() )->setup();
 
 		// Shared instances — reused across the pipeline.
 		$global_settings = new Global_Settings();

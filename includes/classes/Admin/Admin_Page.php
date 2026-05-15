@@ -5,19 +5,19 @@
  * @package GitHubReleasePosts
  */
 
-namespace Jakemgold\GitHubReleasePosts\Admin;
+namespace GitHubReleasePosts\Admin;
 
-use Jakemgold\GitHubReleasePosts\Cache_Keys;
-use Jakemgold\GitHubReleasePosts\GitHub\API_Client;
-use Jakemgold\GitHubReleasePosts\Post\Post_Creator;
-use Jakemgold\GitHubReleasePosts\GitHub\Onboarding_Handler;
-use Jakemgold\GitHubReleasePosts\GitHub\Release_Monitor;
-use Jakemgold\GitHubReleasePosts\GitHub\Release_Queue;
-use Jakemgold\GitHubReleasePosts\GitHub\Release_State;
-use Jakemgold\GitHubReleasePosts\Notification\Email_Notifier;
-use Jakemgold\GitHubReleasePosts\Plugin_Constants;
-use Jakemgold\GitHubReleasePosts\Settings\Global_Settings;
-use Jakemgold\GitHubReleasePosts\Settings\Repository_Settings;
+use GitHubReleasePosts\Cache_Keys;
+use GitHubReleasePosts\GitHub\API_Client;
+use GitHubReleasePosts\Post\Post_Creator;
+use GitHubReleasePosts\GitHub\Onboarding_Handler;
+use GitHubReleasePosts\GitHub\Release_Monitor;
+use GitHubReleasePosts\GitHub\Release_Queue;
+use GitHubReleasePosts\GitHub\Release_State;
+use GitHubReleasePosts\Notification\Email_Notifier;
+use GitHubReleasePosts\Plugin_Constants;
+use GitHubReleasePosts\Settings\Global_Settings;
+use GitHubReleasePosts\Settings\Repository_Settings;
 
 /**
  * Registers the plugin settings page under the WordPress Tools menu,
@@ -870,7 +870,7 @@ class Admin_Page {
 			);
 		}
 
-		$last_error = \Jakemgold\GitHubReleasePosts\AI\AI_Processor::get_last_error();
+		$last_error = \GitHubReleasePosts\AI\AI_Processor::get_last_error();
 
 		if ( $last_error instanceof \WP_Error ) {
 			return new \WP_Error(
@@ -1059,7 +1059,7 @@ class Admin_Page {
 		}
 
 		// Build ReleaseData from the fetched release.
-		$data = new \Jakemgold\GitHubReleasePosts\AI\ReleaseData(
+		$data = new \GitHubReleasePosts\AI\ReleaseData(
 			identifier:   $identifier,
 			tag:          $release->tag,
 			name:         $release->name,
@@ -1078,7 +1078,7 @@ class Admin_Page {
 		}
 
 		// Call the AI provider.
-		$factory  = new \Jakemgold\GitHubReleasePosts\AI\AI_Provider_Factory( $this->global_settings );
+		$factory  = new \GitHubReleasePosts\AI\AI_Provider_Factory( $this->global_settings );
 		$provider = $factory->get_provider();
 
 		if ( is_wp_error( $provider ) ) {

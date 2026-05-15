@@ -5,7 +5,7 @@
  * @package GitHubReleasePosts
  */
 
-namespace Jakemgold\GitHubReleasePosts\GitHub;
+namespace GitHubReleasePosts\GitHub;
 
 /**
  * Triggers an immediate preview draft when a repository is first added.

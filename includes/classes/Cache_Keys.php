@@ -5,7 +5,7 @@
  * @package GitHubReleasePosts
  */
 
-namespace Jakemgold\GitHubReleasePosts;
+namespace GitHubReleasePosts;
 
 /**
  * Returns the full key string for every transient / cache entry the plugin

@@ -5,16 +5,16 @@
  * @package GitHubReleasePosts\Tests\Post
  */
 
-namespace Jakemgold\GitHubReleasePosts\Tests\Post;
+namespace GitHubReleasePosts\Tests\Post;
 
-use Jakemgold\GitHubReleasePosts\AI\GeneratedPost;
-use Jakemgold\GitHubReleasePosts\AI\ReleaseData;
-use Jakemgold\GitHubReleasePosts\Post\Taxonomy_Assigner;
-use Jakemgold\GitHubReleasePosts\Settings\Repository_Settings;
+use GitHubReleasePosts\AI\GeneratedPost;
+use GitHubReleasePosts\AI\ReleaseData;
+use GitHubReleasePosts\Post\Taxonomy_Assigner;
+use GitHubReleasePosts\Settings\Repository_Settings;
 use WP_Mock\Tools\TestCase;
 
 /**
- * @covers \Jakemgold\GitHubReleasePosts\Post\Taxonomy_Assigner
+ * @covers \GitHubReleasePosts\Post\Taxonomy_Assigner
  */
 class Taxonomy_AssignerTest extends TestCase {
 

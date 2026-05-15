@@ -5,11 +5,11 @@
  * @package GitHubReleasePosts\Tests\AI
  */
 
-namespace Jakemgold\GitHubReleasePosts\Tests\AI;
+namespace GitHubReleasePosts\Tests\AI;
 
-use Jakemgold\GitHubReleasePosts\AI\AI_Provider_Factory;
-use Jakemgold\GitHubReleasePosts\AI\AIProviderInterface;
-use Jakemgold\GitHubReleasePosts\Settings\Global_Settings;
+use GitHubReleasePosts\AI\AI_Provider_Factory;
+use GitHubReleasePosts\AI\AIProviderInterface;
+use GitHubReleasePosts\Settings\Global_Settings;
 use WP_Mock\Tools\TestCase;
 
 class AI_Provider_FactoryTest extends TestCase {

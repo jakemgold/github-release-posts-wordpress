@@ -5,13 +5,13 @@
  * @package GitHubReleasePosts\Tests
  */
 
-namespace Jakemgold\GitHubReleasePosts\Tests;
+namespace GitHubReleasePosts\Tests;
 
-use Jakemgold\GitHubReleasePosts\Cache_Keys;
+use GitHubReleasePosts\Cache_Keys;
 use PHPUnit\Framework\TestCase;
 
 /**
- * @covers \Jakemgold\GitHubReleasePosts\Cache_Keys
+ * @covers \GitHubReleasePosts\Cache_Keys
  */
 class Cache_KeysTest extends TestCase {
 

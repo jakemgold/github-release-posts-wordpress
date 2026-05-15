@@ -5,7 +5,7 @@
  * @package GitHubReleasePosts\AI
  */
 
-namespace Jakemgold\GitHubReleasePosts\AI;
+namespace GitHubReleasePosts\AI;
 
 /**
  * Immutable data bag carrying everything an AI provider needs to generate a blog post.

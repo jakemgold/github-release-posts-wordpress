@@ -5,12 +5,12 @@
  * @package GitHubReleasePosts\Post
  */
 
-namespace Jakemgold\GitHubReleasePosts\Post;
+namespace GitHubReleasePosts\Post;
 
-use Jakemgold\GitHubReleasePosts\AI\GeneratedPost;
-use Jakemgold\GitHubReleasePosts\AI\ReleaseData;
-use Jakemgold\GitHubReleasePosts\Cache_Keys;
-use Jakemgold\GitHubReleasePosts\Settings\Repository_Settings;
+use GitHubReleasePosts\AI\GeneratedPost;
+use GitHubReleasePosts\AI\ReleaseData;
+use GitHubReleasePosts\Cache_Keys;
+use GitHubReleasePosts\Settings\Repository_Settings;
 
 /**
  * Hooks into ghrp_post_created (after Taxonomy_Assigner) and sets the final

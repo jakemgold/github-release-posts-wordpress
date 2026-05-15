@@ -5,9 +5,9 @@
  * @package GitHubReleasePosts
  */
 
-namespace Jakemgold\GitHubReleasePosts\Settings;
+namespace GitHubReleasePosts\Settings;
 
-use Jakemgold\GitHubReleasePosts\Plugin_Constants;
+use GitHubReleasePosts\Plugin_Constants;
 
 /**
  * Manages the list of tracked GitHub repositories and their per-repo configuration.

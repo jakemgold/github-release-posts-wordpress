@@ -5,11 +5,11 @@
  * @package GitHubReleasePosts\AI
  */
 
-namespace Jakemgold\GitHubReleasePosts\AI;
+namespace GitHubReleasePosts\AI;
 
-use Jakemgold\GitHubReleasePosts\Cache_Keys;
-use Jakemgold\GitHubReleasePosts\Plugin_Constants;
-use Jakemgold\GitHubReleasePosts\Settings\Global_Settings;
+use GitHubReleasePosts\Cache_Keys;
+use GitHubReleasePosts\Plugin_Constants;
+use GitHubReleasePosts\Settings\Global_Settings;
 
 /**
  * Listens for ghrp_process_release, fetches the active AI provider, manages

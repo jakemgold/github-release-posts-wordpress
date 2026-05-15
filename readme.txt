@@ -120,7 +120,7 @@ A Release Attribution panel appears in the document sidebar, showing which GitHu
 * Plugin renamed and rebranded to **GitHub Release Posts**.
 * Folder, slug, text domain, PHP namespace, hooks, options, REST routes, and CSS/JS prefixes all updated to match the new name.
 * Plugin slug: `github-release-posts` (folder + text domain + WP.org slug).
-* PHP namespace: `Jakemgold\GitHubReleasePosts`.
+* PHP namespace: `GitHubReleasePosts`.
 * Hook/option/transient prefix: `ghrp_*` (was `ctbp_*`).
 * REST namespace: `ghrp/v1` (was `ctbp/v1`).
 * No automatic migration from prior pre-release versions — uninstall and reinstall on a clean site.

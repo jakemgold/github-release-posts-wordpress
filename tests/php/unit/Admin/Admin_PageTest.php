@@ -5,9 +5,9 @@
  * @package GitHubReleasePosts\Tests
  */
 
-namespace Jakemgold\GitHubReleasePosts\Tests\Admin;
+namespace GitHubReleasePosts\Tests\Admin;
 
-use Jakemgold\GitHubReleasePosts\Admin\Admin_Page;
+use GitHubReleasePosts\Admin\Admin_Page;
 use WP_Mock\Tools\TestCase;
 
 /**

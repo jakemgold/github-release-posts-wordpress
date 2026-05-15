@@ -5,7 +5,7 @@
  * @package GitHubReleasePosts
  */
 
-namespace Jakemgold\GitHubReleasePosts\GitHub;
+namespace GitHubReleasePosts\GitHub;
 
 /**
  * Immutable representation of a single GitHub release.

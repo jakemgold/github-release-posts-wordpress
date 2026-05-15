@@ -5,17 +5,17 @@
  * @package GitHubReleasePosts\Tests\AI
  */
 
-namespace Jakemgold\GitHubReleasePosts\Tests\AI;
+namespace GitHubReleasePosts\Tests\AI;
 
-use Jakemgold\GitHubReleasePosts\AI\Prompt_Builder;
-use Jakemgold\GitHubReleasePosts\AI\Release_Significance;
-use Jakemgold\GitHubReleasePosts\AI\ReleaseData;
-use Jakemgold\GitHubReleasePosts\Settings\Global_Settings;
-use Jakemgold\GitHubReleasePosts\Settings\Repository_Settings;
+use GitHubReleasePosts\AI\Prompt_Builder;
+use GitHubReleasePosts\AI\Release_Significance;
+use GitHubReleasePosts\AI\ReleaseData;
+use GitHubReleasePosts\Settings\Global_Settings;
+use GitHubReleasePosts\Settings\Repository_Settings;
 use WP_Mock\Tools\TestCase;
 
 /**
- * @covers \Jakemgold\GitHubReleasePosts\AI\Prompt_Builder
+ * @covers \GitHubReleasePosts\AI\Prompt_Builder
  */
 class Prompt_BuilderTest extends TestCase {
 
