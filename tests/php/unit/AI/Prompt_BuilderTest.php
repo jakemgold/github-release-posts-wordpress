@@ -28,6 +28,12 @@ class Prompt_BuilderTest extends TestCase {
 		parent::setUp();
 
 		$this->repo_settings   = \Mockery::mock( Repository_Settings::class );
+		$this->repo_settings->shouldReceive( 'get_display_name' )
+			->andReturnUsing( function ( $identifier ) {
+				$parts = explode( '/', $identifier );
+				return ucwords( str_replace( [ '-', '_' ], ' ', end( $parts ) ) );
+			} )
+			->byDefault();
 		$this->significance    = \Mockery::mock( Release_Significance::class );
 		$this->global_settings = \Mockery::mock( Global_Settings::class );
 		$this->global_settings->shouldReceive( 'get_custom_prompt_instructions' )->andReturn( '' )->byDefault();
@@ -124,6 +130,7 @@ class Prompt_BuilderTest extends TestCase {
 				'display_name' => 'My Plugin',
 				'plugin_link'  => 'my-plugin',
 			] );
+		$this->repo_settings->shouldReceive( 'get_display_name' )->with( 'owner/repo' )->andReturn( 'My Plugin' );
 
 		$this->significance->shouldReceive( 'classify' )
 			->once()
@@ -258,6 +265,7 @@ $this->significance->shouldReceive( 'classify' )->andReturn( 'minor' );
 			'identifier'   => 'owner/repo',
 			'display_name' => 'My Plugin',
 		] );
+		$this->repo_settings->shouldReceive( 'get_display_name' )->with( 'owner/repo' )->andReturn( 'My Plugin' );
 		$this->significance->shouldReceive( 'classify' )->andReturn( 'minor' );
 
 		$result = $this->builder->build( '', $data );
@@ -274,6 +282,7 @@ $this->significance->shouldReceive( 'classify' )->andReturn( 'minor' );
 			'identifier'   => 'owner/repo',
 			'display_name' => 'My Project',
 		] );
+		$this->repo_settings->shouldReceive( 'get_display_name' )->with( 'owner/repo' )->andReturn( 'My Project' );
 		$this->significance->shouldReceive( 'classify' )->andReturn( 'minor' );
 		$this->global_settings->shouldReceive( 'get_title_format' )->andReturn( 'none' );
 

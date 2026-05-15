@@ -126,6 +126,29 @@ class Repository_Settings {
 	}
 
 	/**
+	 * Resolves the display name for a repository.
+	 *
+	 * Returns the configured display_name from the repo settings if set,
+	 * otherwise derives one from the `repo` portion of `owner/repo`.
+	 *
+	 * Single source of truth for "what do we call this repo in UI / titles /
+	 * email subjects" — keep callers from re-implementing the same
+	 * config-or-derive fallback.
+	 *
+	 * @param string $identifier Repository identifier (owner/repo).
+	 * @return string Display name.
+	 */
+	public function get_display_name( string $identifier ): string {
+		$config = $this->get_repository( $identifier );
+		if ( ! empty( $config['display_name'] ) ) {
+			return (string) $config['display_name'];
+		}
+
+		$parts = explode( '/', $identifier );
+		return $this->derive_display_name( end( $parts ) );
+	}
+
+	/**
 	 * Adds a new repository to the tracked list.
 	 *
 	 * @param string $input Raw repository identifier (owner/repo or GitHub URL).

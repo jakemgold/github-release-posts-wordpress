@@ -81,7 +81,7 @@ class Email_Notifier {
 		}
 
 		$significance = $this->significance->classify( $data );
-		$display_name = $this->resolve_display_name( $data->identifier );
+		$display_name = $this->repo_settings->get_display_name( $data->identifier );
 
 		$this->entries[] = [
 			'post_id'      => $post_id,
@@ -330,23 +330,6 @@ class Email_Notifier {
 		$html .= '</div>';
 
 		return $html;
-	}
-
-	/**
-	 * Resolves the display name for a repository.
-	 *
-	 * @param string $identifier Repository identifier (owner/repo).
-	 * @return string Display name.
-	 */
-	private function resolve_display_name( string $identifier ): string {
-		$config = $this->repo_settings->get_repository( $identifier );
-
-		if ( ! empty( $config['display_name'] ) ) {
-			return (string) $config['display_name'];
-		}
-
-		$parts = explode( '/', $identifier );
-		return $this->repo_settings->derive_display_name( end( $parts ) );
 	}
 
 	/**

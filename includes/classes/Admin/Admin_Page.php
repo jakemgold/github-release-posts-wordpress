@@ -995,13 +995,12 @@ class Admin_Page {
 			$identifier = get_post_meta( $post->ID, Plugin_Constants::META_SOURCE_REPO, true );
 			$tag        = get_post_meta( $post->ID, Plugin_Constants::META_RELEASE_TAG, true );
 			$html_url   = get_post_meta( $post->ID, Plugin_Constants::META_RELEASE_URL, true );
-			$config     = $this->repo_settings->get_repository( $identifier );
 
 			return [
 				'post_id'      => $post->ID,
 				'status'       => $post->post_status,
 				'identifier'   => $identifier,
-				'display_name' => ! empty( $config['display_name'] ) ? $config['display_name'] : $identifier,
+				'display_name' => $this->repo_settings->get_display_name( $identifier ),
 				'tag'          => $tag,
 				'html_url'     => $html_url,
 				'post_title'   => get_the_title( $post->ID ),
@@ -1092,10 +1091,7 @@ class Admin_Page {
 		}
 
 		// Assemble full title.
-		$repo_config  = $this->repo_settings->get_repository( $identifier );
-		$display_name = ! empty( $repo_config['display_name'] )
-			? (string) $repo_config['display_name']
-			: $this->repo_settings->derive_display_name( explode( '/', $identifier )[1] ?? $identifier );
+		$display_name = $this->repo_settings->get_display_name( $identifier );
 
 		$full_title = "{$display_name} {$data->tag} — {$result->title}";
 
@@ -1115,10 +1111,6 @@ class Admin_Page {
 
 		// Only update the slug if the post is not yet published (preserve live URLs).
 		if ( '' !== $result->slug_keywords && ! in_array( $post->post_status, [ 'publish', 'private' ], true ) ) {
-			$repo_config              = $this->repo_settings->get_repository( $identifier );
-			$display_name             = ! empty( $repo_config['display_name'] )
-				? (string) $repo_config['display_name']
-				: $this->repo_settings->derive_display_name( explode( '/', $identifier )[1] ?? $identifier );
 			$version                  = strtolower( ltrim( $data->tag, 'vV' ) );
 			$version                  = str_replace( '.', '-', $version );
 			$update_args['post_name'] = sanitize_title( $display_name . '-' . $version . '-' . $result->slug_keywords );

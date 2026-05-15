@@ -39,6 +39,7 @@ class Email_NotifierTest extends TestCase {
 		$repo_settings = \Mockery::mock( Repository_Settings::class );
 		$repo_settings->shouldReceive( 'get_repository' )->andReturn( [ 'display_name' => 'Test Plugin' ] )->byDefault();
 		$repo_settings->shouldReceive( 'derive_display_name' )->andReturn( 'Repo' )->byDefault();
+		$repo_settings->shouldReceive( 'get_display_name' )->andReturn( 'Test Plugin' )->byDefault();
 
 		$this->notifier = new Email_Notifier( $this->global_settings, $this->significance, $repo_settings );
 	}

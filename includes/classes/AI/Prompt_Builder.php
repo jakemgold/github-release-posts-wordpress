@@ -61,7 +61,7 @@ class Prompt_Builder {
 	 */
 	public function build( string $existing_prompt, ReleaseData $data ): string {
 		$config        = $this->get_repo_config( $data->identifier );
-		$display_name  = $config['display_name'] ?? $this->derive_display_name( $data->identifier );
+		$display_name  = $this->repo_settings->get_display_name( $data->identifier );
 		$significance  = $this->significance->classify( $data );
 		$download_link = $this->resolve_download_link( $config, $data );
 		$project_link  = $this->resolve_project_link( $config, $data );
@@ -503,17 +503,5 @@ EOT;
 		}
 
 		return array_values( array_unique( $urls ) );
-	}
-
-	/**
-	 * Derives a display name from a repo identifier when no display name is configured.
-	 *
-	 * @param string $identifier Repository identifier (owner/repo).
-	 * @return string
-	 */
-	private function derive_display_name( string $identifier ): string {
-		$parts = explode( '/', $identifier );
-		$name  = end( $parts );
-		return ucwords( str_replace( [ '-', '_' ], ' ', $name ) );
 	}
 }

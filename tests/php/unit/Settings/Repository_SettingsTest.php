@@ -85,6 +85,41 @@ class Repository_SettingsTest extends TestCase {
 	}
 
 	// -------------------------------------------------------------------------
+	// get_display_name()
+	// -------------------------------------------------------------------------
+
+	/**
+	 * get_display_name() returns the configured display_name when set.
+	 */
+	public function test_get_display_name_uses_configured_value(): void {
+		\WP_Mock::userFunction( 'get_option' )
+			->with( Plugin_Constants::OPTION_REPOSITORIES, [] )
+			->andReturn(
+				[
+					[
+						'identifier'   => 'owner/my-plugin',
+						'display_name' => 'My Custom Plugin',
+					],
+				]
+			);
+
+		$settings = new Repository_Settings();
+		$this->assertSame( 'My Custom Plugin', $settings->get_display_name( 'owner/my-plugin' ) );
+	}
+
+	/**
+	 * get_display_name() derives from the repo slug when no display_name is configured.
+	 */
+	public function test_get_display_name_derives_when_not_configured(): void {
+		\WP_Mock::userFunction( 'get_option' )
+			->with( Plugin_Constants::OPTION_REPOSITORIES, [] )
+			->andReturn( [] );
+
+		$settings = new Repository_Settings();
+		$this->assertSame( 'Cool Widget', $settings->get_display_name( 'unknown-org/cool-widget' ) );
+	}
+
+	// -------------------------------------------------------------------------
 	// add_repository()
 	// -------------------------------------------------------------------------
 

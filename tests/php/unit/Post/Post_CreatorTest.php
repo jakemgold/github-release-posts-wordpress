@@ -41,6 +41,15 @@ class Post_CreatorTest extends TestCase {
 				return ucwords( str_replace( [ '-', '_' ], ' ', $name ) );
 			} )
 			->byDefault();
+		$this->repo_settings->shouldReceive( 'get_display_name' )
+			->andReturnUsing( function ( $identifier ) {
+				if ( 'owner/my-plugin' === $identifier ) {
+					return 'My Plugin';
+				}
+				$parts = explode( '/', $identifier );
+				return ucwords( str_replace( [ '-', '_' ], ' ', end( $parts ) ) );
+			} )
+			->byDefault();
 
 		$this->global_settings = \Mockery::mock( Global_Settings::class );
 		$this->global_settings->shouldReceive( 'get_title_format' )->andReturn( 'full' )->byDefault();
