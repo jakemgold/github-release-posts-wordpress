@@ -123,7 +123,7 @@ class Email_Notifier {
 		$subject   = $this->build_subject( $eligible, $site_name );
 
 		$text_body = $this->build_text_body( $eligible );
-		$html_body = $this->build_html_body( $eligible );
+		$html_body = self::build_html_body( $eligible );
 
 		$headers = [
 			'Content-Type: text/html; charset=UTF-8',
@@ -252,7 +252,7 @@ class Email_Notifier {
 			if ( 'publish' === $entry['status'] ) {
 				$lines[] = sprintf( '  %s: %s', __( 'View post', 'github-release-posts' ), get_permalink( $entry['post_id'] ) );
 			} else {
-				$lines[] = sprintf( '  %s: %s', __( 'Review draft', 'github-release-posts' ), $this->get_edit_url( $entry['post_id'] ) );
+				$lines[] = sprintf( '  %s: %s', __( 'Review draft', 'github-release-posts' ), (string) get_edit_post_link( $entry['post_id'], 'raw' ) );
 			}
 
 			$lines[] = sprintf( '  %s: %s', __( 'GitHub release', 'github-release-posts' ), $entry['html_url'] );
@@ -265,16 +265,29 @@ class Email_Notifier {
 	/**
 	 * Builds the HTML email body.
 	 *
-	 * @param array $entries Post entries.
+	 * Pure function of the entries array — exposed statically so the test-email
+	 * REST handler in Admin_Page can render the same layout without duplicating
+	 * the template. An optional preamble is prepended inside the wrapper div
+	 * (used by the test email to flag "This is a test email."). Entries with
+	 * a zero post_id (placeholder rows in the test flow) skip the view/edit
+	 * links since there is no real post to point at.
+	 *
+	 * @param array  $entries  Post entries.
+	 * @param string $preamble Optional HTML inserted before the entries table.
 	 * @return string
 	 */
-	private function build_html_body( array $entries ): string {
+	public static function build_html_body( array $entries, string $preamble = '' ): string {
 		$site_url    = esc_url( home_url() );
 		$site_host   = wp_parse_url( home_url(), PHP_URL_HOST );
 		$plugin_url  = 'https://github.com/jakemgold/github-release-posts-wordpress';
 		$plugin_name = 'GitHub Release Posts';
 
-		$html  = '<div style="font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif; max-width: 600px;">';
+		$html = '<div style="font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif; max-width: 600px;">';
+
+		if ( '' !== $preamble ) {
+			$html .= $preamble;
+		}
+
 		$html .= '<p>' . sprintf(
 			/* translators: 1: linked site URL, 2: linked plugin name */
 			esc_html__( 'New posts have been generated from GitHub releases on %1$s, via the %2$s plugin.', 'github-release-posts' ),
@@ -295,16 +308,20 @@ class Email_Notifier {
 			$html .= ' <span style="color: #666;">(' . esc_html( $entry['display_name'] ) . ' ' . esc_html( $entry['tag'] ) . ')</span>';
 			$html .= '<br>';
 
-			if ( 'publish' === $entry['status'] ) {
-				$view_url = esc_url( get_permalink( $entry['post_id'] ) );
-				$html    .= '<a href="' . $view_url . '">' . esc_html__( 'View post', 'github-release-posts' ) . '</a>';
-				$html    .= ' · <a href="' . esc_url( $this->get_edit_url( $entry['post_id'] ) ) . '">' . esc_html__( 'Edit', 'github-release-posts' ) . '</a>';
-			} else {
-				$edit_url = esc_url( $this->get_edit_url( $entry['post_id'] ) );
-				$html    .= '<a href="' . $edit_url . '"><strong>' . esc_html__( 'Review draft', 'github-release-posts' ) . '</strong></a>';
+			if ( $entry['post_id'] > 0 ) {
+				if ( 'publish' === $entry['status'] ) {
+					$view_url = esc_url( get_permalink( $entry['post_id'] ) );
+					$edit_url = esc_url( (string) get_edit_post_link( $entry['post_id'], 'raw' ) );
+					$html    .= '<a href="' . $view_url . '">' . esc_html__( 'View post', 'github-release-posts' ) . '</a>';
+					$html    .= ' · <a href="' . $edit_url . '">' . esc_html__( 'Edit', 'github-release-posts' ) . '</a>';
+				} else {
+					$edit_url = esc_url( (string) get_edit_post_link( $entry['post_id'], 'raw' ) );
+					$html    .= '<a href="' . $edit_url . '"><strong>' . esc_html__( 'Review draft', 'github-release-posts' ) . '</strong></a>';
+				}
+				$html .= ' · ';
 			}
 
-			$html .= ' · <a href="' . esc_url( $entry['html_url'] ) . '">' . esc_html__( 'GitHub release', 'github-release-posts' ) . '</a>';
+			$html .= '<a href="' . esc_url( $entry['html_url'] ) . '">' . esc_html__( 'GitHub release', 'github-release-posts' ) . '</a>';
 			$html .= '</td>';
 			$html .= '</tr>';
 		}
@@ -313,16 +330,6 @@ class Email_Notifier {
 		$html .= '</div>';
 
 		return $html;
-	}
-
-	/**
-	 * Returns the edit URL for a post.
-	 *
-	 * @param int $post_id WordPress post ID.
-	 * @return string Edit URL.
-	 */
-	private function get_edit_url( int $post_id ): string {
-		return (string) get_edit_post_link( $post_id, 'raw' );
 	}
 
 	/**

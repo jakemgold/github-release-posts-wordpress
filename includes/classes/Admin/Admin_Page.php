@@ -13,6 +13,7 @@ use Jakemgold\GitHubReleasePosts\GitHub\Onboarding_Handler;
 use Jakemgold\GitHubReleasePosts\GitHub\Release_Monitor;
 use Jakemgold\GitHubReleasePosts\GitHub\Release_Queue;
 use Jakemgold\GitHubReleasePosts\GitHub\Release_State;
+use Jakemgold\GitHubReleasePosts\Notification\Email_Notifier;
 use Jakemgold\GitHubReleasePosts\Plugin_Constants;
 use Jakemgold\GitHubReleasePosts\Settings\Global_Settings;
 use Jakemgold\GitHubReleasePosts\Settings\Repository_Settings;
@@ -914,16 +915,7 @@ class Admin_Page {
 			);
 		}
 
-		$entry = $this->build_test_notification_entry();
-
-		$significance = new \Jakemgold\GitHubReleasePosts\AI\Release_Significance();
-		$notifier     = new \Jakemgold\GitHubReleasePosts\Notification\Email_Notifier(
-			$this->global_settings,
-			$significance,
-			$this->repo_settings
-		);
-
-		// Use reflection to call the private build methods and send directly.
+		$entry   = $this->build_test_notification_entry();
 		$entries = [ $entry ];
 
 		// Build subject matching the real notification format, prefixed with [Test].
@@ -936,7 +928,8 @@ class Admin_Page {
 			$subject = sprintf( __( '[Test] %s — draft ready for review', 'github-release-posts' ), $display );
 		}
 
-		$html_body = $this->build_test_email_body( $entries );
+		$preamble  = '<p><em>' . esc_html__( 'This is a test email.', 'github-release-posts' ) . '</em></p>';
+		$html_body = Email_Notifier::build_html_body( $entries, $preamble );
 		$headers   = [ 'Content-Type: text/html; charset=UTF-8' ];
 
 		$recipients = [];
@@ -1025,64 +1018,6 @@ class Admin_Page {
 			'html_url'     => 'https://github.com/example/plugin/releases/tag/v1.0.0',
 			'post_title'   => 'Example Plugin 1.0: A Major New Release',
 		];
-	}
-
-	/**
-	 * Builds the HTML email body for a test notification.
-	 *
-	 * Mirrors the format used by Email_Notifier::build_html_body().
-	 *
-	 * @param array $entries Post entries.
-	 * @return string
-	 */
-	private function build_test_email_body( array $entries ): string {
-		$site_url    = esc_url( home_url() );
-		$site_host   = wp_parse_url( home_url(), PHP_URL_HOST );
-		$plugin_url  = 'https://github.com/jakemgold/github-release-posts-wordpress';
-		$plugin_name = 'GitHub Release Posts';
-
-		$html  = '<div style="font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif; max-width: 600px;">';
-		$html .= '<p><em>' . esc_html__( 'This is a test email.', 'github-release-posts' ) . '</em></p>';
-		$html .= '<p>' . sprintf(
-			/* translators: 1: linked site URL, 2: linked plugin name */
-			esc_html__( 'New posts have been generated from GitHub releases on %1$s, via the %2$s plugin.', 'github-release-posts' ),
-			'<a href="' . $site_url . '">' . esc_html( $site_host ) . '</a>',
-			'<a href="' . esc_url( $plugin_url ) . '">' . esc_html( $plugin_name ) . '</a>'
-		) . '</p>';
-
-		$html .= '<table style="width: 100%; border-collapse: collapse;">';
-
-		foreach ( $entries as $entry ) {
-			$title = ! empty( $entry['post_title'] )
-				? $entry['post_title']
-				: $entry['display_name'] . ' ' . $entry['tag'];
-
-			$html .= '<tr style="border-bottom: 1px solid #eee;">';
-			$html .= '<td style="padding: 12px 0;">';
-			$html .= '<strong>' . esc_html( $title ) . '</strong>';
-			$html .= ' <span style="color: #666;">(' . esc_html( $entry['display_name'] ) . ' ' . esc_html( $entry['tag'] ) . ')</span>';
-			$html .= '<br>';
-
-			if ( $entry['post_id'] > 0 ) {
-				if ( 'publish' === $entry['status'] ) {
-					$view_url = esc_url( get_permalink( $entry['post_id'] ) );
-					$html    .= '<a href="' . $view_url . '">' . esc_html__( 'View post', 'github-release-posts' ) . '</a>';
-					$html    .= ' · <a href="' . esc_url( (string) get_edit_post_link( $entry['post_id'], 'raw' ) ) . '">' . esc_html__( 'Edit', 'github-release-posts' ) . '</a>';
-				} else {
-					$html .= '<a href="' . esc_url( (string) get_edit_post_link( $entry['post_id'], 'raw' ) ) . '"><strong>' . esc_html__( 'Review draft', 'github-release-posts' ) . '</strong></a>';
-				}
-				$html .= ' · ';
-			}
-
-			$html .= '<a href="' . esc_url( $entry['html_url'] ) . '">' . esc_html__( 'GitHub release', 'github-release-posts' ) . '</a>';
-			$html .= '</td>';
-			$html .= '</tr>';
-		}
-
-		$html .= '</table>';
-		$html .= '</div>';
-
-		return $html;
 	}
 
 	/**
