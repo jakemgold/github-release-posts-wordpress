@@ -390,6 +390,39 @@ class Post_CreatorTest extends TestCase {
 	}
 
 	// -------------------------------------------------------------------------
+	// is_host_allowed() — SSRF defense for sideloaded images
+	// -------------------------------------------------------------------------
+
+	/**
+	 * @dataProvider host_allowlist_cases
+	 */
+	public function test_is_host_allowed( string $host, bool $expected, string $why ): void {
+		$allowed = [ 'github.com', 'githubusercontent.com', 'github.io' ];
+		$this->assertSame(
+			$expected,
+			Post_Creator::is_host_allowed( $host, $allowed ),
+			$why
+		);
+	}
+
+	public function host_allowlist_cases(): array {
+		return [
+			// Allowed.
+			'exact match'                       => [ 'github.com', true, 'exact match should pass' ],
+			'subdomain of github.com'           => [ 'raw.github.com', true, 'real subdomain should pass' ],
+			'githubusercontent subdomain'       => [ 'raw.githubusercontent.com', true, 'real subdomain should pass' ],
+			'pages subdomain'                   => [ 'user.github.io', true, 'github.io subdomain should pass' ],
+
+			// Rejected — these are the bypass attempts the reviewer flagged.
+			'lookalike with hyphen prefix'      => [ 'malicious-github.com', false, 'hyphen-prefixed lookalike must not match (no leading dot)' ],
+			'lookalike as suffix'               => [ 'evilgithub.com', false, 'suffix-only lookalike must not match' ],
+			'attacker domain ending in target'  => [ 'github.com.evil.com', false, 'attacker-controlled parent domain must not match' ],
+			'unrelated domain'                  => [ 'example.com', false, 'unrelated host should be rejected' ],
+			'empty host'                        => [ '', false, 'empty host must be rejected' ],
+		];
+	}
+
+	// -------------------------------------------------------------------------
 	// Helpers
 	// -------------------------------------------------------------------------
 

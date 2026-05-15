@@ -590,6 +590,26 @@ class Post_Creator {
 			]
 		);
 
+		// Bounds to keep a single request from runaway sideloading. A release with
+		// dozens of screenshots, or a flaky origin, could otherwise exceed PHP
+		// max_execution_time. Remaining images are left pointing at remote URLs.
+		$max_images          = (int) apply_filters( 'ghrp_max_sideload_images', 20 );
+		$time_budget         = (int) apply_filters( 'ghrp_sideload_time_budget', 30 );
+		$max_consec_failures = (int) apply_filters( 'ghrp_sideload_max_consecutive_failures', 3 );
+		$request_timeout     = (int) apply_filters( 'ghrp_sideload_request_timeout', 15 );
+
+		$started         = microtime( true );
+		$consec_failures = 0;
+		$bail_reason     = '';
+
+		// Apply a per-image HTTP timeout via http_request_args. WP's default
+		// download_url() timeout is 300s, which is too long for a synchronous loop.
+		$timeout_filter = function ( $args ) use ( $request_timeout ) {
+			$args['timeout'] = $request_timeout;
+			return $args;
+		};
+		add_filter( 'http_request_args', $timeout_filter );
+
 		foreach ( $urls as $remote_url ) {
 			// Skip URLs already pointing to this site.
 			if ( str_starts_with( $remote_url, $site_url ) ) {
@@ -597,16 +617,21 @@ class Post_Creator {
 			}
 
 			// Only sideload from allowed domains to prevent SSRF.
-			$host    = wp_parse_url( $remote_url, PHP_URL_HOST );
-			$allowed = false;
-			foreach ( $allowed_domains as $domain ) {
-				if ( $host === $domain || str_ends_with( $host, '.' . $domain ) ) {
-					$allowed = true;
-					break;
-				}
-			}
-			if ( ! $allowed ) {
+			$host = wp_parse_url( $remote_url, PHP_URL_HOST );
+			if ( ! is_string( $host ) || ! self::is_host_allowed( $host, $allowed_domains ) ) {
 				continue;
+			}
+
+			// Stop if we've hit the image cap.
+			if ( $total >= $max_images ) {
+				$bail_reason = sprintf( 'image cap (%d) reached', $max_images );
+				break;
+			}
+
+			// Stop if we've exceeded the time budget.
+			if ( ( microtime( true ) - $started ) >= $time_budget ) {
+				$bail_reason = sprintf( 'time budget (%ds) exceeded', $time_budget );
+				break;
 			}
 
 			++$total;
@@ -614,6 +639,7 @@ class Post_Creator {
 
 			if ( is_wp_error( $attachment_id ) ) {
 				++$failed;
+				++$consec_failures;
 				if ( defined( 'WP_DEBUG' ) && WP_DEBUG && defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
 					// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 					error_log(
@@ -624,8 +650,16 @@ class Post_Creator {
 						)
 					);
 				}
+
+				// Bail if the origin looks broken — don't burn time on the rest.
+				if ( $consec_failures >= $max_consec_failures ) {
+					$bail_reason = sprintf( '%d consecutive failures', $consec_failures );
+					break;
+				}
 				continue;
 			}
+
+			$consec_failures = 0;
 
 			$local_url = wp_get_attachment_url( $attachment_id );
 			if ( $local_url ) {
@@ -661,6 +695,8 @@ class Post_Creator {
 			}
 		}
 
+		remove_filter( 'http_request_args', $timeout_filter );
+
 		// Update the post with local image URLs.
 		if ( $content !== $post->post_content ) {
 			wp_update_post(
@@ -671,17 +707,46 @@ class Post_Creator {
 			);
 		}
 
-		if ( $failed > 0 && defined( 'WP_DEBUG' ) && WP_DEBUG && defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
+		if ( ( $failed > 0 || '' !== $bail_reason ) && defined( 'WP_DEBUG' ) && WP_DEBUG && defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 			error_log(
 				sprintf(
-					'[CTBP] Image sideload: %d of %d images failed for post %d.',
+					'[CTBP] Image sideload: %d of %d images failed for post %d%s.',
 					$failed,
 					$total,
-					$post_id
+					$post_id,
+					'' !== $bail_reason ? ' (stopped early: ' . $bail_reason . ')' : ''
 				)
 			);
 		}
+	}
+
+	/**
+	 * Returns true when the given host matches one of the allowed domains.
+	 *
+	 * A host is allowed when it equals an allowed domain exactly, or is a
+	 * subdomain of one. The leading dot in the suffix check is load-bearing:
+	 * without it, `malicious-github.com` would be accepted as a match for
+	 * `github.com`. Keep this method when refactoring — it documents the
+	 * SSRF defense for future readers.
+	 *
+	 * @param string $host            Hostname from a URL (lower-case recommended).
+	 * @param array  $allowed_domains List of bare domains (e.g. `github.com`).
+	 * @return bool
+	 */
+	public static function is_host_allowed( string $host, array $allowed_domains ): bool {
+		if ( '' === $host ) {
+			return false;
+		}
+		foreach ( $allowed_domains as $domain ) {
+			if ( ! is_string( $domain ) || '' === $domain ) {
+				continue;
+			}
+			if ( $host === $domain || str_ends_with( $host, '.' . $domain ) ) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
