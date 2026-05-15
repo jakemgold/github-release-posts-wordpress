@@ -1,6 +1,6 @@
 === GitHub Release Posts ===
 
-Contributors:      jakemgold, 10up
+Contributors:      jakemgold, 10up, retlehs
 Tags:              github, releases, blog post, ai, automation
 Requires at least: 7.0
 Tested up to:      7.0

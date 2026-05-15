@@ -141,6 +141,10 @@ composer test             # Run PHPUnit tests
 vendor/bin/phpcs --standard=phpcs.xml.dist includes/  # WPCS lint
 ```
 
+## Contributors
+
+- [Ben Word](https://github.com/retlehs) ([Roots](https://roots.io)) — GitHub repository picker and external PAT configuration ([#2](https://github.com/jakemgold/github-release-posts-wordpress/pull/2))
+
 ## License
 
 GPL-2.0-or-later. See [LICENSE](https://www.gnu.org/licenses/gpl-2.0.html).
