@@ -15,6 +15,7 @@ use GitHubReleasePosts\GitHub\Release_Monitor;
 use GitHubReleasePosts\GitHub\Release_Queue;
 use GitHubReleasePosts\GitHub\Release_State;
 use GitHubReleasePosts\Notification\Email_Notifier;
+use GitHubReleasePosts\Notification\Notification_Entry;
 use GitHubReleasePosts\Plugin_Constants;
 use GitHubReleasePosts\Post\Post_Status;
 use GitHubReleasePosts\Settings\Global_Settings;
@@ -928,8 +929,8 @@ class Admin_Page {
 		$entries = [ $entry ];
 
 		// Build subject matching the real notification format, prefixed with [Test].
-		$display = $entry['display_name'] . ' ' . $entry['tag'];
-		if ( Post_Status::is_public( $entry['status'] ) ) {
+		$display = $entry->display_name . ' ' . $entry->tag;
+		if ( Post_Status::is_public( $entry->status ) ) {
 			/* translators: %s: project name and version */
 			$subject = sprintf( __( '[Test] %s — release post published', 'github-release-posts' ), $display );
 		} else {
@@ -985,9 +986,9 @@ class Admin_Page {
 	 * Builds a test notification entry from the most recent generated post,
 	 * or a placeholder if no posts exist yet.
 	 *
-	 * @return array{post_id: int, status: string, identifier: string, display_name: string, tag: string, html_url: string, significance: string}
+	 * @return Notification_Entry
 	 */
-	private function build_test_notification_entry(): array {
+	private function build_test_notification_entry(): Notification_Entry {
 		$posts = get_posts(
 			[
 				'post_type'      => 'post',
@@ -1001,31 +1002,31 @@ class Admin_Page {
 
 		if ( ! empty( $posts ) ) {
 			$post       = $posts[0];
-			$identifier = get_post_meta( $post->ID, Plugin_Constants::META_SOURCE_REPO, true );
-			$tag        = get_post_meta( $post->ID, Plugin_Constants::META_RELEASE_TAG, true );
-			$html_url   = get_post_meta( $post->ID, Plugin_Constants::META_RELEASE_URL, true );
+			$identifier = (string) get_post_meta( $post->ID, Plugin_Constants::META_SOURCE_REPO, true );
+			$tag        = (string) get_post_meta( $post->ID, Plugin_Constants::META_RELEASE_TAG, true );
+			$html_url   = (string) get_post_meta( $post->ID, Plugin_Constants::META_RELEASE_URL, true );
 
-			return [
-				'post_id'      => $post->ID,
-				'status'       => $post->post_status,
-				'identifier'   => $identifier,
-				'display_name' => $this->repo_settings->get_display_name( $identifier ),
-				'tag'          => $tag,
-				'html_url'     => $html_url,
-				'post_title'   => get_the_title( $post->ID ),
-			];
+			return new Notification_Entry(
+				post_id:      (int) $post->ID,
+				status:       (string) $post->post_status,
+				identifier:   $identifier,
+				display_name: $this->repo_settings->get_display_name( $identifier ),
+				tag:          $tag,
+				html_url:     $html_url,
+				post_title:   (string) get_the_title( $post->ID ),
+			);
 		}
 
 		// Placeholder when no posts exist.
-		return [
-			'post_id'      => 0,
-			'status'       => 'draft',
-			'identifier'   => 'example/plugin',
-			'display_name' => 'Example Plugin',
-			'tag'          => 'v1.0.0',
-			'html_url'     => 'https://github.com/example/plugin/releases/tag/v1.0.0',
-			'post_title'   => 'Example Plugin 1.0: A Major New Release',
-		];
+		return new Notification_Entry(
+			post_id:      0,
+			status:       'draft',
+			identifier:   'example/plugin',
+			display_name: 'Example Plugin',
+			tag:          'v1.0.0',
+			html_url:     'https://github.com/example/plugin/releases/tag/v1.0.0',
+			post_title:   'Example Plugin 1.0: A Major New Release',
+		);
 	}
 
 	/**

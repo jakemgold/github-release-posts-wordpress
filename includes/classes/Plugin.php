@@ -147,6 +147,6 @@ class Plugin {
 		( new Publish_Workflow( $repo_settings ) )->setup();
 
 		// Email notifications — batched summary after cron runs.
-		( new Email_Notifier( $global_settings, $significance, $repo_settings ) )->setup();
+		( new Email_Notifier( $global_settings, $repo_settings ) )->setup();
 	}
 }

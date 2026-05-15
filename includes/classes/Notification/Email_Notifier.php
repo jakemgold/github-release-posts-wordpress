@@ -8,7 +8,6 @@
 namespace GitHubReleasePosts\Notification;
 
 use GitHubReleasePosts\AI\ReleaseData;
-use GitHubReleasePosts\AI\Release_Significance;
 use GitHubReleasePosts\Plugin_Constants;
 use GitHubReleasePosts\Post\Post_Status;
 use GitHubReleasePosts\Settings\Global_Settings;
@@ -25,7 +24,7 @@ class Email_Notifier {
 	/**
 	 * Posts collected during this request for the batched email.
 	 *
-	 * @var array<int, array{post_id: int, status: string, identifier: string, display_name: string, tag: string, html_url: string, significance: string, post_title: string}>
+	 * @var Notification_Entry[]
 	 */
 	private array $entries = [];
 
@@ -39,13 +38,11 @@ class Email_Notifier {
 	/**
 	 * Constructor.
 	 *
-	 * @param Global_Settings      $global_settings Global settings (notification prefs).
-	 * @param Release_Significance $significance    Significance classifier for email body.
-	 * @param Repository_Settings  $repo_settings   Per-repo config (display name lookup).
+	 * @param Global_Settings     $global_settings Global settings (notification prefs).
+	 * @param Repository_Settings $repo_settings   Per-repo config (display name lookup).
 	 */
 	public function __construct(
 		private readonly Global_Settings $global_settings,
-		private readonly Release_Significance $significance,
 		private readonly Repository_Settings $repo_settings,
 	) {}
 
@@ -81,19 +78,15 @@ class Email_Notifier {
 			return;
 		}
 
-		$significance = $this->significance->classify( $data );
-		$display_name = $this->repo_settings->get_display_name( $data->identifier );
-
-		$this->entries[] = [
-			'post_id'      => $post_id,
-			'status'       => $status,
-			'identifier'   => $data->identifier,
-			'display_name' => $display_name,
-			'tag'          => $data->tag,
-			'html_url'     => $data->html_url,
-			'significance' => $significance,
-			'post_title'   => get_the_title( $post_id ),
-		];
+		$this->entries[] = new Notification_Entry(
+			post_id:      $post_id,
+			status:       $status,
+			identifier:   $data->identifier,
+			display_name: $this->repo_settings->get_display_name( $data->identifier ),
+			tag:          $data->tag,
+			html_url:     $data->html_url,
+			post_title:   (string) get_the_title( $post_id ),
+		);
 
 		// Register shutdown hook once to send the batched email.
 		if ( ! $this->shutdown_registered ) {
@@ -202,16 +195,16 @@ class Email_Notifier {
 	 * Single entry: "Gutenberg 19.0 — draft ready for review"
 	 * Multiple:     "[Site Name] 2 release posts ready"
 	 *
-	 * @param array  $entries   Post entries.
-	 * @param string $site_name Site name.
+	 * @param Notification_Entry[] $entries   Post entries.
+	 * @param string               $site_name Site name.
 	 * @return string
 	 */
 	private function build_subject( array $entries, string $site_name ): string {
 		if ( 1 === count( $entries ) ) {
 			$entry  = $entries[0];
-			$prefix = $entry['display_name'] . ' ' . $entry['tag'];
+			$prefix = $entry->display_name . ' ' . $entry->tag;
 
-			if ( Post_Status::is_public( $entry['status'] ) ) {
+			if ( Post_Status::is_public( $entry->status ) ) {
 				/* translators: %s: project name and version, e.g. "Gutenberg 19.0" */
 				return sprintf( __( '%s — release post published', 'github-release-posts' ), $prefix );
 			}
@@ -231,7 +224,7 @@ class Email_Notifier {
 	/**
 	 * Builds the plain text email body.
 	 *
-	 * @param array $entries Post entries.
+	 * @param Notification_Entry[] $entries Post entries.
 	 * @return string
 	 */
 	private function build_text_body( array $entries ): string {
@@ -247,16 +240,16 @@ class Email_Notifier {
 		$lines[] = '';
 
 		foreach ( $entries as $entry ) {
-			$title   = ! empty( $entry['post_title'] ) ? $entry['post_title'] : $entry['display_name'] . ' ' . $entry['tag'];
+			$title   = '' !== $entry->post_title ? $entry->post_title : $entry->display_name . ' ' . $entry->tag;
 			$lines[] = sprintf( '• %s', $title );
 
-			if ( Post_Status::is_public( $entry['status'] ) ) {
-				$lines[] = sprintf( '  %s: %s', __( 'View post', 'github-release-posts' ), get_permalink( $entry['post_id'] ) );
+			if ( Post_Status::is_public( $entry->status ) ) {
+				$lines[] = sprintf( '  %s: %s', __( 'View post', 'github-release-posts' ), get_permalink( $entry->post_id ) );
 			} else {
-				$lines[] = sprintf( '  %s: %s', __( 'Review draft', 'github-release-posts' ), (string) get_edit_post_link( $entry['post_id'], 'raw' ) );
+				$lines[] = sprintf( '  %s: %s', __( 'Review draft', 'github-release-posts' ), (string) get_edit_post_link( $entry->post_id, 'raw' ) );
 			}
 
-			$lines[] = sprintf( '  %s: %s', __( 'GitHub release', 'github-release-posts' ), $entry['html_url'] );
+			$lines[] = sprintf( '  %s: %s', __( 'GitHub release', 'github-release-posts' ), $entry->html_url );
 			$lines[] = '';
 		}
 
@@ -273,8 +266,8 @@ class Email_Notifier {
 	 * a zero post_id (placeholder rows in the test flow) skip the view/edit
 	 * links since there is no real post to point at.
 	 *
-	 * @param array  $entries  Post entries.
-	 * @param string $preamble Optional HTML inserted before the entries table.
+	 * @param Notification_Entry[] $entries  Post entries.
+	 * @param string               $preamble Optional HTML inserted before the entries table.
 	 * @return string
 	 */
 	public static function build_html_body( array $entries, string $preamble = '' ): string {
@@ -299,30 +292,28 @@ class Email_Notifier {
 		$html .= '<table style="width: 100%; border-collapse: collapse;">';
 
 		foreach ( $entries as $entry ) {
-			$title = ! empty( $entry['post_title'] )
-				? $entry['post_title']
-				: $entry['display_name'] . ' ' . $entry['tag'];
+			$title = '' !== $entry->post_title ? $entry->post_title : $entry->display_name . ' ' . $entry->tag;
 
 			$html .= '<tr style="border-bottom: 1px solid #eee;">';
 			$html .= '<td style="padding: 12px 0;">';
 			$html .= '<strong>' . esc_html( $title ) . '</strong>';
-			$html .= ' <span style="color: #666;">(' . esc_html( $entry['display_name'] ) . ' ' . esc_html( $entry['tag'] ) . ')</span>';
+			$html .= ' <span style="color: #666;">(' . esc_html( $entry->display_name ) . ' ' . esc_html( $entry->tag ) . ')</span>';
 			$html .= '<br>';
 
-			if ( $entry['post_id'] > 0 ) {
-				if ( Post_Status::is_public( $entry['status'] ) ) {
-					$view_url = esc_url( get_permalink( $entry['post_id'] ) );
-					$edit_url = esc_url( (string) get_edit_post_link( $entry['post_id'], 'raw' ) );
+			if ( $entry->post_id > 0 ) {
+				if ( Post_Status::is_public( $entry->status ) ) {
+					$view_url = esc_url( get_permalink( $entry->post_id ) );
+					$edit_url = esc_url( (string) get_edit_post_link( $entry->post_id, 'raw' ) );
 					$html    .= '<a href="' . $view_url . '">' . esc_html__( 'View post', 'github-release-posts' ) . '</a>';
 					$html    .= ' · <a href="' . $edit_url . '">' . esc_html__( 'Edit', 'github-release-posts' ) . '</a>';
 				} else {
-					$edit_url = esc_url( (string) get_edit_post_link( $entry['post_id'], 'raw' ) );
+					$edit_url = esc_url( (string) get_edit_post_link( $entry->post_id, 'raw' ) );
 					$html    .= '<a href="' . $edit_url . '"><strong>' . esc_html__( 'Review draft', 'github-release-posts' ) . '</strong></a>';
 				}
 				$html .= ' · ';
 			}
 
-			$html .= '<a href="' . esc_url( $entry['html_url'] ) . '">' . esc_html__( 'GitHub release', 'github-release-posts' ) . '</a>';
+			$html .= '<a href="' . esc_url( $entry->html_url ) . '">' . esc_html__( 'GitHub release', 'github-release-posts' ) . '</a>';
 			$html .= '</td>';
 			$html .= '</tr>';
 		}

@@ -8,7 +8,6 @@
 namespace GitHubReleasePosts\Tests\Notification;
 
 use GitHubReleasePosts\AI\ReleaseData;
-use GitHubReleasePosts\AI\Release_Significance;
 use GitHubReleasePosts\Notification\Email_Notifier;
 use GitHubReleasePosts\Settings\Global_Settings;
 use GitHubReleasePosts\Settings\Repository_Settings;
@@ -24,7 +23,6 @@ class Email_NotifierTest extends TestCase {
 
 	private Email_Notifier $notifier;
 	private Global_Settings $global_settings;
-	private Release_Significance $significance;
 
 	public function setUp(): void {
 		parent::setUp();
@@ -37,15 +35,13 @@ class Email_NotifierTest extends TestCase {
 		\WP_Mock::userFunction( 'get_bloginfo' )->andReturn( 'Test Site' )->byDefault();
 
 		$this->global_settings = \Mockery::mock( Global_Settings::class );
-		$this->significance    = \Mockery::mock( Release_Significance::class );
-		$this->significance->shouldReceive( 'classify' )->andReturn( 'minor' )->byDefault();
 
 		$repo_settings = \Mockery::mock( Repository_Settings::class );
 		$repo_settings->shouldReceive( 'get_repository' )->andReturn( [ 'display_name' => 'Test Plugin' ] )->byDefault();
 		$repo_settings->shouldReceive( 'derive_display_name' )->andReturn( 'Repo' )->byDefault();
 		$repo_settings->shouldReceive( 'get_display_name' )->andReturn( 'Test Plugin' )->byDefault();
 
-		$this->notifier = new Email_Notifier( $this->global_settings, $this->significance, $repo_settings );
+		$this->notifier = new Email_Notifier( $this->global_settings, $repo_settings );
 	}
 
 	public function tearDown(): void {
