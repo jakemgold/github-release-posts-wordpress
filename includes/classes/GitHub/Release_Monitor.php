@@ -7,6 +7,7 @@
 
 namespace Jakemgold\GitHubReleasePosts\GitHub;
 
+use Jakemgold\GitHubReleasePosts\Cache_Keys;
 use Jakemgold\GitHubReleasePosts\Plugin_Constants;
 use Jakemgold\GitHubReleasePosts\Settings\Repository_Settings;
 
@@ -54,7 +55,7 @@ class Release_Monitor {
 		}
 
 		// Prevent overlapping cron runs from processing the same releases.
-		$lock_key = 'ghrp_cron_lock';
+		$lock_key = Cache_Keys::cron_lock();
 		if ( get_transient( $lock_key ) ) {
 			return;
 		}

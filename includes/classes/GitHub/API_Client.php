@@ -7,6 +7,7 @@
 
 namespace Jakemgold\GitHubReleasePosts\GitHub;
 
+use Jakemgold\GitHubReleasePosts\Cache_Keys;
 use Jakemgold\GitHubReleasePosts\Plugin_Constants;
 use Jakemgold\GitHubReleasePosts\Settings\Global_Settings;
 use Jakemgold\GitHubReleasePosts\Settings\Repository_Settings;
@@ -53,7 +54,7 @@ class API_Client {
 		}
 
 		// Return cached result if available.
-		$cache_key = Plugin_Constants::TRANSIENT_RELEASE_PREFIX . md5( $identifier );
+		$cache_key = Cache_Keys::release( $identifier );
 		$cached    = get_transient( $cache_key );
 		if ( $cached instanceof Release ) {
 			return $cached;
@@ -63,7 +64,7 @@ class API_Client {
 		// concurrent load. wp_cache_add() is atomic when a persistent object
 		// cache is installed; with the default in-process cache it has no
 		// effect, leaving us no worse off than before.
-		$lock_key  = Plugin_Constants::RELEASE_FETCH_LOCK_PREFIX . md5( $identifier );
+		$lock_key  = Cache_Keys::release_fetch_lock( $identifier );
 		$owns_lock = (bool) wp_cache_add( $lock_key, 1, '', 30 );
 		if ( ! $owns_lock ) {
 			// Another process is fetching. Wait briefly for it to populate
@@ -192,7 +193,7 @@ class API_Client {
 			return true; // Header absent — unauthenticated or header not sent.
 		}
 
-		set_transient( Plugin_Constants::TRANSIENT_RATE_LIMIT_REMAINING, (int) $remaining, HOUR_IN_SECONDS );
+		set_transient( Cache_Keys::rate_limit_remaining(), (int) $remaining, HOUR_IN_SECONDS );
 
 		if ( 0 === (int) $remaining ) {
 			// Log as warning — never fatal (AC-011).

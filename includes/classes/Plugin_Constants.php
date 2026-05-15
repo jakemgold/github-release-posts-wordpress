@@ -124,25 +124,12 @@ class Plugin_Constants {
 	const OPTION_RELEASE_QUEUE = 'ghrp_release_queue';
 
 	// -------------------------------------------------------------------------
-	// Transient keys
+	// Transient & object-cache keys
 	// -------------------------------------------------------------------------
-
-	/**
-	 * Prefix for per-repo release cache transients.
-	 * Full key: TRANSIENT_RELEASE_PREFIX . md5( 'owner/repo' )
-	 */
-	const TRANSIENT_RELEASE_PREFIX = 'ghrp_rel_';
-
-	/**
-	 * Prefix for the stampede lock guarding a per-repo release fetch.
-	 * Held via wp_cache_add() for the duration of an in-flight HTTP request.
-	 */
-	const RELEASE_FETCH_LOCK_PREFIX = 'ghrp_rel_lock_';
-
-	/**
-	 * Stores the last-known GitHub API rate limit remaining count.
-	 */
-	const TRANSIENT_RATE_LIMIT_REMAINING = 'ghrp_rate_limit_remaining';
+	// All transient and wp_cache key names live in Cache_Keys. Use that
+	// class for any cache read/write so a future invalidation pass (or
+	// rename) only has to touch one file.
+	// -------------------------------------------------------------------------
 
 	// -------------------------------------------------------------------------
 	// Cron hook names
@@ -178,25 +165,6 @@ class Plugin_Constants {
 	 * Whether to append an AI disclosure statement to generated posts (boolean).
 	 */
 	const OPTION_AI_DISCLOSURE = 'ghrp_ai_disclosure';
-
-	/**
-	 * Transient storing AI failure notice data for admin display.
-	 * Set when consecutive failures reach the threshold.
-	 */
-	const TRANSIENT_AI_FAILURE_NOTICE = 'ghrp_ai_failure_notice';
-
-	/**
-	 * Transient storing cron run results for the admin notice.
-	 * Overwritten on each cron run; cleared after display.
-	 */
-	const TRANSIENT_CRON_RESULTS = 'ghrp_cron_run_results';
-
-	/**
-	 * Prefix for AI response cache transients.
-	 * Full key: TRANSIENT_AI_RESPONSE_PREFIX . md5( 'owner/repo' . tag )
-	 * TTL: 4 hours.
-	 */
-	const TRANSIENT_AI_RESPONSE_PREFIX = 'ghrp_ai_resp_';
 
 	/**
 	 * Consecutive AI generation failure counts per release.

@@ -9,8 +9,7 @@ namespace Jakemgold\GitHubReleasePosts\Post;
 
 use Jakemgold\GitHubReleasePosts\AI\GeneratedPost;
 use Jakemgold\GitHubReleasePosts\AI\ReleaseData;
-use Jakemgold\GitHubReleasePosts\Plugin_Constants;
-
+use Jakemgold\GitHubReleasePosts\Cache_Keys;
 use Jakemgold\GitHubReleasePosts\Settings\Repository_Settings;
 
 /**
@@ -19,11 +18,6 @@ use Jakemgold\GitHubReleasePosts\Settings\Repository_Settings;
  * for a dismissible admin notice summarizing the cron run outcome.
  */
 class Publish_Workflow {
-
-	/**
-	 * Transient key for storing cron run results for the admin notice.
-	 */
-	const TRANSIENT_CRON_RESULTS = Plugin_Constants::TRANSIENT_CRON_RESULTS;
 
 	/**
 	 * Constructor.
@@ -133,7 +127,7 @@ class Publish_Workflow {
 	 * @return void
 	 */
 	private function record_result( int $post_id, string $status, ReleaseData $data ): void {
-		$results = get_transient( self::TRANSIENT_CRON_RESULTS );
+		$results = get_transient( Cache_Keys::cron_results() );
 		if ( ! is_array( $results ) ) {
 			$results = [
 				'drafted'   => [],
@@ -156,7 +150,7 @@ class Publish_Workflow {
 		}
 
 		// Store for 24 hours — overwritten on next cron run.
-		set_transient( self::TRANSIENT_CRON_RESULTS, $results, DAY_IN_SECONDS );
+		set_transient( Cache_Keys::cron_results(), $results, DAY_IN_SECONDS );
 	}
 
 	/**
@@ -171,7 +165,7 @@ class Publish_Workflow {
 			return;
 		}
 
-		$results = get_transient( self::TRANSIENT_CRON_RESULTS );
+		$results = get_transient( Cache_Keys::cron_results() );
 		if ( ! is_array( $results ) ) {
 			return;
 		}
@@ -250,6 +244,6 @@ class Publish_Workflow {
 		);
 
 		// Clear the transient so it doesn't reappear (AC-009).
-		delete_transient( self::TRANSIENT_CRON_RESULTS );
+		delete_transient( Cache_Keys::cron_results() );
 	}
 }

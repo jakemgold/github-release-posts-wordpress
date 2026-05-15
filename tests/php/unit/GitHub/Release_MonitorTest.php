@@ -7,6 +7,7 @@
 
 namespace Jakemgold\GitHubReleasePosts\Tests\GitHub;
 
+use Jakemgold\GitHubReleasePosts\Cache_Keys;
 use Jakemgold\GitHubReleasePosts\GitHub\API_Client;
 use Jakemgold\GitHubReleasePosts\GitHub\Release;
 use Jakemgold\GitHubReleasePosts\GitHub\Release_Monitor;
@@ -83,9 +84,9 @@ class Release_MonitorTest extends TestCase {
 		$this->queue->method( 'dequeue_all' )->willReturn( [] );
 
 		// Concurrency lock mocks.
-		\WP_Mock::userFunction( 'get_transient' )->with( 'ghrp_cron_lock' )->andReturn( false );
+		\WP_Mock::userFunction( 'get_transient' )->with( Cache_Keys::cron_lock() )->andReturn( false );
 		\WP_Mock::userFunction( 'set_transient' )->andReturn( true );
-		\WP_Mock::userFunction( 'delete_transient' )->with( 'ghrp_cron_lock' )->andReturn( true );
+		\WP_Mock::userFunction( 'delete_transient' )->with( Cache_Keys::cron_lock() )->andReturn( true );
 
 		$recorded_at = null;
 
@@ -124,9 +125,9 @@ class Release_MonitorTest extends TestCase {
 		$this->queue->method( 'dequeue_all' )->willReturn( [] );
 
 		// Concurrency lock mocks.
-		\WP_Mock::userFunction( 'get_transient' )->with( 'ghrp_cron_lock' )->andReturn( false );
+		\WP_Mock::userFunction( 'get_transient' )->with( Cache_Keys::cron_lock() )->andReturn( false );
 		\WP_Mock::userFunction( 'set_transient' )->andReturn( true );
-		\WP_Mock::userFunction( 'delete_transient' )->with( 'ghrp_cron_lock' )->andReturn( true );
+		\WP_Mock::userFunction( 'delete_transient' )->with( Cache_Keys::cron_lock() )->andReturn( true );
 
 		\WP_Mock::userFunction( 'update_option' )->andReturn( true );
 
@@ -161,9 +162,9 @@ class Release_MonitorTest extends TestCase {
 		$this->queue->method( 'dequeue_all' )->willReturn( [] );
 
 		// Concurrency lock mocks.
-		\WP_Mock::userFunction( 'get_transient' )->with( 'ghrp_cron_lock' )->andReturn( false );
+		\WP_Mock::userFunction( 'get_transient' )->with( Cache_Keys::cron_lock() )->andReturn( false );
 		\WP_Mock::userFunction( 'set_transient' )->andReturn( true );
-		\WP_Mock::userFunction( 'delete_transient' )->with( 'ghrp_cron_lock' )->andReturn( true );
+		\WP_Mock::userFunction( 'delete_transient' )->with( Cache_Keys::cron_lock() )->andReturn( true );
 
 		\WP_Mock::userFunction( 'update_option' )->andReturn( true );
 
@@ -201,9 +202,9 @@ class Release_MonitorTest extends TestCase {
 		$this->queue->method( 'dequeue_all' )->willReturn( [] );
 
 		// Concurrency lock mocks.
-		\WP_Mock::userFunction( 'get_transient' )->with( 'ghrp_cron_lock' )->andReturn( false );
+		\WP_Mock::userFunction( 'get_transient' )->with( Cache_Keys::cron_lock() )->andReturn( false );
 		\WP_Mock::userFunction( 'set_transient' )->andReturn( true );
-		\WP_Mock::userFunction( 'delete_transient' )->with( 'ghrp_cron_lock' )->andReturn( true );
+		\WP_Mock::userFunction( 'delete_transient' )->with( Cache_Keys::cron_lock() )->andReturn( true );
 
 		\WP_Mock::userFunction( 'update_option' )->andReturn( true );
 
@@ -234,9 +235,9 @@ class Release_MonitorTest extends TestCase {
 		$this->queue->method( 'dequeue_all' )->willReturn( [] );
 
 		// Concurrency lock mocks.
-		\WP_Mock::userFunction( 'get_transient' )->with( 'ghrp_cron_lock' )->andReturn( false );
+		\WP_Mock::userFunction( 'get_transient' )->with( Cache_Keys::cron_lock() )->andReturn( false );
 		\WP_Mock::userFunction( 'set_transient' )->andReturn( true );
-		\WP_Mock::userFunction( 'delete_transient' )->with( 'ghrp_cron_lock' )->andReturn( true );
+		\WP_Mock::userFunction( 'delete_transient' )->with( Cache_Keys::cron_lock() )->andReturn( true );
 
 		\WP_Mock::userFunction( 'update_option' )->andReturn( true );
 
@@ -273,9 +274,9 @@ class Release_MonitorTest extends TestCase {
 		\WP_Mock::userFunction( 'get_posts' )->andReturn( [] );
 
 		// Concurrency lock mocks.
-		\WP_Mock::userFunction( 'get_transient' )->with( 'ghrp_cron_lock' )->andReturn( false );
+		\WP_Mock::userFunction( 'get_transient' )->with( Cache_Keys::cron_lock() )->andReturn( false );
 		\WP_Mock::userFunction( 'set_transient' )->andReturn( true );
-		\WP_Mock::userFunction( 'delete_transient' )->with( 'ghrp_cron_lock' )->andReturn( true );
+		\WP_Mock::userFunction( 'delete_transient' )->with( Cache_Keys::cron_lock() )->andReturn( true );
 
 		\WP_Mock::userFunction( 'update_option' )->andReturn( true );
 
@@ -319,9 +320,9 @@ class Release_MonitorTest extends TestCase {
 			->with( 'owner/repo', 'v2.0.0', '2026-03-21T00:00:00Z' );
 
 		// Concurrency lock mocks.
-		\WP_Mock::userFunction( 'get_transient' )->with( 'ghrp_cron_lock' )->andReturn( false );
+		\WP_Mock::userFunction( 'get_transient' )->with( Cache_Keys::cron_lock() )->andReturn( false );
 		\WP_Mock::userFunction( 'set_transient' )->andReturn( true );
-		\WP_Mock::userFunction( 'delete_transient' )->with( 'ghrp_cron_lock' )->andReturn( true );
+		\WP_Mock::userFunction( 'delete_transient' )->with( Cache_Keys::cron_lock() )->andReturn( true );
 
 		\WP_Mock::userFunction( 'update_option' )->andReturn( true );
 

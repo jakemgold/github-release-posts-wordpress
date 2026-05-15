@@ -7,6 +7,7 @@
 
 namespace Jakemgold\GitHubReleasePosts\Tests\GitHub;
 
+use Jakemgold\GitHubReleasePosts\Cache_Keys;
 use Jakemgold\GitHubReleasePosts\GitHub\API_Client;
 use Jakemgold\GitHubReleasePosts\GitHub\Release;
 use Jakemgold\GitHubReleasePosts\Plugin_Constants;
@@ -201,7 +202,7 @@ class API_ClientTest extends TestCase {
 		$cached_release = Release::from_api_response( $this->valid_release_payload() );
 
 		\WP_Mock::userFunction( 'get_transient' )
-			->with( Plugin_Constants::TRANSIENT_RELEASE_PREFIX . md5( '10up/plugin' ) )
+			->with( Cache_Keys::release( '10up/plugin' ) )
 			->andReturn( $cached_release );
 
 		// wp_remote_get must NOT be called.
@@ -327,7 +328,7 @@ class API_ClientTest extends TestCase {
 		\WP_Mock::userFunction( 'set_transient' )
 			->andReturnUsing(
 				function ( string $key, mixed $value ) use ( &$rate_limit_saved ) {
-					if ( $key === Plugin_Constants::TRANSIENT_RATE_LIMIT_REMAINING ) {
+					if ( $key === Cache_Keys::rate_limit_remaining() ) {
 						$this->assertSame( 42, $value );
 						$rate_limit_saved = true;
 					}

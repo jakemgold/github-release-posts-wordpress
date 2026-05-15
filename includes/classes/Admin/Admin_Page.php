@@ -7,6 +7,7 @@
 
 namespace Jakemgold\GitHubReleasePosts\Admin;
 
+use Jakemgold\GitHubReleasePosts\Cache_Keys;
 use Jakemgold\GitHubReleasePosts\GitHub\API_Client;
 use Jakemgold\GitHubReleasePosts\Post\Post_Creator;
 use Jakemgold\GitHubReleasePosts\GitHub\Onboarding_Handler;
@@ -668,7 +669,7 @@ class Admin_Page {
 		if ( $update_failures > 0 ) {
 			$redirect_args['saved'] = '0';
 			set_transient(
-				'ghrp_admin_errors_' . get_current_user_id(),
+				Cache_Keys::admin_errors( get_current_user_id() ),
 				sprintf(
 					/* translators: %d: number of repositories that failed to update */
 					__( '%d repository update(s) failed. Please try again.', 'github-release-posts' ),
@@ -1163,7 +1164,7 @@ class Admin_Page {
 	 */
 	private function set_admin_error( string $message ): void {
 		$user_id = get_current_user_id();
-		set_transient( 'ghrp_admin_errors_' . $user_id, $message, 60 );
+		set_transient( Cache_Keys::admin_errors( $user_id ), $message, 60 );
 	}
 
 	/**
@@ -1177,7 +1178,7 @@ class Admin_Page {
 	private function set_admin_notice( string $type, string $message, ?string $url = null ): void {
 		$user_id = get_current_user_id();
 		set_transient(
-			'ghrp_admin_notice_' . $user_id,
+			Cache_Keys::admin_notice( $user_id ),
 			[
 				'type'    => $type,
 				'message' => $message,

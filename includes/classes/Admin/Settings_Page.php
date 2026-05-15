@@ -11,6 +11,7 @@
 
 namespace Jakemgold\GitHubReleasePosts\Admin;
 
+use Jakemgold\GitHubReleasePosts\Cache_Keys;
 use Jakemgold\GitHubReleasePosts\Plugin_Constants;
 use Jakemgold\GitHubReleasePosts\Settings\Global_Settings;
 
@@ -386,13 +387,13 @@ class Settings_Page {
 	 * @return array{configured: bool, provider_name: string, provider_id: string, model_id: string, is_preferred_model: bool, is_preferred_provider: bool, recommended_model: string}
 	 */
 	private function get_connector_status(): array {
-		$cached = get_transient( 'ghrp_connector_status' );
+		$cached = get_transient( Cache_Keys::connector_status() );
 		if ( is_array( $cached ) ) {
 			return $cached;
 		}
 
 		$status = $this->detect_connector_status();
-		set_transient( 'ghrp_connector_status', $status, MINUTE_IN_SECONDS );
+		set_transient( Cache_Keys::connector_status(), $status, MINUTE_IN_SECONDS );
 
 		return $status;
 	}

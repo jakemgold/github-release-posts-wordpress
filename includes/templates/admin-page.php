@@ -15,6 +15,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 // phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound -- Template included from Admin_Page::render_page().
 
+use Jakemgold\GitHubReleasePosts\Cache_Keys;
+
 $allowed_tabs = [ 'repositories', 'settings' ];
 $active_tab   = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : 'repositories'; // phpcs:ignore WordPress.Security.NonceVerification
 if ( ! in_array( $active_tab, $allowed_tabs, true ) ) {
@@ -28,15 +30,15 @@ $show_saved       = isset( $_GET['saved'] ) && '1' === $_GET['saved']; // phpcs:
 $settings_updated = 'settings' === $active_tab && isset( $_GET['settings-updated'] ); // phpcs:ignore WordPress.Security.NonceVerification
 
 // Error transient.
-$error_message = get_transient( 'ghrp_admin_errors_' . $current_user_id );
+$error_message = get_transient( Cache_Keys::admin_errors( $current_user_id ) );
 if ( $error_message ) {
-	delete_transient( 'ghrp_admin_errors_' . $current_user_id );
+	delete_transient( Cache_Keys::admin_errors( $current_user_id ) );
 }
 
 // Typed notice transient (success/warning from onboarding, etc.).
-$admin_notice = get_transient( 'ghrp_admin_notice_' . $current_user_id );
+$admin_notice = get_transient( Cache_Keys::admin_notice( $current_user_id ) );
 if ( $admin_notice ) {
-	delete_transient( 'ghrp_admin_notice_' . $current_user_id );
+	delete_transient( Cache_Keys::admin_notice( $current_user_id ) );
 }
 ?>
 <div class="wrap">

@@ -9,6 +9,7 @@ namespace Jakemgold\GitHubReleasePosts\Tests\Post;
 
 use Jakemgold\GitHubReleasePosts\AI\GeneratedPost;
 use Jakemgold\GitHubReleasePosts\AI\ReleaseData;
+use Jakemgold\GitHubReleasePosts\Cache_Keys;
 use Jakemgold\GitHubReleasePosts\Post\Publish_Workflow;
 use Jakemgold\GitHubReleasePosts\Settings\Repository_Settings;
 use WP_Mock\Tools\TestCase;
@@ -193,7 +194,7 @@ class Publish_WorkflowTest extends TestCase {
 
 	private function stub_result_recording(): void {
 		\WP_Mock::userFunction( 'get_transient' )
-			->with( Publish_Workflow::TRANSIENT_CRON_RESULTS )
+			->with( Cache_Keys::cron_results() )
 			->andReturn( false );
 		\WP_Mock::userFunction( 'get_edit_post_link' )->andReturn( 'https://example.com/wp-admin/post.php?post=42' );
 		\WP_Mock::userFunction( 'set_transient' )->andReturn( true );

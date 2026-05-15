@@ -7,6 +7,7 @@
 
 namespace Jakemgold\GitHubReleasePosts\AI;
 
+use Jakemgold\GitHubReleasePosts\Cache_Keys;
 use Jakemgold\GitHubReleasePosts\Plugin_Constants;
 use Jakemgold\GitHubReleasePosts\Settings\Global_Settings;
 
@@ -72,7 +73,7 @@ class AI_Processor {
 		self::$last_error = null;
 
 		$data      = ReleaseData::from_entry( $entry );
-		$cache_key = Plugin_Constants::TRANSIENT_AI_RESPONSE_PREFIX . md5( $data->identifier . $data->tag );
+		$cache_key = Cache_Keys::ai_response( $data->identifier, $data->tag );
 
 		// Check response cache — skip API call if we already have a result.
 		// Bypass cache for manual requests (e.g. "Generate draft now", "Regenerate")
@@ -158,7 +159,7 @@ class AI_Processor {
 
 		if ( $count >= self::FAILURE_THRESHOLD ) {
 			set_transient(
-				Plugin_Constants::TRANSIENT_AI_FAILURE_NOTICE,
+				Cache_Keys::ai_failure_notice(),
 				[
 					'identifier' => $data->identifier,
 					'tag'        => $data->tag,
