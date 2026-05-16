@@ -255,9 +255,9 @@ class Repository_List_Table extends \WP_List_Table {
 		// registry so custom statuses (Edit Flow's "Pitch", etc.) render too.
 		$status_label = '';
 		if ( ! Post_Status::is_public( $data['status'] ) ) {
-			$label = Post_Status::label( $data['status'] );
-			if ( '' !== $label ) {
-				$status_label = ' <em>(' . esc_html( $label ) . ')</em>';
+			$status_text = Post_Status::label( $data['status'] );
+			if ( '' !== $status_text ) {
+				$status_label = ' <em>(' . esc_html( $status_text ) . ')</em>';
 			}
 		}
 
