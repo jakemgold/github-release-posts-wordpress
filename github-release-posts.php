@@ -58,10 +58,30 @@ if (
 	return;
 }
 
-// Load Composer autoloader.
-if ( file_exists( GITHUB_RELEASE_POSTS_PATH . 'vendor/autoload.php' ) ) {
-	require_once GITHUB_RELEASE_POSTS_PATH . 'vendor/autoload.php';
+// Load Composer autoloader. Without it, none of our namespaced classes
+// can resolve — surface a clear admin notice rather than fataling on
+// missing-class errors when someone clones the repo without running
+// `composer install`.
+if ( ! file_exists( GITHUB_RELEASE_POSTS_PATH . 'vendor/autoload.php' ) ) {
+	add_action(
+		'admin_notices',
+		function () {
+			echo '<div class="notice notice-error"><p>';
+			echo esc_html__( 'GitHub Release Posts is missing its Composer dependencies. From the plugin directory, run `composer install --no-dev --optimize-autoloader` and reload this page.', 'github-release-posts' );
+			echo '</p></div>';
+		}
+	);
+	return;
 }
+
+require_once GITHUB_RELEASE_POSTS_PATH . 'vendor/autoload.php';
+
+// Register custom WP-Cron schedules at file load time (NOT via plugins_loaded)
+// so the 'weekly' interval is available when Activator::activate() schedules
+// the release-check event. Plugin::setup() runs on plugins_loaded, which fires
+// AFTER the activation hook — registering the filter there would leave a
+// silent gap where `wp_schedule_event(time(), 'weekly', ...)` could fail.
+add_filter( 'cron_schedules', [ Plugin::class, 'add_cron_schedules' ] );
 
 /**
  * Gets the instance of the Plugin class.

@@ -62,7 +62,6 @@ class Plugin {
 	 * @return void
 	 */
 	protected function setup(): void {
-		add_filter( 'cron_schedules', [ $this, 'add_cron_schedules' ] );
 		add_action( 'init', [ $this, 'i18n' ] );
 		add_action( 'init', [ $this, 'init' ] );
 	}
@@ -74,10 +73,15 @@ class Plugin {
 	 * This adds it so that developers who filter `ghrp_check_frequency` to 'weekly'
 	 * get a working schedule. Skips registration if another plugin already defined it.
 	 *
+	 * Static so the main plugin file can register the `cron_schedules` filter at
+	 * load time — Plugin::setup() runs on `plugins_loaded`, which is AFTER the
+	 * activation hook, so the filter wouldn't be active when wp_schedule_event()
+	 * runs from Activator::activate() and a 'weekly' interval would fail silently.
+	 *
 	 * @param array<string, array{interval: int, display: string}> $schedules Existing schedules.
 	 * @return array<string, array{interval: int, display: string}>
 	 */
-	public function add_cron_schedules( array $schedules ): array {
+	public static function add_cron_schedules( array $schedules ): array {
 		if ( ! isset( $schedules['weekly'] ) ) {
 			$schedules['weekly'] = [
 				'interval' => WEEK_IN_SECONDS,

@@ -140,8 +140,12 @@ $table->render_inline_edit_template();
 									<div class="ghrp-repo-picker__group-name" id="<?php echo esc_attr( $ghrp_group_id ); ?>">
 										<?php echo esc_html( $ghrp_owner ); ?>
 									</div>
-									<?php foreach ( $ghrp_owner_repos as $r ) : ?>
-										<?php ++$ghrp_opt_index; ?>
+									<?php
+									foreach ( $ghrp_owner_repos as $r ) :
+										++$ghrp_opt_index;
+										/* translators: %s: repository identifier (owner/repo) */
+										$ghrp_view_label = sprintf( __( 'View %s on GitHub', 'github-release-posts' ), $r['identifier'] );
+										?>
 										<div
 											id="ghrp-repo-opt-<?php echo esc_attr( (string) $ghrp_opt_index ); ?>"
 											class="ghrp-repo-picker__option"
@@ -156,10 +160,7 @@ $table->render_inline_edit_template();
 												rel="noopener"
 												class="ghrp-repo-picker__option-link"
 												tabindex="-1"
-												aria-label="<?php
-													/* translators: %s: repository identifier (owner/repo) */
-													echo esc_attr( sprintf( __( 'View %s on GitHub', 'github-release-posts' ), $r['identifier'] ) );
-												?>"
+												aria-label="<?php echo esc_attr( $ghrp_view_label ); ?>"
 											>
 												<span class="dashicons dashicons-external" aria-hidden="true"></span>
 											</a>

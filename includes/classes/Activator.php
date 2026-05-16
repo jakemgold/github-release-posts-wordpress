@@ -76,8 +76,24 @@ class Activator {
 		 */
 		$interval = (string) apply_filters( 'ghrp_check_frequency', 'daily' );
 
-		if ( ! wp_next_scheduled( Plugin_Constants::CRON_HOOK_RELEASE_CHECK ) ) {
-			wp_schedule_event( time(), $interval, Plugin_Constants::CRON_HOOK_RELEASE_CHECK );
+		if ( wp_next_scheduled( Plugin_Constants::CRON_HOOK_RELEASE_CHECK ) ) {
+			return;
+		}
+
+		$result = wp_schedule_event( time(), $interval, Plugin_Constants::CRON_HOOK_RELEASE_CHECK );
+
+		// wp_schedule_event returns false when the interval is not a registered
+		// WP-Cron schedule. The main plugin file pre-registers our 'weekly'
+		// interval at load time, but log loudly if anything else still slips
+		// through — silent activation failure is the worst case.
+		if ( false === $result && defined( 'WP_DEBUG' ) && WP_DEBUG && defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			error_log(
+				sprintf(
+					'[github-release-posts] Failed to schedule cron event with interval "%s". The interval may not be a registered WP-Cron schedule.',
+					$interval
+				)
+			);
 		}
 	}
 }

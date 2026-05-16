@@ -991,9 +991,19 @@ document.addEventListener( 'DOMContentLoaded', function () {
 			return;
 		}
 
+		// Build the anchor via DOM API rather than innerHTML interpolation —
+		// post.tag is a git ref name that can legitimately contain characters
+		// the HTML parser would interpret (`<`, `>`, `&`, quotes). textContent
+		// + property assignment is the only escape that's actually safe here.
 		var label = post.tag ? post.tag + ' on ' + post.date : post.date;
-		lastPostCell.innerHTML = '<a href="' + encodeURI( post.edit_url ) + '">' +
-			document.createTextNode( label ).textContent + '</a>';
+
+		while ( lastPostCell.firstChild ) {
+			lastPostCell.removeChild( lastPostCell.firstChild );
+		}
+		var anchor = document.createElement( 'a' );
+		anchor.href = post.edit_url;
+		anchor.textContent = label;
+		lastPostCell.appendChild( anchor );
 
 		// Highlight the cell briefly to signal the update.
 		lastPostCell.style.transition = 'background-color 0.3s';

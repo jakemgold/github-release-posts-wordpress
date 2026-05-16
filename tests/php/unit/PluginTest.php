@@ -61,8 +61,7 @@ class PluginTest extends TestCase {
 	 * add_cron_schedules() adds the 'weekly' interval when not already present (AC-008).
 	 */
 	public function test_add_cron_schedules_registers_weekly(): void {
-		$plugin    = Plugin::get_instance();
-		$schedules = $plugin->add_cron_schedules( [] );
+		$schedules = Plugin::add_cron_schedules( [] );
 
 		$this->assertArrayHasKey( 'weekly', $schedules );
 		$this->assertSame( WEEK_IN_SECONDS, $schedules['weekly']['interval'] );
@@ -74,8 +73,7 @@ class PluginTest extends TestCase {
 	 */
 	public function test_add_cron_schedules_does_not_overwrite_existing_weekly(): void {
 		$existing = [ 'weekly' => [ 'interval' => 999, 'display' => 'Custom weekly' ] ];
-		$plugin   = Plugin::get_instance();
-		$result   = $plugin->add_cron_schedules( $existing );
+		$result   = Plugin::add_cron_schedules( $existing );
 
 		$this->assertSame( 999, $result['weekly']['interval'], 'Existing weekly schedule should not be overwritten' );
 	}
