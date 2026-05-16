@@ -70,7 +70,7 @@ AI-written content with embedded images, plus the GitHub Release sidebar panel f
 
 ## GitHub access
 
-The plugin uses a GitHub Personal Access Token (PAT) to read release data. A PAT is optional for public repositories — without one, GitHub limits the plugin to 60 API requests per hour. Adding a PAT raises that to 5,000 per hour and is required to access private repositories.
+The plugin uses a GitHub Personal Access Token (PAT) to read release data. A PAT is optional for public repositories — without one, GitHub limits the plugin to 60 API requests per hour. Adding a PAT raises that to 5,000 per hour, replaces the "owner/repo" text field with a dropdown of repositories the token can access, and is required to access private repositories. The Settings page shows a green check once GitHub confirms the token.
 
 <details>
 <summary><strong>Create a fine-grained PAT and add it to WordPress</strong></summary>

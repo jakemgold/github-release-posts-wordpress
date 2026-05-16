@@ -155,10 +155,10 @@ class Admin_Page {
 				'content' => '<h3>' . esc_html__( 'Getting Started', 'github-release-posts' ) . '</h3>'
 					. '<ol>'
 					. '<li>' . esc_html__( 'Set up an AI connector under Settings → Connectors (Anthropic, OpenAI, or Google recommended).', 'github-release-posts' ) . '</li>'
-					. '<li>' . esc_html__( 'Add a GitHub repository in the Repositories tab using the format "owner/repo" (e.g. "WordPress/gutenberg").', 'github-release-posts' ) . '</li>'
+					. '<li>' . esc_html__( 'Add a GitHub repository in the Repositories tab — either pick one from the dropdown (if a Personal Access Token is configured) or enter it in "owner/repo" format (e.g. "WordPress/gutenberg").', 'github-release-posts' ) . '</li>'
 					. '<li>' . esc_html__( 'When you add a repository, the plugin automatically checks for the latest release and generates a draft post if one is found. You can also generate a post manually at any time.', 'github-release-posts' ) . '</li>'
 					. '</ol>'
-					. '<p>' . esc_html__( 'Optionally, add a GitHub Personal Access Token in the Settings tab to increase the API rate limit from 60 to 5,000 requests per hour.', 'github-release-posts' ) . '</p>',
+					. '<p>' . esc_html__( 'Optionally, add a GitHub Personal Access Token in the Settings tab to raise the API rate limit from 60 to 5,000 requests per hour and to populate a picker of your repositories on the Repositories tab.', 'github-release-posts' ) . '</p>',
 			]
 		);
 
@@ -168,6 +168,8 @@ class Admin_Page {
 				'title'   => __( 'Repositories', 'github-release-posts' ),
 				'content' => '<h3>' . esc_html__( 'Managing Repositories', 'github-release-posts' ) . '</h3>'
 					. '<p>' . esc_html__( 'Each repository you add is monitored for new GitHub releases. When a new release is detected, the plugin fetches the release notes, sends them to your configured AI provider, and creates a blog post.', 'github-release-posts' ) . '</p>'
+					. '<h4>' . esc_html__( 'Adding a Repository', 'github-release-posts' ) . '</h4>'
+					. '<p>' . esc_html__( 'When a Personal Access Token is configured, the Add Repository form shows a dropdown of repositories the token can access, grouped by owner and filtered to ones you are not already tracking. A Refresh button next to Add re-fetches the list — useful after granting the token access to additional repos on GitHub. Without a token, the form falls back to a free-text "owner/repo" field.', 'github-release-posts' ) . '</p>'
 					. '<h4>' . esc_html__( 'Per-Repository Options', 'github-release-posts' ) . '</h4>'
 					. '<ul>'
 					. '<li><strong>' . esc_html__( 'Display Name', 'github-release-posts' ) . '</strong> — ' . esc_html__( 'The project name used in post titles. Defaults to a cleaned-up version of the repo name.', 'github-release-posts' ) . '</li>'
@@ -242,21 +244,31 @@ class Admin_Page {
 				'id'      => 'ghrp-help-github',
 				'title'   => __( 'GitHub Token', 'github-release-posts' ),
 				'content' => '<h3>' . esc_html__( 'GitHub Personal Access Token', 'github-release-posts' ) . '</h3>'
-				. '<p>' . esc_html__( 'By default, the plugin uses unauthenticated GitHub API requests, which are limited to 60 per hour. Adding a Personal Access Token raises this limit to 5,000 requests per hour.', 'github-release-posts' ) . '</p>'
-				. '<p>' . esc_html__( 'A token is recommended if you track more than a few repositories or check for releases frequently.', 'github-release-posts' ) . '</p>'
-				. '<h4>' . esc_html__( 'Creating a Token', 'github-release-posts' ) . '</h4>'
+				. '<p>' . esc_html__( 'A Personal Access Token is optional for public repositories — without one, GitHub limits the plugin to 60 API requests per hour. Adding a token does three things:', 'github-release-posts' ) . '</p>'
+				. '<ul>'
+				. '<li>' . esc_html__( 'Raises the GitHub API rate limit from 60 to 5,000 requests per hour.', 'github-release-posts' ) . '</li>'
+				. '<li>' . esc_html__( 'Replaces the "owner/repo" text field on the Repositories tab with a dropdown of repositories the token can access.', 'github-release-posts' ) . '</li>'
+				. '<li>' . esc_html__( 'Grants access to private repositories.', 'github-release-posts' ) . '</li>'
+				. '</ul>'
+				. '<h4>' . esc_html__( 'Creating a Token (fine-grained recommended)', 'github-release-posts' ) . '</h4>'
 				. '<ol>'
 				. '<li>'
 					. sprintf(
-						/* translators: %s: link to GitHub token settings */
+						/* translators: %s: link to GitHub fine-grained token settings */
 						esc_html__( 'Visit %s on GitHub.', 'github-release-posts' ),
-						'<a href="https://github.com/settings/tokens" target="_blank" rel="noopener">' . esc_html__( 'Settings &rarr; Personal access tokens', 'github-release-posts' ) . '</a>'
+						'<a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">' . esc_html__( 'Settings &rarr; Personal access tokens &rarr; Fine-grained tokens', 'github-release-posts' ) . '</a>'
 					)
 				. '</li>'
-				. '<li>' . esc_html__( 'Generate a new token (classic) with the "public_repo" scope. For private repositories, use the full "repo" scope instead.', 'github-release-posts' ) . '</li>'
-				. '<li>' . esc_html__( 'Paste the token into the GitHub Personal Access Token field in the Settings tab.', 'github-release-posts' ) . '</li>'
+				. '<li>' . esc_html__( 'Under Repository access, choose "Only select repositories" and pick the repos you want to monitor — or "All repositories" if you prefer.', 'github-release-posts' ) . '</li>'
+				. '<li>' . esc_html__( 'Set Repository permissions to Read-only for: Contents (required), Metadata (auto-selected), Issues, and Pull requests. The last two are used during AI prompt enrichment.', 'github-release-posts' ) . '</li>'
+				. '<li>' . esc_html__( 'Generate the token and copy the github_pat_… value immediately — GitHub will not show it again.', 'github-release-posts' ) . '</li>'
+				. '<li>' . esc_html__( 'Paste the token into the GitHub Personal Access Token field in the Settings tab. A green Validated indicator appears once GitHub confirms the token.', 'github-release-posts' ) . '</li>'
 				. '</ol>'
-				. '<p>' . esc_html__( 'The token is encrypted at rest using libsodium and is never exposed in the admin UI after saving.', 'github-release-posts' ) . '</p>',
+				. '<h4>' . esc_html__( 'Supplying the Token Outside the Database', 'github-release-posts' ) . '</h4>'
+				. '<p>' . esc_html__( 'For sites that prefer not to store secrets in wp_options, the token can be supplied via the GITHUB_RELEASE_POSTS_PAT PHP constant in wp-config.php, or via an environment variable of the same name. The plugin reads the constant first, then the env var, then the encrypted database value. When supplied externally, the Settings field becomes read-only.', 'github-release-posts' ) . '</p>'
+				. '<p>' . esc_html__( 'When stored in the database, the token is encrypted at rest using libsodium and is never exposed in the admin UI after saving.', 'github-release-posts' ) . '</p>'
+				. '<h4>' . esc_html__( 'Classic Tokens', 'github-release-posts' ) . '</h4>'
+				. '<p>' . esc_html__( 'Classic tokens are still supported. Use the "public_repo" scope for public repos or the full "repo" scope for private repos.', 'github-release-posts' ) . '</p>',
 			]
 		);
 

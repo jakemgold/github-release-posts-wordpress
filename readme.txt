@@ -70,11 +70,11 @@ The plugin uses WordPress Connectors (built into WordPress 7.0+) to communicate 
 
 = Do I need a GitHub API key? =
 
-No. The plugin uses the public GitHub API for public repositories. An optional Personal Access Token (PAT) can be configured to increase the API rate limit from 60 to 5,000 requests per hour.
+No. The plugin uses the public GitHub API for public repositories. Adding an optional Personal Access Token raises the API rate limit from 60 to 5,000 requests per hour and replaces the "owner/repo" text field on the Repositories tab with a dropdown of repos the token can access.
 
 = Does it work with private repositories? =
 
-Yes. Add a GitHub Personal Access Token with the `repo` scope in the Settings tab, and the plugin can access releases from your private repositories.
+Yes. Add a GitHub Personal Access Token in the Settings tab. A fine-grained token scoped to the specific repositories you want to monitor is recommended; a classic token with the `repo` scope also works.
 
 = How often does the plugin check for new releases? =
 
