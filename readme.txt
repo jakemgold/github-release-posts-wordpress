@@ -95,9 +95,10 @@ A Release Attribution panel appears in the document sidebar, showing which GitHu
 == Screenshots ==
 
 1. Repositories tab — monitor multiple GitHub repos with last post version, status, and one-click post generation.
-2. Settings tab — view your AI connector status and configure audience level, custom prompt instructions, and notifications.
-3. Inline editing — per-repo settings including name, project link, post status, author, categories, tags, and featured image, following the familiar WordPress Quick Edit pattern.
-4. Generated post in the block editor — AI-written content with embedded images, plus the GitHub Release sidebar panel for source attribution and regeneration.
+2. Repository autocomplete — with a GitHub Personal Access Token configured, the Add Repository field suggests from the repositories your token can access, grouped by owner. You can still type any public owner/repo to track a repository that isn't in the list.
+3. Settings tab — view your AI connector status and configure audience level, custom prompt instructions, and notifications.
+4. Inline editing — per-repo settings including name, project link, post status, author, categories, tags, and featured image, following the familiar WordPress Quick Edit pattern.
+5. Generated post in the block editor — AI-written content with embedded images, plus the GitHub Release sidebar panel for source attribution and regeneration.
 
 == Changelog ==
 

@@ -21,20 +21,25 @@ Monitor multiple GitHub repos with last post version, status, and one-click post
 
 ![Repositories tab](.wordpress-org/screenshot-1.png)
 
+### Repository autocomplete
+With a GitHub Personal Access Token configured, the Add Repository field suggests from the repositories your token can access, grouped by owner. You can still type any public `owner/repo` to track a repository that isn't in the list.
+
+![Repository autocomplete](.wordpress-org/screenshot-2.png)
+
 ### Settings tab
 View your AI connector status and configure audience level, custom prompt instructions, and notifications.
 
-![Settings tab](.wordpress-org/screenshot-2.png)
+![Settings tab](.wordpress-org/screenshot-3.png)
 
 ### Inline editing
 Per-repo settings including name, project link, post status, author, categories, tags, and featured image — following the familiar WordPress Quick Edit pattern.
 
-![Inline editing](.wordpress-org/screenshot-3.png)
+![Inline editing](.wordpress-org/screenshot-4.png)
 
 ### Generated post in the block editor
 AI-written content with embedded images, plus the GitHub Release sidebar panel for source attribution and regeneration.
 
-![Block editor](.wordpress-org/screenshot-4.png)
+![Block editor](.wordpress-org/screenshot-5.png)
 
 ## Features
 
