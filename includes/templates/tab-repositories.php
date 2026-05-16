@@ -189,7 +189,7 @@ $table->render_inline_edit_template();
 					<span class="spinner ghrp-refresh-repos-spinner" style="float: none; vertical-align: middle;"></span>
 					<span
 						id="ghrp-refresh-repos-result"
-						style="margin-left: 4px; vertical-align: middle; line-height: 28px;"
+						class="ghrp-refresh-repos-result"
 						aria-live="polite"
 					></span>
 				<?php endif; ?>

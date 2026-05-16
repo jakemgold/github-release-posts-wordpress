@@ -486,23 +486,11 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	// On success, focuses the input so the popover opens with the new list.
 	// -------------------------------------------------------------------------
 	const refreshReposBtn = document.getElementById( 'ghrp-refresh-repos' );
-	let refreshResultTimer = null;
 
-	function showRefreshResult( html, autoClear ) {
+	function setRefreshResult( html ) {
 		const resultEl = document.getElementById( 'ghrp-refresh-repos-result' );
-		if ( ! resultEl ) {
-			return;
-		}
-		if ( refreshResultTimer ) {
-			clearTimeout( refreshResultTimer );
-			refreshResultTimer = null;
-		}
-		resultEl.innerHTML = html;
-		if ( autoClear ) {
-			refreshResultTimer = setTimeout( function () {
-				resultEl.innerHTML = '';
-				refreshResultTimer = null;
-			}, 2500 );
+		if ( resultEl ) {
+			resultEl.innerHTML = html;
 		}
 	}
 
@@ -514,8 +502,8 @@ document.addEventListener( 'DOMContentLoaded', function () {
 			if ( spinner ) {
 				spinner.classList.add( 'is-active' );
 			}
-			// Clear any lingering message immediately so the user sees fresh state.
-			showRefreshResult( '', false );
+			// Clear any lingering message so the user sees fresh state.
+			setRefreshResult( '' );
 
 			window.ctbpFetch(
 				'POST',
@@ -529,7 +517,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 					rebuildRepoList( ( data && data.groups ) || {} );
 
 					const msg = ( data && data.message ) ? data.message : 'Refreshed.';
-					showRefreshResult( validIcon( msg ) + ' ' + msg, true );
+					setRefreshResult( validIcon( msg ) + ' ' + msg );
 
 					// Focus the input so the popover opens (or stays open)
 					// with the refreshed list visible.
@@ -543,7 +531,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 						spinner.classList.remove( 'is-active' );
 					}
 					const msg = ( data && data.message ) ? data.message : 'Failed to refresh repository list.';
-					showRefreshResult( warningIcon( msg ) + ' ' + msg, false );
+					setRefreshResult( warningIcon( msg ) + ' ' + msg );
 				}
 			);
 		} );

@@ -314,3 +314,23 @@
 	font-size: 13px;
 	font-style: italic;
 }
+
+/* Inline success/warning indicator next to the Refresh button. */
+.ghrp-refresh-repos-result {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	margin-left: 4px;
+	vertical-align: middle;
+}
+
+.ghrp-refresh-repos-result:empty {
+	display: none;
+}
+
+.ghrp-refresh-repos-result .dashicons {
+	width: 18px;
+	height: 18px;
+	font-size: 18px;
+	line-height: 1;
+}
