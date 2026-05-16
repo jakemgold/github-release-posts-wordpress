@@ -12,6 +12,7 @@
 namespace GitHubReleasePosts\Admin;
 
 use GitHubReleasePosts\Cache_Keys;
+use GitHubReleasePosts\GitHub\API_Client;
 use GitHubReleasePosts\Plugin_Constants;
 use GitHubReleasePosts\Settings\Global_Settings;
 
@@ -114,10 +115,10 @@ class Settings_Page {
 	 * @return void
 	 */
 	public function render_github_pat_field(): void {
-		$masked_pat       = $this->global_settings->get_masked_github_pat();
-		$source           = $this->global_settings->get_github_pat_source();
-		$externally_set   = 'constant' === $source || 'env' === $source;
-		$refresh_disabled = 'none' === $source;
+		$masked_pat     = $this->global_settings->get_masked_github_pat();
+		$source         = $this->global_settings->get_github_pat_source();
+		$externally_set = 'constant' === $source || 'env' === $source;
+		$validation     = $this->get_github_pat_validation_status();
 		?>
 		<input
 			type="password"
@@ -128,22 +129,63 @@ class Settings_Page {
 			autocomplete="new-password"
 			<?php disabled( $externally_set ); ?>
 		>
+		<span
+			id="ghrp-pat-status"
+			class="ghrp-pat-status ghrp-pat-status--<?php echo esc_attr( $validation['state'] ); ?>"
+			aria-live="polite"
+			style="margin-left: 8px; vertical-align: middle;"
+		>
+			<?php if ( 'valid' === $validation['state'] ) : ?>
+				&#10003; <?php esc_html_e( 'Validated', 'github-release-posts' ); ?>
+			<?php elseif ( 'invalid' === $validation['state'] ) : ?>
+				&#9888; <?php echo esc_html( $validation['message'] ); ?>
+			<?php endif; ?>
+		</span>
 		<?php if ( ! $externally_set ) : ?>
 			<p class="description">
-				<?php echo esc_html__( 'Optional. Raises the GitHub API rate limit from 60 to 5,000 requests per hour.', 'github-release-posts' ); ?>
+				<?php echo esc_html__( 'Optional. Raises the GitHub API rate limit from 60 to 5,000 requests per hour and prepopulates the repository picker on the Repositories tab.', 'github-release-posts' ); ?>
 			</p>
 		<?php endif; ?>
-		<button
-			type="button"
-			id="ghrp-refresh-repos"
-			class="button"
-			<?php disabled( $refresh_disabled ); ?>
-		>
-			<?php echo esc_html__( 'Refresh repository list', 'github-release-posts' ); ?>
-		</button>
-		<span class="spinner ghrp-refresh-repos-spinner"></span>
-		<span id="ghrp-refresh-repos-result" style="vertical-align: middle;" aria-live="polite"></span>
 		<?php
+	}
+
+	/**
+	 * Returns the current PAT validation status, cached for 1 minute.
+	 *
+	 * Mirrors the AI Connector status pattern: cheap GET /user check, cached
+	 * so every Settings page render isn't an HTTP request. Result shape:
+	 *   [ 'state' => 'none' | 'valid' | 'invalid', 'message' => string ]
+	 *
+	 * @return array{state: string, message: string}
+	 */
+	private function get_github_pat_validation_status(): array {
+		$pat = $this->global_settings->get_github_pat();
+		if ( '' === $pat ) {
+			return [
+				'state'   => 'none',
+				'message' => '',
+			];
+		}
+
+		$cache_key = Cache_Keys::pat_validation( $pat );
+		$cached    = get_transient( $cache_key );
+		if ( is_array( $cached ) ) {
+			return $cached;
+		}
+
+		$result = ( new API_Client( $this->global_settings ) )->validate_pat( $pat );
+		$status = ( true === $result )
+			? [
+				'state'   => 'valid',
+				'message' => '',
+			]
+			: [
+				'state'   => 'invalid',
+				'message' => (string) $result->get_error_message(),
+			];
+
+		set_transient( $cache_key, $status, MINUTE_IN_SECONDS );
+		return $status;
 	}
 
 	/**

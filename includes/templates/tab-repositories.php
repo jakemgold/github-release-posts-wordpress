@@ -38,6 +38,7 @@ $ghrp_global_settings = new Global_Settings();
 $ghrp_pat_configured  = 'none' !== $ghrp_global_settings->get_github_pat_source();
 $ghrp_repo_list       = null;
 $ghrp_repo_list_error = '';
+$ghrp_pat_validated   = false;
 
 if ( $ghrp_pat_configured ) {
 	$ghrp_result = ( new API_Client( $ghrp_global_settings ) )->list_accessible_repos();
@@ -47,6 +48,7 @@ if ( $ghrp_pat_configured ) {
 	}
 
 	if ( is_array( $ghrp_result ) ) {
+		$ghrp_pat_validated = true;
 		// Filter out repositories that are already being tracked.
 		$ghrp_tracked   = array_column( $repos, 'identifier' );
 		$ghrp_repo_list = array_values(
@@ -139,15 +141,21 @@ $table->render_inline_edit_template();
 					</button>
 				<?php endif; ?>
 
+				<?php if ( $ghrp_pat_validated ) : ?>
+					<button
+						type="button"
+						id="ghrp-refresh-repos"
+						class="button"
+						title="<?php echo esc_attr__( 'Refresh your repository list', 'github-release-posts' ); ?>"
+					>
+						<?php echo esc_html__( 'Refresh', 'github-release-posts' ); ?>
+					</button>
+					<span class="spinner ghrp-refresh-repos-spinner" style="float: none; vertical-align: middle;"></span>
+				<?php endif; ?>
+
 				<?php if ( 'fallback-empty' === $ghrp_input_mode ) : ?>
 					<p class="description">
-						<?php
-						printf(
-							/* translators: %s: link to the Settings tab */
-							wp_kses( __( 'The configured Personal Access Token does not currently have access to any new repositories. Grant the token access to more repositories on GitHub, then click "Refresh repository list" on the %s tab.', 'github-release-posts' ), [ 'a' => [ 'href' => [] ] ] ),
-							$ghrp_settings_link // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-						);
-						?>
+						<?php echo esc_html__( 'The configured Personal Access Token does not currently have access to any new repositories. Grant the token access to more repositories on GitHub, then click Refresh.', 'github-release-posts' ); ?>
 					</p>
 				<?php endif; ?>
 

@@ -505,6 +505,23 @@ class Admin_Page {
 
 		register_rest_route(
 			'ghrp/v1',
+			'/pat/validate',
+			[
+				'methods'             => \WP_REST_Server::CREATABLE,
+				'callback'            => [ $this, 'rest_validate_pat' ],
+				'permission_callback' => [ $this, 'rest_permission_check' ],
+				'args'                => [
+					'pat' => [
+						'required'          => false,
+						'type'              => 'string',
+						'sanitize_callback' => 'sanitize_text_field',
+					],
+				],
+			]
+		);
+
+		register_rest_route(
+			'ghrp/v1',
 			'/wporg/validate',
 			[
 				'methods'             => \WP_REST_Server::READABLE,
@@ -1021,6 +1038,46 @@ class Admin_Page {
 				'count'   => $count,
 				/* translators: %d: number of repositories */
 				'message' => sprintf( _n( '%d repository available.', '%d repositories available.', $count, 'github-release-posts' ), $count ),
+			],
+			200
+		);
+	}
+
+	/**
+	 * REST handler: validates a Personal Access Token against the GitHub API.
+	 *
+	 * When the `pat` parameter is empty or omitted, validates the currently-
+	 * stored PAT. Used by the Settings field's tab-out indicator so the user
+	 * gets a green check / warning before saving.
+	 *
+	 * @param \WP_REST_Request $request REST request, optionally with a `pat` body param.
+	 * @return \WP_REST_Response
+	 */
+	public function rest_validate_pat( \WP_REST_Request $request ): \WP_REST_Response {
+		$submitted = (string) $request->get_param( 'pat' );
+
+		// The masked placeholder means "use the stored PAT" — same convention
+		// as Global_Settings::save_github_pat.
+		if ( '' === $submitted || Global_Settings::MASKED_PLACEHOLDER === $submitted ) {
+			$result = ( new API_Client( $this->global_settings ) )->validate_pat();
+		} else {
+			$result = ( new API_Client( $this->global_settings ) )->validate_pat( $submitted );
+		}
+
+		if ( true === $result ) {
+			return new \WP_REST_Response(
+				[
+					'valid'   => true,
+					'message' => __( 'Validated', 'github-release-posts' ),
+				],
+				200
+			);
+		}
+
+		return new \WP_REST_Response(
+			[
+				'valid'   => false,
+				'message' => $result->get_error_message(),
 			],
 			200
 		);

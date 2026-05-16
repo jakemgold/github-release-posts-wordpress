@@ -475,7 +475,7 @@ class API_Client {
 	 * Lists repositories the configured PAT can access.
 	 *
 	 * Calls `GET /user/repos` with pagination. Caches the resulting list in a
-	 * 5-minute transient keyed by md5(PAT) so that rotating the token
+	 * 24-hour transient keyed by md5(PAT) so that rotating the token
 	 * automatically invalidates the cache. Archived repos are filtered out.
 	 *
 	 * Returns a flat list of `[ 'identifier' => 'owner/repo', 'owner' => ..., 'name' => ... ]`
@@ -586,7 +586,7 @@ class API_Client {
 			}
 		);
 
-		set_transient( $cache_key, $repos, 5 * MINUTE_IN_SECONDS );
+		set_transient( $cache_key, $repos, DAY_IN_SECONDS );
 
 		return $repos;
 	}
@@ -602,6 +602,58 @@ class API_Client {
 			return;
 		}
 		delete_transient( Cache_Keys::user_repos( $pat ) );
+	}
+
+	/**
+	 * Lightweight check that a PAT is accepted by GitHub.
+	 *
+	 * Hits `GET /user` — the cheapest authenticated endpoint — and returns
+	 * true on success, WP_Error on any failure (network, rate-limit, 401, etc.).
+	 * The optional `$pat` argument lets callers validate a value before it
+	 * has been saved (e.g. a tab-out check on the Settings field). When null,
+	 * the active configured PAT is used.
+	 *
+	 * No caching here — caller decides cache scope.
+	 *
+	 * @param string|null $pat Override token to test; null uses the stored PAT.
+	 * @return true|\WP_Error
+	 */
+	public function validate_pat( ?string $pat = null ): true|\WP_Error {
+		$pat = $pat ?? $this->settings->get_github_pat();
+		if ( '' === $pat ) {
+			return new \WP_Error(
+				'github_no_pat',
+				__( 'No Personal Access Token configured.', 'github-release-posts' )
+			);
+		}
+
+		$args                             = $this->build_request_args();
+		$args['headers']['Authorization'] = 'Bearer ' . $pat;
+		$args['timeout']                  = 10;
+
+		$response = wp_remote_get( self::API_BASE . '/user', $args );
+		if ( is_wp_error( $response ) ) {
+			return $response;
+		}
+
+		$code = (int) wp_remote_retrieve_response_code( $response );
+		if ( 200 === $code ) {
+			return true;
+		}
+		if ( 401 === $code ) {
+			return new \WP_Error(
+				'github_unauthorized',
+				__( 'GitHub rejected the Personal Access Token. Check that it is valid and has not expired.', 'github-release-posts' )
+			);
+		}
+		return new \WP_Error(
+			'github_http_error',
+			sprintf(
+				/* translators: %d: HTTP status code */
+				__( 'GitHub API returned HTTP %d.', 'github-release-posts' ),
+				$code
+			)
+		);
 	}
 
 	/**

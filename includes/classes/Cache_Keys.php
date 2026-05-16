@@ -22,6 +22,7 @@ final class Cache_Keys {
 	private const RELEASE_FETCH_LOCK_PREFIX = 'ghrp_rel_lock_';
 	private const AI_RESPONSE_PREFIX        = 'ghrp_ai_resp_';
 	private const USER_REPOS_PREFIX         = 'ghrp_user_repos_';
+	private const PAT_VALIDATION_PREFIX     = 'ghrp_pat_valid_';
 	private const RATE_LIMIT_REMAINING      = 'ghrp_rate_limit_remaining';
 	private const AI_FAILURE_NOTICE         = 'ghrp_ai_failure_notice';
 	private const CRON_RESULTS              = 'ghrp_cron_run_results';
@@ -72,7 +73,7 @@ final class Cache_Keys {
 
 	/**
 	 * Cached list of repositories accessible to a given PAT (transient,
-	 * 5 min TTL). Keying by md5(PAT) means rotating the token automatically
+	 * 24 hr TTL). Keying by md5(PAT) means rotating the token automatically
 	 * invalidates the previous cache entry.
 	 *
 	 * @param string $pat Plain-text PAT.
@@ -80,6 +81,18 @@ final class Cache_Keys {
 	 */
 	public static function user_repos( string $pat ): string {
 		return self::USER_REPOS_PREFIX . md5( $pat );
+	}
+
+	/**
+	 * Cached PAT validation result (transient, 1 min TTL). Keying by md5(PAT)
+	 * keeps re-validation cheap while letting a corrected token immediately
+	 * surface as valid.
+	 *
+	 * @param string $pat Plain-text PAT.
+	 * @return string
+	 */
+	public static function pat_validation( string $pat ): string {
+		return self::PAT_VALIDATION_PREFIX . md5( $pat );
 	}
 
 	/**

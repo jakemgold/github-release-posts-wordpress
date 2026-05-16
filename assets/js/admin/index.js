@@ -177,45 +177,87 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	}
 
 	// -------------------------------------------------------------------------
-	// Refresh accessible-repos cache.
+	// Refresh accessible-repos cache (Repositories tab, next to "Add").
+	// The dropdown is server-rendered, so on success we reload the page to
+	// pick up the new list. On failure we re-enable the button so the user
+	// can try again.
 	// -------------------------------------------------------------------------
 	const refreshReposBtn = document.getElementById( 'ghrp-refresh-repos' );
 	if ( refreshReposBtn ) {
 		refreshReposBtn.addEventListener( 'click', function () {
-			const resultEl = document.getElementById( 'ghrp-refresh-repos-result' );
 			const spinner = refreshReposBtn.parentNode.querySelector( '.ghrp-refresh-repos-spinner' );
 
+			refreshReposBtn.disabled = true;
 			if ( spinner ) {
-				spinner.style.display = 'inline-block';
 				spinner.classList.add( 'is-active' );
-			}
-			if ( resultEl ) {
-				resultEl.textContent = '';
 			}
 
 			window.ctbpFetch(
 				'POST',
 				'/repos/refresh',
 				{},
+				function () {
+					window.location.reload();
+				},
 				function ( data ) {
+					refreshReposBtn.disabled = false;
 					if ( spinner ) {
 						spinner.classList.remove( 'is-active' );
-						spinner.style.display = 'none';
 					}
-					if ( resultEl ) {
-						var msg = ( data && data.message ) ? data.message : 'Refreshed.';
-						resultEl.innerHTML = validIcon( msg ) + ' ' + msg;
+					var msg = ( data && data.message ) ? data.message : 'Failed to refresh repository list.';
+					window.alert( msg );
+				}
+			);
+		} );
+	}
+
+	// -------------------------------------------------------------------------
+	// PAT validation indicator — tab-out re-check after the field changes.
+	// Server renders the initial state on page load (with a 1-minute cache);
+	// this handler updates the indicator without a full reload when the user
+	// edits the field.
+	// -------------------------------------------------------------------------
+	const patInput = document.getElementById( 'ghrp_github_pat' );
+	const patStatus = document.getElementById( 'ghrp-pat-status' );
+	if ( patInput && patStatus ) {
+		const initialPat = patInput.value;
+
+		patInput.addEventListener( 'blur', function () {
+			const current = patInput.value;
+
+			// Empty field → no indicator.
+			if ( '' === current ) {
+				patStatus.className = 'ghrp-pat-status ghrp-pat-status--none';
+				patStatus.innerHTML = '';
+				return;
+			}
+
+			// Unchanged from page-load value → server-rendered indicator is still correct.
+			if ( current === initialPat ) {
+				return;
+			}
+
+			patStatus.className = 'ghrp-pat-status ghrp-pat-status--checking';
+			patStatus.innerHTML = '<span class="spinner is-active" style="float:none;vertical-align:middle;margin:0 4px 0 0;"></span>';
+
+			window.ctbpFetch(
+				'POST',
+				'/pat/validate',
+				{ pat: current },
+				function ( data ) {
+					if ( data && data.valid ) {
+						patStatus.className = 'ghrp-pat-status ghrp-pat-status--valid';
+						patStatus.innerHTML = validIcon( data.message || 'Validated' ) + ' ' + ( data.message || 'Validated' );
+					} else {
+						patStatus.className = 'ghrp-pat-status ghrp-pat-status--invalid';
+						var msg = ( data && data.message ) ? data.message : 'Could not validate.';
+						patStatus.innerHTML = warningIcon( msg ) + ' ' + msg;
 					}
 				},
 				function ( data ) {
-					if ( spinner ) {
-						spinner.classList.remove( 'is-active' );
-						spinner.style.display = 'none';
-					}
-					if ( resultEl ) {
-						var msg = ( data && data.message ) ? data.message : 'Failed to refresh repository list.';
-						resultEl.innerHTML = warningIcon( msg ) + ' ' + msg;
-					}
+					patStatus.className = 'ghrp-pat-status ghrp-pat-status--invalid';
+					var msg = ( data && data.message ) ? data.message : 'Could not validate.';
+					patStatus.innerHTML = warningIcon( msg ) + ' ' + msg;
 				}
 			);
 		} );
