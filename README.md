@@ -144,6 +144,7 @@ vendor/bin/phpcs --standard=phpcs.xml.dist includes/  # WPCS lint
 ## Contributors
 
 - [Ben Word](https://github.com/retlehs) ([Roots](https://roots.io)) — GitHub repository picker and external PAT configuration ([#2](https://github.com/jakemgold/github-release-posts-wordpress/pull/2))
+- [Thorsten Ott](https://github.com/tott) ([Fueled](https://fueled.com), formerly 10up) — Engineering review feedback
 
 ## License
 

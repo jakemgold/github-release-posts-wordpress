@@ -1,11 +1,11 @@
 === GitHub Release Posts ===
 
-Contributors:      jakemgold, 10up, retlehs
+Contributors:      jakemgold, 10up, retlehs, tott
 Tags:              github, releases, blog post, ai, automation
 Requires at least: 7.0
 Tested up to:      7.0
 Requires PHP:      8.2
-Stable tag:        0.10.0
+Stable tag:        0.11.0
 License:           GPL-2.0-or-later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -100,6 +100,33 @@ A Release Attribution panel appears in the document sidebar, showing which GitHu
 4. Generated post in the block editor — AI-written content with embedded images, plus the GitHub Release sidebar panel for source attribution and regeneration.
 
 == Changelog ==
+
+= 0.11.0 =
+
+**New**
+
+* Repository picker on the Add Repository field. With a GitHub Personal Access Token configured, the field becomes a searchable list of repositories your token can access, grouped by owner. You can still type any public `owner/repo` to track a repository that isn't in the list.
+* The Personal Access Token can be supplied via a `GITHUB_RELEASE_POSTS_PAT` PHP constant in `wp-config.php` or an environment variable of the same name, for sites that prefer not to store secrets in the database.
+* PAT validation indicator on Settings — a green check or yellow warning confirms whether GitHub accepts the token.
+
+The repository picker and external PAT configuration are built on initial work contributed by [Ben Word](https://github.com/retlehs).
+
+**Improvements**
+
+* The editor's "Regenerate" button now uses the post's actual release (it was incorrectly always pulling the latest) and respects the title format you set in Settings.
+* Better support for editorial-workflow plugins like Edit Flow and PublishPress — their custom post statuses are now recognized for titles, email links, and the repository table.
+* Releases with many images no longer risk timing out — image processing has sensible limits and falls back gracefully on partial failures.
+* Trashing a generated post now stops scheduled checks from recreating it. Clicking "Generate post" manually still creates fresh content for trashed releases when you want a new one.
+* Hardened the admin against potentially malformed data in release tags from tracked repositories.
+* Sites using a weekly release-check frequency now schedule correctly on plugin activation.
+* Missing Composer dependencies show a friendly admin notice instead of a fatal error.
+
+**For developers**
+
+* PHP namespace renamed from `Jakemgold\GitHubReleasePosts` to `GitHubReleasePosts`. Composer package renamed from `jakemgold/github-release-posts` to `github-release-posts/github-release-posts`.
+* New filter hooks: `ghrp_max_sideload_images`, `ghrp_sideload_time_budget`, `ghrp_sideload_max_consecutive_failures`, `ghrp_sideload_request_timeout`, `ghrp_skip_accessible_repo`.
+
+Thanks to [Thorsten Ott](https://github.com/tott) for the code review that prompted many of the improvements and internal refactors in this release.
 
 = 0.10.0 =
 * New: **Post title format** setting (Settings → Post Creation → Post Titles). Choose between the existing "{Project name} {version} — {subtitle}" prefix, a "Version X.Y — {subtitle}" prefix, or no auto-prefix (the AI writes the full title — recommended for sites focused on a single project).
