@@ -1043,13 +1043,32 @@ class Admin_Page {
 			return $result;
 		}
 
-		$count = count( $result );
+		// Filter out already-tracked repos so the client doesn't have to.
+		$tracked  = array_column( $this->repo_settings->get_repositories(), 'identifier' );
+		$eligible = array_values(
+			array_filter(
+				$result,
+				static fn( $r ) => ! in_array( $r['identifier'], $tracked, true )
+			)
+		);
+
+		// Group by owner for the always-visible picker list.
+		$groups = [];
+		foreach ( $eligible as $r ) {
+			$groups[ $r['owner'] ][] = [
+				'identifier' => $r['identifier'],
+				'name'       => $r['name'],
+			];
+		}
+
+		$count = count( $eligible );
 
 		return new \WP_REST_Response(
 			[
 				'count'   => $count,
 				/* translators: %d: number of repositories */
 				'message' => sprintf( _n( '%d repository available.', '%d repositories available.', $count, 'github-release-posts' ), $count ),
+				'groups'  => (object) $groups,
 			],
 			200
 		);

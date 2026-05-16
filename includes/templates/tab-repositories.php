@@ -86,21 +86,15 @@ $table->render_inline_edit_template();
 
 <?php if ( ! $at_limit && ! empty( $block_editor_active ) ) : ?>
 	<?php
-	$ghrp_settings_url    = add_query_arg( 'tab', 'settings', admin_url( 'tools.php?page=github-release-posts' ) );
-	$ghrp_settings_link   = '<a href="' . esc_url( $ghrp_settings_url ) . '">' . esc_html__( 'Settings', 'github-release-posts' ) . '</a>';
-	$ghrp_grouped_options = [];
+	$ghrp_settings_url  = add_query_arg( 'tab', 'settings', admin_url( 'tools.php?page=github-release-posts' ) );
+	$ghrp_settings_link = '<a href="' . esc_url( $ghrp_settings_url ) . '">' . esc_html__( 'Settings', 'github-release-posts' ) . '</a>';
 
-	// Input mode names: dropdown, fallback-empty, fallback-error, fallback-no-pat.
-	$ghrp_input_mode = 'fallback-no-pat';
-	if ( $ghrp_pat_configured && is_array( $ghrp_repo_list ) && ! empty( $ghrp_repo_list ) ) {
-		$ghrp_input_mode = 'dropdown';
+	// Group the eligible repos by owner for the always-visible picker.
+	$ghrp_grouped = [];
+	if ( is_array( $ghrp_repo_list ) ) {
 		foreach ( $ghrp_repo_list as $r ) {
-			$ghrp_grouped_options[ $r['owner'] ][] = $r;
+			$ghrp_grouped[ $r['owner'] ][] = $r;
 		}
-	} elseif ( $ghrp_pat_configured && is_array( $ghrp_repo_list ) ) {
-		$ghrp_input_mode = 'fallback-empty';
-	} elseif ( $ghrp_pat_configured && '' !== $ghrp_repo_list_error ) {
-		$ghrp_input_mode = 'fallback-error';
 	}
 	?>
 	<table class="form-table" role="presentation">
@@ -109,37 +103,18 @@ $table->render_inline_edit_template();
 				<label for="ghrp-new-repo"><?php echo esc_html__( 'Add Repository', 'github-release-posts' ); ?></label>
 			</th>
 			<td>
-				<?php if ( 'dropdown' === $ghrp_input_mode ) : ?>
-					<select id="ghrp-new-repo" name="ghrp_new_repo" class="regular-text">
-						<option value=""><?php echo esc_html__( '— Select a repository —', 'github-release-posts' ); ?></option>
-						<?php foreach ( $ghrp_grouped_options as $ghrp_owner => $ghrp_owner_repos ) : ?>
-							<optgroup label="<?php echo esc_attr( $ghrp_owner ); ?>">
-								<?php foreach ( $ghrp_owner_repos as $r ) : ?>
-									<option value="<?php echo esc_attr( $r['identifier'] ); ?>">
-										<?php echo esc_html( $r['name'] ); ?>
-									</option>
-								<?php endforeach; ?>
-							</optgroup>
-						<?php endforeach; ?>
-					</select>
-					<button type="submit" name="ghrp_add_repo" class="button button-primary">
-						<?php echo esc_html__( 'Add', 'github-release-posts' ); ?>
-					</button>
-				<?php endif; ?>
-
-				<?php if ( 'dropdown' !== $ghrp_input_mode ) : ?>
-					<input
-						type="text"
-						id="ghrp-new-repo"
-						name="ghrp_new_repo"
-						value=""
-						placeholder="owner/repo"
-						class="regular-text"
-					>
-					<button type="submit" name="ghrp_add_repo" class="button button-primary">
-						<?php echo esc_html__( 'Add', 'github-release-posts' ); ?>
-					</button>
-				<?php endif; ?>
+				<input
+					type="text"
+					id="ghrp-new-repo"
+					name="ghrp_new_repo"
+					value=""
+					placeholder="owner/repo"
+					class="regular-text"
+					autocomplete="off"
+				>
+				<button type="submit" name="ghrp_add_repo" class="button button-primary">
+					<?php echo esc_html__( 'Add', 'github-release-posts' ); ?>
+				</button>
 
 				<?php if ( $ghrp_pat_validated ) : ?>
 					<button
@@ -153,13 +128,41 @@ $table->render_inline_edit_template();
 					<span class="spinner ghrp-refresh-repos-spinner" style="float: none; vertical-align: middle;"></span>
 				<?php endif; ?>
 
-				<?php if ( 'fallback-empty' === $ghrp_input_mode ) : ?>
-					<p class="description">
-						<?php echo esc_html__( 'The configured Personal Access Token does not currently have access to any new repositories. Grant the token access to more repositories on GitHub, then click Refresh.', 'github-release-posts' ); ?>
-					</p>
-				<?php endif; ?>
-
-				<?php if ( 'fallback-error' === $ghrp_input_mode ) : ?>
+				<?php if ( $ghrp_pat_validated ) : ?>
+					<?php if ( ! empty( $ghrp_grouped ) ) : ?>
+						<p class="ghrp-repo-picker__hint">
+							<?php echo esc_html__( 'Type to filter or pick from your repositories:', 'github-release-posts' ); ?>
+						</p>
+						<div
+							class="ghrp-repo-picker__list"
+							id="ghrp-repo-picker-list"
+							role="region"
+							aria-label="<?php echo esc_attr__( 'Available repositories', 'github-release-posts' ); ?>"
+						>
+							<?php foreach ( $ghrp_grouped as $ghrp_owner => $ghrp_owner_repos ) : ?>
+								<div class="ghrp-repo-picker__group" data-owner="<?php echo esc_attr( $ghrp_owner ); ?>">
+									<h4 class="ghrp-repo-picker__group-name"><?php echo esc_html( $ghrp_owner ); ?></h4>
+									<ul>
+										<?php foreach ( $ghrp_owner_repos as $r ) : ?>
+											<li>
+												<button type="button" class="ghrp-repo-picker__option" data-value="<?php echo esc_attr( $r['identifier'] ); ?>">
+													<?php echo esc_html( $r['name'] ); ?>
+												</button>
+											</li>
+										<?php endforeach; ?>
+									</ul>
+								</div>
+							<?php endforeach; ?>
+							<p class="ghrp-repo-picker__empty" hidden>
+								<?php echo esc_html__( 'No matching repositories. You can still type any owner/repo and click Add.', 'github-release-posts' ); ?>
+							</p>
+						</div>
+					<?php else : ?>
+						<p class="description">
+							<?php echo esc_html__( 'The configured Personal Access Token does not currently have access to any new repositories. Grant the token access to more repositories on GitHub, then click Refresh.', 'github-release-posts' ); ?>
+						</p>
+					<?php endif; ?>
+				<?php elseif ( $ghrp_pat_configured && '' !== $ghrp_repo_list_error ) : ?>
 					<p class="description ghrp-repo-list-error">
 						<?php
 						printf(
@@ -170,16 +173,14 @@ $table->render_inline_edit_template();
 						?>
 					</p>
 					<p class="description">
-						<?php echo esc_html__( 'Enter a GitHub repository in owner/repo format or paste a full GitHub URL.', 'github-release-posts' ); ?>
+						<?php echo esc_html__( 'You can still enter any owner/repo above to track a public repository.', 'github-release-posts' ); ?>
 					</p>
-				<?php endif; ?>
-
-				<?php if ( 'fallback-no-pat' === $ghrp_input_mode ) : ?>
+				<?php else : ?>
 					<p class="description">
 						<?php
 						printf(
 							/* translators: %s: link to the Settings tab */
-							wp_kses( __( 'Enter a GitHub repository in owner/repo format or paste a full GitHub URL. Add a Personal Access Token on the %s tab to pick from a list of your repositories instead.', 'github-release-posts' ), [ 'a' => [ 'href' => [] ] ] ),
+							wp_kses( __( 'Enter any public GitHub repository in owner/repo format. Add a Personal Access Token on the %s tab to also pick from a list of your repositories.', 'github-release-posts' ), [ 'a' => [ 'href' => [] ] ] ),
 							$ghrp_settings_link // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 						);
 						?>

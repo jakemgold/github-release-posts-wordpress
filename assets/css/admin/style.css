@@ -213,3 +213,66 @@
 	vertical-align: middle;
 	line-height: 28px;
 }
+
+/* Repository picker — always-visible filtered list */
+.ghrp-repo-picker__hint {
+	margin: 12px 0 4px;
+	color: #50575e;
+	font-size: 13px;
+}
+
+.ghrp-repo-picker__list {
+	max-width: 480px;
+	max-height: 340px;
+	overflow-y: auto;
+	border: 1px solid #dcdcde;
+	background: #fff;
+	padding: 8px 4px;
+	border-radius: 2px;
+}
+
+.ghrp-repo-picker__group {
+	margin: 0 0 4px;
+}
+
+.ghrp-repo-picker__group-name {
+	margin: 4px 8px 2px;
+	padding: 0;
+	font-size: 11px;
+	color: #50575e;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+
+.ghrp-repo-picker__group ul {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.ghrp-repo-picker__option {
+	background: none;
+	border: none;
+	padding: 4px 12px;
+	cursor: pointer;
+	width: 100%;
+	text-align: left;
+	color: #2271b1;
+	font-size: 13px;
+	border-radius: 2px;
+}
+
+.ghrp-repo-picker__option:hover,
+.ghrp-repo-picker__option:focus {
+	background: #f0f0f1;
+	color: #135e96;
+	outline: none;
+}
+
+.ghrp-repo-picker__empty {
+	margin: 8px 12px;
+	color: #50575e;
+	font-size: 13px;
+	font-style: italic;
+}

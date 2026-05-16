@@ -177,10 +177,112 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	}
 
 	// -------------------------------------------------------------------------
+	// Repository picker — always-visible filtered list under the input.
+	// Typing in the input filters the visible options; clicking an option
+	// fills the input. Free-form text entry is still allowed for tracking
+	// any public repo (e.g. WordPress/gutenberg) that's not in the list.
+	// -------------------------------------------------------------------------
+	const repoInput   = document.getElementById( 'ghrp-new-repo' );
+	const repoList    = document.getElementById( 'ghrp-repo-picker-list' );
+
+	function filterRepoList( query ) {
+		if ( ! repoList ) {
+			return;
+		}
+		const q = ( query || '' ).toLowerCase().trim();
+		const groups = repoList.querySelectorAll( '.ghrp-repo-picker__group' );
+		let anyVisible = false;
+
+		groups.forEach( function ( group ) {
+			const ownerMatchesGroup = group.dataset.owner && group.dataset.owner.toLowerCase().includes( q );
+			const opts = group.querySelectorAll( '.ghrp-repo-picker__option' );
+			let groupVisible = 0;
+
+			opts.forEach( function ( opt ) {
+				const value   = opt.dataset.value.toLowerCase();
+				const matches = '' === q || value.includes( q ) || ownerMatchesGroup;
+				opt.parentElement.style.display = matches ? '' : 'none';
+				if ( matches ) {
+					groupVisible++;
+				}
+			} );
+
+			group.style.display = groupVisible > 0 ? '' : 'none';
+			if ( groupVisible > 0 ) {
+				anyVisible = true;
+			}
+		} );
+
+		const emptyEl = repoList.querySelector( '.ghrp-repo-picker__empty' );
+		if ( emptyEl ) {
+			emptyEl.hidden = anyVisible;
+		}
+	}
+
+	if ( repoInput && repoList ) {
+		// Fill the input when an option is clicked. Focus stays on input
+		// so the user can tab directly to Add.
+		repoList.addEventListener( 'click', function ( e ) {
+			const opt = e.target.closest( '.ghrp-repo-picker__option' );
+			if ( ! opt ) {
+				return;
+			}
+			repoInput.value = opt.dataset.value;
+			repoInput.focus();
+			filterRepoList( opt.dataset.value );
+		} );
+
+		repoInput.addEventListener( 'input', function () {
+			filterRepoList( repoInput.value );
+		} );
+	}
+
+	// Rebuild the picker list from a fresh server response. Called by
+	// the Refresh handler — avoids a full page reload.
+	function rebuildRepoList( groups ) {
+		if ( ! repoList ) {
+			return;
+		}
+		// Drop existing groups (keep the empty-state placeholder).
+		repoList.querySelectorAll( '.ghrp-repo-picker__group' ).forEach( function ( g ) {
+			g.remove();
+		} );
+
+		const emptyEl = repoList.querySelector( '.ghrp-repo-picker__empty' );
+		const owners  = Object.keys( groups || {} );
+
+		owners.forEach( function ( owner ) {
+			const group = document.createElement( 'div' );
+			group.className     = 'ghrp-repo-picker__group';
+			group.dataset.owner = owner;
+
+			const header     = document.createElement( 'h4' );
+			header.className = 'ghrp-repo-picker__group-name';
+			header.textContent = owner;
+			group.appendChild( header );
+
+			const ul = document.createElement( 'ul' );
+			groups[ owner ].forEach( function ( r ) {
+				const li = document.createElement( 'li' );
+				const btn = document.createElement( 'button' );
+				btn.type            = 'button';
+				btn.className       = 'ghrp-repo-picker__option';
+				btn.dataset.value   = r.identifier;
+				btn.textContent     = r.name;
+				li.appendChild( btn );
+				ul.appendChild( li );
+			} );
+			group.appendChild( ul );
+
+			repoList.insertBefore( group, emptyEl );
+		} );
+
+		filterRepoList( repoInput ? repoInput.value : '' );
+	}
+
+	// -------------------------------------------------------------------------
 	// Refresh accessible-repos cache (Repositories tab, next to "Add").
-	// The dropdown is server-rendered, so on success we reload the page to
-	// pick up the new list. On failure we re-enable the button so the user
-	// can try again.
+	// Updates the picker list in place from the server response — no reload.
 	// -------------------------------------------------------------------------
 	const refreshReposBtn = document.getElementById( 'ghrp-refresh-repos' );
 	if ( refreshReposBtn ) {
@@ -196,8 +298,12 @@ document.addEventListener( 'DOMContentLoaded', function () {
 				'POST',
 				'/repos/refresh',
 				{},
-				function () {
-					window.location.reload();
+				function ( data ) {
+					refreshReposBtn.disabled = false;
+					if ( spinner ) {
+						spinner.classList.remove( 'is-active' );
+					}
+					rebuildRepoList( ( data && data.groups ) || {} );
 				},
 				function ( data ) {
 					refreshReposBtn.disabled = false;
