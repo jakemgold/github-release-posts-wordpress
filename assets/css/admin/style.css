@@ -214,30 +214,36 @@
 	line-height: 28px;
 }
 
-/* Repository picker — always-visible filtered list */
-.ghrp-repo-picker__hint {
-	margin: 12px 0 4px;
-	color: #50575e;
-	font-size: 13px;
+/* Repository picker — combobox + popover listbox */
+.ghrp-repo-picker {
+	position: relative;
+	display: inline-block;
+	vertical-align: middle;
 }
 
 .ghrp-repo-picker__list {
-	max-width: 480px;
+	position: absolute;
+	top: 100%;
+	left: 0;
+	width: 100%;
+	min-width: 280px;
 	max-height: 340px;
 	overflow-y: auto;
+	z-index: 100;
+	margin-top: 2px;
 	border: 1px solid #dcdcde;
-	background: #fff;
-	padding: 8px 4px;
 	border-radius: 2px;
+	background: #fff;
+	padding: 4px 0;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .ghrp-repo-picker__group {
-	margin: 0 0 4px;
+	margin: 0;
 }
 
 .ghrp-repo-picker__group-name {
-	margin: 4px 8px 2px;
-	padding: 0;
+	margin: 6px 12px 2px;
 	font-size: 11px;
 	color: #50575e;
 	font-weight: 600;
@@ -245,29 +251,23 @@
 	letter-spacing: 0.04em;
 }
 
-.ghrp-repo-picker__group ul {
-	list-style: none;
-	margin: 0;
-	padding: 0;
-}
-
 .ghrp-repo-picker__option {
-	background: none;
-	border: none;
-	padding: 4px 12px;
+	padding: 5px 12px;
 	cursor: pointer;
-	width: 100%;
-	text-align: left;
 	color: #2271b1;
 	font-size: 13px;
-	border-radius: 2px;
+	line-height: 1.4;
 }
 
-.ghrp-repo-picker__option:hover,
-.ghrp-repo-picker__option:focus {
+.ghrp-repo-picker__option:hover {
 	background: #f0f0f1;
 	color: #135e96;
-	outline: none;
+}
+
+/* Keyboard-highlighted option (aria-activedescendant target). */
+.ghrp-repo-picker__option.is-active {
+	background: #2271b1;
+	color: #fff;
 }
 
 .ghrp-repo-picker__empty {

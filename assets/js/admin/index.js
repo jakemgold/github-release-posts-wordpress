@@ -177,73 +177,231 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	}
 
 	// -------------------------------------------------------------------------
-	// Repository picker — always-visible filtered list under the input.
-	// Typing in the input filters the visible options; clicking an option
-	// fills the input. Free-form text entry is still allowed for tracking
-	// any public repo (e.g. WordPress/gutenberg) that's not in the list.
+	// Repository picker — combobox with popover listbox.
+	// On focus, the listbox appears below the input with the user's accessible
+	// repos grouped by owner. Typing filters; arrow keys + Enter select;
+	// Escape closes; click outside closes; clicking an option fills the
+	// input. Free-form text entry is still allowed for any public repo
+	// (e.g. WordPress/gutenberg) that's not in the list.
+	//
+	// Implements the WAI-ARIA combobox pattern with aria-activedescendant
+	// so keyboard and screen reader users get a real listbox experience.
 	// -------------------------------------------------------------------------
-	const repoInput   = document.getElementById( 'ghrp-new-repo' );
-	const repoList    = document.getElementById( 'ghrp-repo-picker-list' );
+	const repoPicker = document.querySelector( '.ghrp-repo-picker' );
+	const repoInput  = document.getElementById( 'ghrp-new-repo' );
+	const repoList   = document.getElementById( 'ghrp-repo-picker-list' );
 
-	function filterRepoList( query ) {
+	const repoState = {
+		open:           false,
+		activeId:       null,
+		visibleOptions: [],
+		nextOptId:      0,
+	};
+
+	function repoOptions() {
+		return repoList ? Array.from( repoList.querySelectorAll( '[role="option"]' ) ) : [];
+	}
+
+	function refreshVisibleOptions() {
 		if ( ! repoList ) {
 			return;
 		}
-		const q = ( query || '' ).toLowerCase().trim();
+		const q = repoInput.value.toLowerCase().trim();
 		const groups = repoList.querySelectorAll( '.ghrp-repo-picker__group' );
-		let anyVisible = false;
+		const visible = [];
 
 		groups.forEach( function ( group ) {
-			const ownerMatchesGroup = group.dataset.owner && group.dataset.owner.toLowerCase().includes( q );
-			const opts = group.querySelectorAll( '.ghrp-repo-picker__option' );
+			const ownerMatches = group.dataset.owner && group.dataset.owner.toLowerCase().includes( q );
+			const opts = group.querySelectorAll( '[role="option"]' );
 			let groupVisible = 0;
 
 			opts.forEach( function ( opt ) {
-				const value   = opt.dataset.value.toLowerCase();
-				const matches = '' === q || value.includes( q ) || ownerMatchesGroup;
-				opt.parentElement.style.display = matches ? '' : 'none';
+				const value = opt.dataset.value.toLowerCase();
+				const matches = '' === q || value.includes( q ) || ownerMatches;
+				opt.hidden = ! matches;
 				if ( matches ) {
 					groupVisible++;
+					visible.push( opt );
 				}
 			} );
 
-			group.style.display = groupVisible > 0 ? '' : 'none';
-			if ( groupVisible > 0 ) {
-				anyVisible = true;
-			}
+			group.hidden = 0 === groupVisible;
 		} );
 
 		const emptyEl = repoList.querySelector( '.ghrp-repo-picker__empty' );
 		if ( emptyEl ) {
-			emptyEl.hidden = anyVisible;
+			emptyEl.hidden = visible.length > 0;
+		}
+
+		repoState.visibleOptions = visible;
+
+		// If the active option got filtered out, clear it.
+		if ( repoState.activeId && ! visible.find( function ( o ) { return o.id === repoState.activeId; } ) ) {
+			clearRepoActive();
 		}
 	}
 
-	if ( repoInput && repoList ) {
-		// Fill the input when an option is clicked. Focus stays on input
-		// so the user can tab directly to Add.
-		repoList.addEventListener( 'click', function ( e ) {
-			const opt = e.target.closest( '.ghrp-repo-picker__option' );
-			if ( ! opt ) {
-				return;
-			}
-			repoInput.value = opt.dataset.value;
-			repoInput.focus();
-			filterRepoList( opt.dataset.value );
+	function clearRepoActive() {
+		if ( ! repoList ) {
+			return;
+		}
+		repoList.querySelectorAll( '.is-active' ).forEach( function ( el ) {
+			el.classList.remove( 'is-active' );
+			el.setAttribute( 'aria-selected', 'false' );
 		} );
+		repoState.activeId = null;
+		if ( repoInput ) {
+			repoInput.removeAttribute( 'aria-activedescendant' );
+		}
+	}
+
+	function setRepoActive( opt ) {
+		clearRepoActive();
+		if ( ! opt ) {
+			return;
+		}
+		opt.classList.add( 'is-active' );
+		opt.setAttribute( 'aria-selected', 'true' );
+		opt.scrollIntoView( { block: 'nearest' } );
+		repoState.activeId = opt.id;
+		repoInput.setAttribute( 'aria-activedescendant', opt.id );
+	}
+
+	function moveRepoActive( direction ) {
+		const visible = repoState.visibleOptions;
+		if ( 0 === visible.length ) {
+			return;
+		}
+
+		const currentIdx = visible.findIndex( function ( o ) { return o.id === repoState.activeId; } );
+		let newIdx;
+
+		if ( -1 === currentIdx ) {
+			newIdx = direction > 0 ? 0 : visible.length - 1;
+		} else {
+			newIdx = currentIdx + direction;
+			if ( newIdx < 0 ) {
+				newIdx = 0;
+			}
+			if ( newIdx >= visible.length ) {
+				newIdx = visible.length - 1;
+			}
+		}
+
+		setRepoActive( visible[ newIdx ] );
+	}
+
+	function openRepoPopover() {
+		if ( repoState.open || ! repoList ) {
+			return;
+		}
+		refreshVisibleOptions();
+		repoList.hidden = false;
+		repoInput.setAttribute( 'aria-expanded', 'true' );
+		repoState.open = true;
+	}
+
+	function closeRepoPopover() {
+		if ( ! repoState.open || ! repoList ) {
+			return;
+		}
+		repoList.hidden = true;
+		repoInput.setAttribute( 'aria-expanded', 'false' );
+		clearRepoActive();
+		repoState.open = false;
+	}
+
+	function selectRepoOption( opt ) {
+		if ( ! opt ) {
+			return;
+		}
+		repoInput.value = opt.dataset.value;
+		closeRepoPopover();
+		repoInput.focus();
+	}
+
+	if ( repoPicker && repoInput && repoList ) {
+		repoInput.addEventListener( 'focus', openRepoPopover );
 
 		repoInput.addEventListener( 'input', function () {
-			filterRepoList( repoInput.value );
+			if ( ! repoState.open ) {
+				openRepoPopover();
+			} else {
+				refreshVisibleOptions();
+			}
+		} );
+
+		repoInput.addEventListener( 'keydown', function ( e ) {
+			switch ( e.key ) {
+				case 'ArrowDown':
+					e.preventDefault();
+					if ( ! repoState.open ) {
+						openRepoPopover();
+						if ( repoState.visibleOptions.length > 0 ) {
+							setRepoActive( repoState.visibleOptions[ 0 ] );
+						}
+					} else {
+						moveRepoActive( 1 );
+					}
+					break;
+				case 'ArrowUp':
+					if ( repoState.open ) {
+						e.preventDefault();
+						moveRepoActive( -1 );
+					}
+					break;
+				case 'Enter':
+					if ( repoState.open && repoState.activeId ) {
+						e.preventDefault();
+						const active = document.getElementById( repoState.activeId );
+						if ( active ) {
+							selectRepoOption( active );
+						}
+					}
+					break;
+				case 'Escape':
+					if ( repoState.open ) {
+						e.preventDefault();
+						closeRepoPopover();
+					}
+					break;
+				case 'Tab':
+					if ( repoState.open ) {
+						closeRepoPopover();
+					}
+					break;
+			}
+		} );
+
+		// mousedown on an option must not blur the input — the click handler
+		// below fills the value, then we close the popover.
+		repoList.addEventListener( 'mousedown', function ( e ) {
+			if ( e.target.closest( '[role="option"]' ) ) {
+				e.preventDefault();
+			}
+		} );
+
+		repoList.addEventListener( 'click', function ( e ) {
+			const opt = e.target.closest( '[role="option"]' );
+			if ( opt ) {
+				selectRepoOption( opt );
+			}
+		} );
+
+		// Close when focus leaves the picker entirely (covers Tab, click on
+		// Refresh/Add, etc.). Defer so click handlers on options run first.
+		document.addEventListener( 'mousedown', function ( e ) {
+			if ( repoState.open && ! repoPicker.contains( e.target ) ) {
+				closeRepoPopover();
+			}
 		} );
 	}
 
-	// Rebuild the picker list from a fresh server response. Called by
-	// the Refresh handler — avoids a full page reload.
+	// Rebuild the listbox from a fresh server response. Called by Refresh.
 	function rebuildRepoList( groups ) {
 		if ( ! repoList ) {
 			return;
 		}
-		// Drop existing groups (keep the empty-state placeholder).
 		repoList.querySelectorAll( '.ghrp-repo-picker__group' ).forEach( function ( g ) {
 			g.remove();
 		} );
@@ -252,32 +410,37 @@ document.addEventListener( 'DOMContentLoaded', function () {
 		const owners  = Object.keys( groups || {} );
 
 		owners.forEach( function ( owner ) {
+			const groupId = 'ghrp-repo-group-' + owner.replace( /[^A-Za-z0-9_-]/g, '-' );
 			const group = document.createElement( 'div' );
 			group.className     = 'ghrp-repo-picker__group';
+			group.setAttribute( 'role', 'group' );
+			group.setAttribute( 'aria-labelledby', groupId );
 			group.dataset.owner = owner;
 
-			const header     = document.createElement( 'h4' );
+			const header = document.createElement( 'div' );
 			header.className = 'ghrp-repo-picker__group-name';
+			header.id = groupId;
 			header.textContent = owner;
 			group.appendChild( header );
 
-			const ul = document.createElement( 'ul' );
 			groups[ owner ].forEach( function ( r ) {
-				const li = document.createElement( 'li' );
-				const btn = document.createElement( 'button' );
-				btn.type            = 'button';
-				btn.className       = 'ghrp-repo-picker__option';
-				btn.dataset.value   = r.identifier;
-				btn.textContent     = r.name;
-				li.appendChild( btn );
-				ul.appendChild( li );
+				const opt = document.createElement( 'div' );
+				++repoState.nextOptId;
+				opt.id = 'ghrp-repo-opt-r' + repoState.nextOptId;
+				opt.className = 'ghrp-repo-picker__option';
+				opt.setAttribute( 'role', 'option' );
+				opt.setAttribute( 'aria-selected', 'false' );
+				opt.dataset.value = r.identifier;
+				opt.textContent = r.name;
+				group.appendChild( opt );
 			} );
-			group.appendChild( ul );
 
 			repoList.insertBefore( group, emptyEl );
 		} );
 
-		filterRepoList( repoInput ? repoInput.value : '' );
+		if ( repoState.open ) {
+			refreshVisibleOptions();
+		}
 	}
 
 	// -------------------------------------------------------------------------

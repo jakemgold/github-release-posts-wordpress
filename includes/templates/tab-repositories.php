@@ -103,15 +103,63 @@ $table->render_inline_edit_template();
 				<label for="ghrp-new-repo"><?php echo esc_html__( 'Add Repository', 'github-release-posts' ); ?></label>
 			</th>
 			<td>
-				<input
-					type="text"
-					id="ghrp-new-repo"
-					name="ghrp_new_repo"
-					value=""
-					placeholder="owner/repo"
-					class="regular-text"
-					autocomplete="off"
-				>
+				<?php
+				$ghrp_has_picker = $ghrp_pat_validated && ! empty( $ghrp_grouped );
+				$ghrp_opt_index  = 0;
+				?>
+				<div class="ghrp-repo-picker">
+					<input
+						type="text"
+						id="ghrp-new-repo"
+						name="ghrp_new_repo"
+						value=""
+						placeholder="owner/repo"
+						class="regular-text"
+						autocomplete="off"
+						<?php if ( $ghrp_has_picker ) : ?>
+							role="combobox"
+							aria-expanded="false"
+							aria-controls="ghrp-repo-picker-list"
+							aria-autocomplete="list"
+							aria-haspopup="listbox"
+						<?php endif; ?>
+					>
+					<?php if ( $ghrp_has_picker ) : ?>
+						<div
+							id="ghrp-repo-picker-list"
+							class="ghrp-repo-picker__list"
+							role="listbox"
+							aria-label="<?php echo esc_attr__( 'Available repositories', 'github-release-posts' ); ?>"
+							hidden
+						>
+							<?php foreach ( $ghrp_grouped as $ghrp_owner => $ghrp_owner_repos ) : ?>
+								<?php
+								$ghrp_group_id = 'ghrp-repo-group-' . sanitize_html_class( $ghrp_owner );
+								?>
+								<div class="ghrp-repo-picker__group" role="group" aria-labelledby="<?php echo esc_attr( $ghrp_group_id ); ?>" data-owner="<?php echo esc_attr( $ghrp_owner ); ?>">
+									<div class="ghrp-repo-picker__group-name" id="<?php echo esc_attr( $ghrp_group_id ); ?>">
+										<?php echo esc_html( $ghrp_owner ); ?>
+									</div>
+									<?php foreach ( $ghrp_owner_repos as $r ) : ?>
+										<?php ++$ghrp_opt_index; ?>
+										<div
+											id="ghrp-repo-opt-<?php echo esc_attr( (string) $ghrp_opt_index ); ?>"
+											class="ghrp-repo-picker__option"
+											role="option"
+											aria-selected="false"
+											data-value="<?php echo esc_attr( $r['identifier'] ); ?>"
+										>
+											<?php echo esc_html( $r['name'] ); ?>
+										</div>
+									<?php endforeach; ?>
+								</div>
+							<?php endforeach; ?>
+							<p class="ghrp-repo-picker__empty" hidden>
+								<?php echo esc_html__( 'No matching repositories. You can still type any owner/repo and click Add.', 'github-release-posts' ); ?>
+							</p>
+						</div>
+					<?php endif; ?>
+				</div>
 				<button type="submit" name="ghrp_add_repo" class="button button-primary">
 					<?php echo esc_html__( 'Add', 'github-release-posts' ); ?>
 				</button>
@@ -128,41 +176,11 @@ $table->render_inline_edit_template();
 					<span class="spinner ghrp-refresh-repos-spinner" style="float: none; vertical-align: middle;"></span>
 				<?php endif; ?>
 
-				<?php if ( $ghrp_pat_validated ) : ?>
-					<?php if ( ! empty( $ghrp_grouped ) ) : ?>
-						<p class="ghrp-repo-picker__hint">
-							<?php echo esc_html__( 'Type to filter or pick from your repositories:', 'github-release-posts' ); ?>
-						</p>
-						<div
-							class="ghrp-repo-picker__list"
-							id="ghrp-repo-picker-list"
-							role="region"
-							aria-label="<?php echo esc_attr__( 'Available repositories', 'github-release-posts' ); ?>"
-						>
-							<?php foreach ( $ghrp_grouped as $ghrp_owner => $ghrp_owner_repos ) : ?>
-								<div class="ghrp-repo-picker__group" data-owner="<?php echo esc_attr( $ghrp_owner ); ?>">
-									<h4 class="ghrp-repo-picker__group-name"><?php echo esc_html( $ghrp_owner ); ?></h4>
-									<ul>
-										<?php foreach ( $ghrp_owner_repos as $r ) : ?>
-											<li>
-												<button type="button" class="ghrp-repo-picker__option" data-value="<?php echo esc_attr( $r['identifier'] ); ?>">
-													<?php echo esc_html( $r['name'] ); ?>
-												</button>
-											</li>
-										<?php endforeach; ?>
-									</ul>
-								</div>
-							<?php endforeach; ?>
-							<p class="ghrp-repo-picker__empty" hidden>
-								<?php echo esc_html__( 'No matching repositories. You can still type any owner/repo and click Add.', 'github-release-posts' ); ?>
-							</p>
-						</div>
-					<?php else : ?>
-						<p class="description">
-							<?php echo esc_html__( 'The configured Personal Access Token does not currently have access to any new repositories. Grant the token access to more repositories on GitHub, then click Refresh.', 'github-release-posts' ); ?>
-						</p>
-					<?php endif; ?>
-				<?php elseif ( $ghrp_pat_configured && '' !== $ghrp_repo_list_error ) : ?>
+				<?php if ( $ghrp_pat_validated && empty( $ghrp_grouped ) ) : ?>
+					<p class="description">
+						<?php echo esc_html__( 'The configured Personal Access Token does not currently have access to any new repositories. Grant the token access to more repositories on GitHub, then click Refresh.', 'github-release-posts' ); ?>
+					</p>
+				<?php elseif ( $ghrp_pat_configured && ! $ghrp_pat_validated && '' !== $ghrp_repo_list_error ) : ?>
 					<p class="description ghrp-repo-list-error">
 						<?php
 						printf(
@@ -175,7 +193,7 @@ $table->render_inline_edit_template();
 					<p class="description">
 						<?php echo esc_html__( 'You can still enter any owner/repo above to track a public repository.', 'github-release-posts' ); ?>
 					</p>
-				<?php else : ?>
+				<?php elseif ( ! $ghrp_pat_configured ) : ?>
 					<p class="description">
 						<?php
 						printf(
