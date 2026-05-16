@@ -4,6 +4,8 @@
 
 A WordPress plugin that monitors GitHub repositories for new releases and uses AI to research each release and generate a human-readable blog post about it. Posts can be automatically published or held as drafts for review, with email notifications when new posts are ready.
 
+Built on the **[AI Client API and Connectors](https://make.wordpress.org/core/2026/05/14/wordpress-7-0-field-guide/#ai-connectors-screen)** introduced in WordPress 7.0 — configure your AI provider (Anthropic, OpenAI, Google, or any other connector) once under Settings → Connectors, and this plugin uses whatever you've set up. No AI API keys to manage in the plugin itself.
+
 Built by [Jake Goldman](https://www.linkedin.com/in/jacobgoldman/), founder of [10up](https://10up.com), and now a Partner / Advisor at [Fueled](https://fueled.com) since the [merger with 10up](https://10up.com/blog/2025/new-fueled-brand-10up-becomes-wordpress-practice/).
 
 ## How it works
