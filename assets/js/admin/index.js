@@ -1169,10 +1169,15 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	/**
 	 * Sends the generate request with an explicit tag.
 	 *
-	 * @param {HTMLElement} btn  Generate button that initiated the flow.
-	 * @param {string}      tag  Selected release tag (empty = latest).
+	 * @param {HTMLElement} btn                 Generate button that initiated the flow.
+	 * @param {string}      tag                 Selected release tag (empty = latest).
+	 * @param {boolean}     conflictAcknowledged
+	 *     When true, a conflict response triggers regeneration immediately
+	 *     instead of opening the conflict dialog. Used by the version picker
+	 *     since its own UI already surfaced the "post exists" warning before
+	 *     the user clicked Regenerate.
 	 */
-	function generateForTag( btn, tag ) {
+	function generateForTag( btn, tag, conflictAcknowledged ) {
 		btn.disabled = true;
 		disableRowActions( btn );
 
@@ -1203,6 +1208,14 @@ document.addEventListener( 'DOMContentLoaded', function () {
 
 				if ( data && data.conflict ) {
 					var existing = data.post;
+
+					// If the caller already showed a conflict warning (e.g. the
+					// version picker), skip the confirmation dialog and go
+					// straight to regeneration — the user has already confirmed.
+					if ( conflictAcknowledged ) {
+						regenerateExisting( btn, existing ? existing.id : 0, isLatest );
+						return;
+					}
 
 					if ( conflictInfo ) {
 						conflictInfo.textContent =
@@ -1317,8 +1330,12 @@ document.addEventListener( 'DOMContentLoaded', function () {
 		function onConfirm() {
 			cleanup();
 			var tag = versionSelect.value || '';
+			var opt = versionSelect.options[ versionSelect.selectedIndex ];
+			// The picker already surfaced a conflict warning for this release;
+			// no need to re-confirm via the conflict dialog downstream.
+			var acknowledged = !! ( opt && '1' === opt.dataset.hasPost );
 			versionDialog.close();
-			generateForTag( btn, tag );
+			generateForTag( btn, tag, acknowledged );
 		}
 		function onCancel() {
 			cleanup();
