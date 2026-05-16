@@ -130,17 +130,6 @@ The plugin is extensible via filter hooks at every stage of the pipeline:
 | `ghrp_generate_prompt` | Full prompt customization |
 | `ghrp_release_body` | Filter release body before prompt building |
 
-### Custom AI providers
-
-Register a custom provider by implementing `AIProviderInterface` and hooking into `ghrp_register_ai_providers`:
-
-```php
-add_filter( 'ghrp_register_ai_providers', function( $providers ) {
-    $providers['my_provider'] = new My_Custom_Provider();
-    return $providers;
-} );
-```
-
 ### Development
 
 ```bash
