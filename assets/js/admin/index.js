@@ -374,14 +374,23 @@ document.addEventListener( 'DOMContentLoaded', function () {
 		} );
 
 		// mousedown on an option must not blur the input — the click handler
-		// below fills the value, then we close the popover.
+		// below fills the value, then we close the popover. Skip the external-
+		// link icon so it behaves like a normal hyperlink.
 		repoList.addEventListener( 'mousedown', function ( e ) {
+			if ( e.target.closest( '.ghrp-repo-picker__option-link' ) ) {
+				return;
+			}
 			if ( e.target.closest( '[role="option"]' ) ) {
 				e.preventDefault();
 			}
 		} );
 
 		repoList.addEventListener( 'click', function ( e ) {
+			// External-link icon → let the <a> navigate normally; don't
+			// select the option underneath it.
+			if ( e.target.closest( '.ghrp-repo-picker__option-link' ) ) {
+				return;
+			}
 			const opt = e.target.closest( '[role="option"]' );
 			if ( opt ) {
 				selectRepoOption( opt );
@@ -431,7 +440,25 @@ document.addEventListener( 'DOMContentLoaded', function () {
 				opt.setAttribute( 'role', 'option' );
 				opt.setAttribute( 'aria-selected', 'false' );
 				opt.dataset.value = r.identifier;
-				opt.textContent = r.name;
+
+				const nameSpan = document.createElement( 'span' );
+				nameSpan.className = 'ghrp-repo-picker__option-name';
+				nameSpan.textContent = r.name;
+				opt.appendChild( nameSpan );
+
+				const link = document.createElement( 'a' );
+				link.href = 'https://github.com/' + r.identifier;
+				link.target = '_blank';
+				link.rel = 'noopener';
+				link.className = 'ghrp-repo-picker__option-link';
+				link.tabIndex = -1;
+				link.setAttribute( 'aria-label', 'View ' + r.identifier + ' on GitHub' );
+				const icon = document.createElement( 'span' );
+				icon.className = 'dashicons dashicons-external';
+				icon.setAttribute( 'aria-hidden', 'true' );
+				link.appendChild( icon );
+				opt.appendChild( link );
+
 				group.appendChild( opt );
 			} );
 

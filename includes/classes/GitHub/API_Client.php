@@ -551,13 +551,28 @@ class API_Client {
 				if ( ! is_array( $entry ) ) {
 					continue;
 				}
-				if ( ! empty( $entry['archived'] ) ) {
-					continue;
-				}
 
 				$full_name = (string) ( $entry['full_name'] ?? '' );
 				$owner     = (string) ( $entry['owner']['login'] ?? '' );
 				$name      = (string) ( $entry['name'] ?? '' );
+
+				// Skip archived repos and "meta" repos like `.github` whose
+				// name starts with a dot — they almost never have releases.
+				$skip = ! empty( $entry['archived'] ) || ( '' !== $name && '.' === $name[0] );
+
+				/**
+				 * Filters whether to skip a repository in the accessible-repos list.
+				 *
+				 * Receives the GitHub API response entry. Return true to exclude it
+				 * from the picker. Defaults to true for archived repos and for
+				 * repos whose name starts with `.` (e.g. org community-health repos).
+				 *
+				 * @param bool                 $skip  Whether to skip this repo.
+				 * @param array<string, mixed> $entry Raw repo entry from GitHub.
+				 */
+				if ( (bool) apply_filters( 'ghrp_skip_accessible_repo', $skip, $entry ) ) {
+					continue;
+				}
 
 				if ( '' === $full_name || '' === $owner || '' === $name ) {
 					continue;

@@ -252,6 +252,10 @@
 }
 
 .ghrp-repo-picker__option {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
 	padding: 5px 12px;
 	cursor: pointer;
 	color: #2271b1;
@@ -268,6 +272,40 @@
 .ghrp-repo-picker__option.is-active {
 	background: #2271b1;
 	color: #fff;
+}
+
+.ghrp-repo-picker__option-name {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* External-link icon — hover-revealed, mirroring WP row-actions. */
+.ghrp-repo-picker__option-link {
+	display: inline-flex;
+	align-items: center;
+	color: inherit;
+	opacity: 0;
+	transition: opacity 0.1s;
+	text-decoration: none;
+	flex-shrink: 0;
+}
+
+.ghrp-repo-picker__option-link .dashicons {
+	width: 16px;
+	height: 16px;
+	font-size: 16px;
+}
+
+.ghrp-repo-picker__option:hover .ghrp-repo-picker__option-link,
+.ghrp-repo-picker__option.is-active .ghrp-repo-picker__option-link,
+.ghrp-repo-picker__option-link:focus {
+	opacity: 1;
+}
+
+.ghrp-repo-picker__option-link:focus {
+	outline: 1px solid currentColor;
+	outline-offset: 1px;
 }
 
 .ghrp-repo-picker__empty {

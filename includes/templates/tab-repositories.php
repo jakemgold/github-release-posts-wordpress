@@ -149,7 +149,20 @@ $table->render_inline_edit_template();
 											aria-selected="false"
 											data-value="<?php echo esc_attr( $r['identifier'] ); ?>"
 										>
-											<?php echo esc_html( $r['name'] ); ?>
+											<span class="ghrp-repo-picker__option-name"><?php echo esc_html( $r['name'] ); ?></span>
+											<a
+												href="<?php echo esc_url( 'https://github.com/' . $r['identifier'] ); ?>"
+												target="_blank"
+												rel="noopener"
+												class="ghrp-repo-picker__option-link"
+												tabindex="-1"
+												aria-label="<?php
+													/* translators: %s: repository identifier (owner/repo) */
+													echo esc_attr( sprintf( __( 'View %s on GitHub', 'github-release-posts' ), $r['identifier'] ) );
+												?>"
+											>
+												<span class="dashicons dashicons-external" aria-hidden="true"></span>
+											</a>
 										</div>
 									<?php endforeach; ?>
 								</div>
