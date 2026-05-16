@@ -26,20 +26,25 @@ With a GitHub Personal Access Token configured, the Add Repository field suggest
 
 ![Repository autocomplete](.wordpress-org/screenshot-2.png)
 
+### Release picker
+Generating a post manually lets you pick any historical release, not just the latest. If a post already exists for the selected release, an inline warning surfaces — regenerating creates a new revision and preserves the existing post date so the archive stays in chronological order.
+
+![Release picker](.wordpress-org/screenshot-3.png)
+
 ### Settings tab
 View your AI connector status and configure audience level, custom prompt instructions, and notifications.
 
-![Settings tab](.wordpress-org/screenshot-3.png)
+![Settings tab](.wordpress-org/screenshot-4.png)
 
 ### Inline editing
 Per-repo settings including name, project link, post status, author, categories, tags, and featured image — following the familiar WordPress Quick Edit pattern.
 
-![Inline editing](.wordpress-org/screenshot-4.png)
+![Inline editing](.wordpress-org/screenshot-5.png)
 
 ### Generated post in the block editor
 AI-written content with embedded images, plus the GitHub Release sidebar panel for source attribution and regeneration.
 
-![Block editor](.wordpress-org/screenshot-5.png)
+![Block editor](.wordpress-org/screenshot-6.png)
 
 ## Features
 
