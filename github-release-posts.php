@@ -58,23 +58,32 @@ if (
 	return;
 }
 
-// Load Composer autoloader. Without it, none of our namespaced classes
-// can resolve — surface a clear admin notice rather than fataling on
-// missing-class errors when someone clones the repo without running
-// `composer install`.
-if ( ! file_exists( GITHUB_RELEASE_POSTS_PATH . 'vendor/autoload.php' ) ) {
-	add_action(
-		'admin_notices',
-		function () {
-			echo '<div class="notice notice-error"><p>';
-			echo esc_html__( 'GitHub Release Posts is missing its Composer dependencies. From the plugin directory, run `composer install --no-dev --optimize-autoloader` and reload this page.', 'github-release-posts' );
-			echo '</p></div>';
-		}
-	);
-	return;
-}
+// Load Composer autoloader. Two install paths to support:
+//
+//  - Standalone install (zip / SVN checkout): the plugin ships with its
+//    own bundled vendor/ directory, and we need to require its autoload.php
+//    before any namespaced class reference resolves.
+//
+//  - Composer-managed install (`composer require github-release-posts/...`):
+//    the plugin lives under wp-content/plugins/ but has no local vendor/ —
+//    the consumer's project-level autoloader has already merged our PSR-4
+//    mapping. Detect that by checking whether our Plugin class is already
+//    autoloadable and skip the local require.
+if ( ! class_exists( 'GitHubReleasePosts\\Plugin' ) ) {
+	if ( ! file_exists( GITHUB_RELEASE_POSTS_PATH . 'vendor/autoload.php' ) ) {
+		add_action(
+			'admin_notices',
+			function () {
+				echo '<div class="notice notice-error"><p>';
+				echo esc_html__( 'GitHub Release Posts is missing its Composer dependencies. From the plugin directory, run `composer install --no-dev --optimize-autoloader` and reload this page.', 'github-release-posts' );
+				echo '</p></div>';
+			}
+		);
+		return;
+	}
 
-require_once GITHUB_RELEASE_POSTS_PATH . 'vendor/autoload.php';
+	require_once GITHUB_RELEASE_POSTS_PATH . 'vendor/autoload.php';
+}
 
 // Register custom WP-Cron schedules at file load time (NOT via plugins_loaded)
 // so the 'weekly' interval is available when Activator::activate() schedules

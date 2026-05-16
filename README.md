@@ -75,10 +75,37 @@ AI-written content with embedded images, plus the GitHub Release sidebar panel f
 
 ## Installation
 
+### From a release zip
+
 1. Download the latest release zip from [Releases](../../releases).
 2. In WordPress admin, go to **Plugins → Add New → Upload Plugin** and upload the zip.
 3. Activate the plugin.
 4. Go to **Tools → Release Posts** to configure your AI provider and add repositories.
+
+### With Composer
+
+Composer-managed WordPress sites (Roots/Bedrock and similar) can install the plugin from [Packagist](https://packagist.org/packages/github-release-posts/github-release-posts):
+
+```bash
+composer require github-release-posts/github-release-posts
+```
+
+This assumes your project uses [composer/installers](https://github.com/composer/installers) and routes WordPress plugins to `wp-content/plugins/`. If it doesn't, add this to your project's `composer.json`:
+
+```json
+{
+    "require": {
+        "composer/installers": "^2.0"
+    },
+    "extra": {
+        "installer-paths": {
+            "wp-content/plugins/{$name}/": ["type:wordpress-plugin"]
+        }
+    }
+}
+```
+
+Activate the plugin in WordPress admin as usual, then go to **Tools → Release Posts**.
 
 ## GitHub access
 

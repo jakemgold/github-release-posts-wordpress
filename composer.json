@@ -3,6 +3,28 @@
 	"description": "Automatically generate WordPress blog posts from GitHub releases using AI.",
 	"type": "wordpress-plugin",
 	"license": "GPL-2.0-or-later",
+	"keywords": [
+		"wordpress",
+		"wordpress-plugin",
+		"github",
+		"releases",
+		"ai",
+		"ai-connectors",
+		"blog",
+		"automation"
+	],
+	"homepage": "https://github.com/jakemgold/github-release-posts-wordpress",
+	"authors": [
+		{
+			"name": "Jake Goldman",
+			"homepage": "https://www.linkedin.com/in/jacobgoldman/",
+			"role": "Developer"
+		}
+	],
+	"support": {
+		"issues": "https://github.com/jakemgold/github-release-posts-wordpress/issues",
+		"source": "https://github.com/jakemgold/github-release-posts-wordpress"
+	},
 	"require": {
 		"php": ">=8.2"
 	},
