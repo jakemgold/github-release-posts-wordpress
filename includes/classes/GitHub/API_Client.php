@@ -658,7 +658,7 @@ class API_Client {
 		if ( 401 === $code ) {
 			return new \WP_Error(
 				'github_unauthorized',
-				__( 'GitHub rejected the Personal Access Token. Check that it is valid and has not expired.', 'github-release-posts' )
+				__( 'Invalid or expired token.', 'github-release-posts' )
 			);
 		}
 		return new \WP_Error(
