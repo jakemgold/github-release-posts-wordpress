@@ -155,7 +155,7 @@ $table->render_inline_edit_template();
 								</div>
 							<?php endforeach; ?>
 							<p class="ghrp-repo-picker__empty" hidden>
-								<?php echo esc_html__( 'No matching repositories. You can still type any owner/repo and click Add.', 'github-release-posts' ); ?>
+								<?php echo esc_html__( 'No matches from your repositories. You can still add any public owner/repo.', 'github-release-posts' ); ?>
 							</p>
 						</div>
 					<?php endif; ?>
