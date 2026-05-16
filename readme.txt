@@ -5,7 +5,7 @@ Tags:              github, releases, blog post, ai, automation
 Requires at least: 7.0
 Tested up to:      7.0
 Requires PHP:      8.2
-Stable tag:        0.11.0
+Stable tag:        0.11.1
 License:           GPL-2.0-or-later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -104,6 +104,10 @@ A Release Attribution panel appears in the document sidebar, showing which GitHu
 6. Generated post in the block editor — AI-written content with embedded images, plus the GitHub Release sidebar panel for source attribution and regeneration.
 
 == Changelog ==
+
+= 0.11.1 =
+
+* Installable via Composer (`composer require github-release-posts/github-release-posts`) for Composer-managed WordPress sites such as Roots/Bedrock. Bootstrap now detects when the plugin is loaded through the consumer's Composer autoloader and skips the local vendor/autoload.php require — Composer-installed sites no longer see the spurious "missing Composer dependencies" admin notice that 0.11.0 surfaced.
 
 = 0.11.0 =
 
