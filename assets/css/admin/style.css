@@ -315,6 +315,20 @@
 	font-style: italic;
 }
 
+/* Refresh spinner — collapse the layout slot when idle (WP's default
+   keeps the 20px box visible via visibility:hidden, which leaves a
+   ~40px gap between the button and the success indicator). */
+.ghrp-refresh-repos-spinner {
+	display: none;
+	float: none;
+	margin: 0 4px;
+	vertical-align: middle;
+}
+
+.ghrp-refresh-repos-spinner.is-active {
+	display: inline-block;
+}
+
 /* Inline success/warning indicator next to the Refresh button. */
 .ghrp-refresh-repos-result {
 	display: inline-flex;

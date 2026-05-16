@@ -186,7 +186,7 @@ $table->render_inline_edit_template();
 					>
 						<?php echo esc_html__( 'Refresh', 'github-release-posts' ); ?>
 					</button>
-					<span class="spinner ghrp-refresh-repos-spinner" style="float: none; vertical-align: middle;"></span>
+					<span class="spinner ghrp-refresh-repos-spinner"></span>
 					<span
 						id="ghrp-refresh-repos-result"
 						class="ghrp-refresh-repos-result"
