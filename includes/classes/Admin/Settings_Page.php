@@ -133,12 +133,13 @@ class Settings_Page {
 			id="ghrp-pat-status"
 			class="ghrp-pat-status ghrp-pat-status--<?php echo esc_attr( $validation['state'] ); ?>"
 			aria-live="polite"
-			style="margin-left: 8px; vertical-align: middle;"
 		>
 			<?php if ( 'valid' === $validation['state'] ) : ?>
-				&#10003; <?php esc_html_e( 'Validated', 'github-release-posts' ); ?>
+				<span class="dashicons dashicons-yes-alt" style="color: #00a32a;" aria-hidden="true"></span>
+				<span><?php esc_html_e( 'Validated', 'github-release-posts' ); ?></span>
 			<?php elseif ( 'invalid' === $validation['state'] ) : ?>
-				&#9888; <?php echo esc_html( $validation['message'] ); ?>
+				<span class="dashicons dashicons-warning" style="color: #dba617;" aria-hidden="true"></span>
+				<span><?php echo esc_html( $validation['message'] ); ?></span>
 			<?php endif; ?>
 		</span>
 		<?php if ( ! $externally_set ) : ?>

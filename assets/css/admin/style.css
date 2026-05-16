@@ -315,6 +315,26 @@
 	font-style: italic;
 }
 
+/* PAT validation indicator — same alignment pattern as the refresh result. */
+.ghrp-pat-status {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	margin-left: 8px;
+	vertical-align: middle;
+}
+
+.ghrp-pat-status:empty {
+	display: none;
+}
+
+.ghrp-pat-status .dashicons {
+	width: 18px;
+	height: 18px;
+	font-size: 18px;
+	line-height: 1;
+}
+
 /* Refresh spinner — collapse the layout slot when idle (WP's default
    keeps the 20px box visible via visibility:hidden, which leaves a
    ~40px gap between the button and the success indicator). */
