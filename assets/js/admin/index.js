@@ -397,12 +397,22 @@ document.addEventListener( 'DOMContentLoaded', function () {
 			}
 		} );
 
-		// Close when focus leaves the picker entirely (covers Tab, click on
-		// Refresh/Add, etc.). Defer so click handlers on options run first.
+		// Close when focus leaves the picker entirely. Exempt the Refresh
+		// button: clicking it should keep the popover state intact, since the
+		// refresh handler may want to leave the popover open (showing fresh
+		// content) after success.
 		document.addEventListener( 'mousedown', function ( e ) {
-			if ( repoState.open && ! repoPicker.contains( e.target ) ) {
-				closeRepoPopover();
+			if ( ! repoState.open ) {
+				return;
 			}
+			if ( repoPicker.contains( e.target ) ) {
+				return;
+			}
+			const refreshBtn = document.getElementById( 'ghrp-refresh-repos' );
+			if ( refreshBtn && refreshBtn.contains( e.target ) ) {
+				return;
+			}
+			closeRepoPopover();
 		} );
 	}
 
@@ -473,8 +483,29 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	// -------------------------------------------------------------------------
 	// Refresh accessible-repos cache (Repositories tab, next to "Add").
 	// Updates the picker list in place from the server response — no reload.
+	// On success, focuses the input so the popover opens with the new list.
 	// -------------------------------------------------------------------------
 	const refreshReposBtn = document.getElementById( 'ghrp-refresh-repos' );
+	let refreshResultTimer = null;
+
+	function showRefreshResult( html, autoClear ) {
+		const resultEl = document.getElementById( 'ghrp-refresh-repos-result' );
+		if ( ! resultEl ) {
+			return;
+		}
+		if ( refreshResultTimer ) {
+			clearTimeout( refreshResultTimer );
+			refreshResultTimer = null;
+		}
+		resultEl.innerHTML = html;
+		if ( autoClear ) {
+			refreshResultTimer = setTimeout( function () {
+				resultEl.innerHTML = '';
+				refreshResultTimer = null;
+			}, 2500 );
+		}
+	}
+
 	if ( refreshReposBtn ) {
 		refreshReposBtn.addEventListener( 'click', function () {
 			const spinner = refreshReposBtn.parentNode.querySelector( '.ghrp-refresh-repos-spinner' );
@@ -483,6 +514,8 @@ document.addEventListener( 'DOMContentLoaded', function () {
 			if ( spinner ) {
 				spinner.classList.add( 'is-active' );
 			}
+			// Clear any lingering message immediately so the user sees fresh state.
+			showRefreshResult( '', false );
 
 			window.ctbpFetch(
 				'POST',
@@ -494,14 +527,23 @@ document.addEventListener( 'DOMContentLoaded', function () {
 						spinner.classList.remove( 'is-active' );
 					}
 					rebuildRepoList( ( data && data.groups ) || {} );
+
+					const msg = ( data && data.message ) ? data.message : 'Refreshed.';
+					showRefreshResult( validIcon( msg ) + ' ' + msg, true );
+
+					// Focus the input so the popover opens (or stays open)
+					// with the refreshed list visible.
+					if ( repoInput ) {
+						repoInput.focus();
+					}
 				},
 				function ( data ) {
 					refreshReposBtn.disabled = false;
 					if ( spinner ) {
 						spinner.classList.remove( 'is-active' );
 					}
-					var msg = ( data && data.message ) ? data.message : 'Failed to refresh repository list.';
-					window.alert( msg );
+					const msg = ( data && data.message ) ? data.message : 'Failed to refresh repository list.';
+					showRefreshResult( warningIcon( msg ) + ' ' + msg, false );
 				}
 			);
 		} );
