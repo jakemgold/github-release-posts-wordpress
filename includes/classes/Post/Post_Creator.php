@@ -73,7 +73,13 @@ class Post_Creator {
 			}
 		}
 
-		$title          = $this->build_title( $data->identifier, $data->tag, $post->title );
+		$title          = self::build_title(
+			$this->repo_settings->get_display_name( $data->identifier ),
+			$data->tag,
+			$post->title,
+			$this->global_settings->get_title_format(),
+			$data->identifier
+		);
 		$block_content  = $this->convert_html_to_blocks( $post->content );
 		$block_content .= $this->build_disclosure_block( $data );
 		$author_id      = $this->resolve_author( $data->identifier );
@@ -274,21 +280,26 @@ class Post_Creator {
 	}
 
 	/**
-	 * Builds the full post title based on the configured title format.
+	 * Builds the full post title from already-resolved inputs.
 	 *
 	 *  - 'full'    "{Display Name} {tag} — {subtitle}"
 	 *  - 'version' "Version {tag} — {subtitle}" (leading 'v' stripped)
 	 *  - 'none'    "{ai-generated full title}" (no auto-prefix)
 	 *
-	 * @param string $identifier Repository identifier (owner/repo).
-	 * @param string $tag        Release tag.
-	 * @param string $ai_title   AI-generated subtitle (or full title in 'none' mode).
+	 * Static so both the cron-pipeline path (Post_Creator::handle) and the
+	 * editor "Regenerate" REST handler share the same format-aware assembly
+	 * and fire the same ghrp_post_title filter. Callers resolve display name,
+	 * format, etc. and pass them in — keeps this function a pure transformation.
+	 *
+	 * @param string $display_name Resolved repository display name.
+	 * @param string $tag          Release tag (e.g. "v1.2.0").
+	 * @param string $ai_title     AI-generated subtitle (or full title in 'none' mode).
+	 * @param string $format       Title format: 'full', 'version', or 'none'.
+	 * @param string $identifier   Repository identifier — passed through to the filter.
 	 * @return string Full post title.
 	 */
-	private function build_title( string $identifier, string $tag, string $ai_title ): string {
-		$format       = $this->global_settings->get_title_format();
-		$display_name = $this->repo_settings->get_display_name( $identifier );
-		$tag          = self::format_version_tag( $tag );
+	public static function build_title( string $display_name, string $tag, string $ai_title, string $format, string $identifier ): string {
+		$tag = self::format_version_tag( $tag );
 
 		$title = match ( $format ) {
 			'none'    => $ai_title,

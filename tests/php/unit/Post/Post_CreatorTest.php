@@ -433,6 +433,60 @@ class Post_CreatorTest extends TestCase {
 	}
 
 	// -------------------------------------------------------------------------
+	// build_title() — static helper shared with the editor regenerate handler
+	// -------------------------------------------------------------------------
+
+	public function test_build_title_full_format_prefixes_display_name_and_tag(): void {
+		\WP_Mock::userFunction( 'apply_filters' )->andReturnUsing( fn( $tag, $value ) => $value )->byDefault();
+
+		$result = Post_Creator::build_title(
+			'Restricted Site Access',
+			'v7.6.1',
+			'Elementor fatal error fixed',
+			'full',
+			'10up/restricted-site-access'
+		);
+
+		$this->assertSame( 'Restricted Site Access v7.6.1 — Elementor fatal error fixed', $result );
+	}
+
+	public function test_build_title_version_format_uses_version_prefix(): void {
+		\WP_Mock::userFunction( 'apply_filters' )->andReturnUsing( fn( $tag, $value ) => $value )->byDefault();
+
+		$result = Post_Creator::build_title(
+			'Restricted Site Access',
+			'v7.6.1',
+			'Elementor fatal error fixed',
+			'version',
+			'10up/restricted-site-access'
+		);
+
+		$this->assertSame( 'Version 7.6.1 — Elementor fatal error fixed', $result );
+	}
+
+	/**
+	 * Regression: rest_regenerate_post previously hardcoded the 'full' format,
+	 * doubling the project name and version when the site had 'none' selected.
+	 */
+	public function test_build_title_none_format_returns_ai_title_verbatim(): void {
+		\WP_Mock::userFunction( 'apply_filters' )->andReturnUsing( fn( $tag, $value ) => $value )->byDefault();
+
+		$result = Post_Creator::build_title(
+			'Restricted Site Access',
+			'v7.6.1',
+			'Elementor fatal error fixed in Restricted Site Access 7.6.1',
+			'none',
+			'10up/restricted-site-access'
+		);
+
+		$this->assertSame(
+			'Elementor fatal error fixed in Restricted Site Access 7.6.1',
+			$result,
+			'none format must not prepend anything to the AI-supplied title'
+		);
+	}
+
+	// -------------------------------------------------------------------------
 	// convert_html_to_blocks() — figure / image extraction
 	// -------------------------------------------------------------------------
 

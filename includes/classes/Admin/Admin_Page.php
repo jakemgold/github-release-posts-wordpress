@@ -1144,10 +1144,17 @@ class Admin_Page {
 			return new \WP_Error( $result->get_error_code(), $result->get_error_message(), [ 'status' => 422 ] );
 		}
 
-		// Assemble full title.
+		// Assemble full title — honors the configured title format (regression fix:
+		// previously hardcoded the 'full' format, doubling project name + version
+		// for sites with 'none' selected).
 		$display_name = $this->repo_settings->get_display_name( $identifier );
-
-		$full_title = "{$display_name} {$data->tag} — {$result->title}";
+		$full_title   = Post_Creator::build_title(
+			$display_name,
+			$data->tag,
+			$result->title,
+			$this->global_settings->get_title_format(),
+			$identifier
+		);
 
 		// Convert HTML to blocks and update the existing post (creates a revision).
 		$block_content  = Post_Creator::convert_html_to_blocks( $result->content );
