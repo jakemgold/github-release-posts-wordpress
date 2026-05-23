@@ -69,8 +69,8 @@ if ( $ghrp_pat_configured ) {
 			<?php
 			printf(
 				/* translators: %d: maximum number of repositories */
-				esc_html__( 'You have reached the maximum of %d tracked repositories.', 'github-release-posts' ),
-				esc_html( $max_repos )
+				esc_html__( 'You have reached the maximum of %d tracked repositories.', 'auto-release-posts-for-github' ),
+				esc_html( (string) $max_repos )
 			);
 			?>
 		</p>
@@ -87,7 +87,7 @@ $table->render_inline_edit_template();
 <?php if ( ! $at_limit && ! empty( $block_editor_active ) ) : ?>
 	<?php
 	$ghrp_settings_url  = add_query_arg( 'tab', 'settings', admin_url( 'tools.php?page=github-release-posts' ) );
-	$ghrp_settings_link = '<a href="' . esc_url( $ghrp_settings_url ) . '">' . esc_html__( 'Settings', 'github-release-posts' ) . '</a>';
+	$ghrp_settings_link = '<a href="' . esc_url( $ghrp_settings_url ) . '">' . esc_html__( 'Settings', 'auto-release-posts-for-github' ) . '</a>';
 
 	// Group the eligible repos by owner for the always-visible picker.
 	$ghrp_grouped = [];
@@ -100,7 +100,7 @@ $table->render_inline_edit_template();
 	<table class="form-table" role="presentation">
 		<tr>
 			<th scope="row">
-				<label for="ghrp-new-repo"><?php echo esc_html__( 'Add Repository', 'github-release-posts' ); ?></label>
+				<label for="ghrp-new-repo"><?php echo esc_html__( 'Add Repository', 'auto-release-posts-for-github' ); ?></label>
 			</th>
 			<td>
 				<?php
@@ -129,7 +129,7 @@ $table->render_inline_edit_template();
 							id="ghrp-repo-picker-list"
 							class="ghrp-repo-picker__list"
 							role="listbox"
-							aria-label="<?php echo esc_attr__( 'Available repositories', 'github-release-posts' ); ?>"
+							aria-label="<?php echo esc_attr__( 'Available repositories', 'auto-release-posts-for-github' ); ?>"
 							hidden
 						>
 							<?php foreach ( $ghrp_grouped as $ghrp_owner => $ghrp_owner_repos ) : ?>
@@ -144,7 +144,7 @@ $table->render_inline_edit_template();
 									foreach ( $ghrp_owner_repos as $r ) :
 										++$ghrp_opt_index;
 										/* translators: %s: repository identifier (owner/repo) */
-										$ghrp_view_label = sprintf( __( 'View %s on GitHub', 'github-release-posts' ), $r['identifier'] );
+										$ghrp_view_label = sprintf( __( 'View %s on GitHub', 'auto-release-posts-for-github' ), $r['identifier'] );
 										?>
 										<div
 											id="ghrp-repo-opt-<?php echo esc_attr( (string) $ghrp_opt_index ); ?>"
@@ -169,13 +169,13 @@ $table->render_inline_edit_template();
 								</div>
 							<?php endforeach; ?>
 							<p class="ghrp-repo-picker__empty" hidden>
-								<?php echo esc_html__( 'No matches from your repositories. You can still add any public owner/repo.', 'github-release-posts' ); ?>
+								<?php echo esc_html__( 'No matches from your repositories. You can still add any public owner/repo.', 'auto-release-posts-for-github' ); ?>
 							</p>
 						</div>
 					<?php endif; ?>
 				</div>
 				<button type="submit" name="ghrp_add_repo" class="button button-primary">
-					<?php echo esc_html__( 'Add', 'github-release-posts' ); ?>
+					<?php echo esc_html__( 'Add', 'auto-release-posts-for-github' ); ?>
 				</button>
 
 				<?php if ( $ghrp_pat_validated ) : ?>
@@ -183,9 +183,9 @@ $table->render_inline_edit_template();
 						type="button"
 						id="ghrp-refresh-repos"
 						class="button"
-						title="<?php echo esc_attr__( 'Refresh your repository list', 'github-release-posts' ); ?>"
+						title="<?php echo esc_attr__( 'Refresh your repository list', 'auto-release-posts-for-github' ); ?>"
 					>
-						<?php echo esc_html__( 'Refresh', 'github-release-posts' ); ?>
+						<?php echo esc_html__( 'Refresh', 'auto-release-posts-for-github' ); ?>
 					</button>
 					<span class="spinner ghrp-refresh-repos-spinner"></span>
 					<span
@@ -197,27 +197,27 @@ $table->render_inline_edit_template();
 
 				<?php if ( $ghrp_pat_validated && empty( $ghrp_grouped ) ) : ?>
 					<p class="description">
-						<?php echo esc_html__( 'The configured Personal Access Token does not currently have access to any new repositories. Grant the token access to more repositories on GitHub, then click Refresh.', 'github-release-posts' ); ?>
+						<?php echo esc_html__( 'The configured Personal Access Token does not currently have access to any new repositories. Grant the token access to more repositories on GitHub, then click Refresh.', 'auto-release-posts-for-github' ); ?>
 					</p>
 				<?php elseif ( $ghrp_pat_configured && ! $ghrp_pat_validated && '' !== $ghrp_repo_list_error ) : ?>
 					<p class="description ghrp-repo-list-error">
 						<?php
 						printf(
 							/* translators: %s: error message returned by the GitHub API */
-							esc_html__( 'Could not load repositories from GitHub: %s', 'github-release-posts' ),
+							esc_html__( 'Could not load repositories from GitHub: %s', 'auto-release-posts-for-github' ),
 							esc_html( $ghrp_repo_list_error )
 						);
 						?>
 					</p>
 					<p class="description">
-						<?php echo esc_html__( 'You can still enter any owner/repo above to track a public repository.', 'github-release-posts' ); ?>
+						<?php echo esc_html__( 'You can still enter any owner/repo above to track a public repository.', 'auto-release-posts-for-github' ); ?>
 					</p>
 				<?php elseif ( ! $ghrp_pat_configured ) : ?>
 					<p class="description">
 						<?php
 						printf(
 							/* translators: %s: link to the Settings tab */
-							wp_kses( __( 'Enter any public GitHub repository in owner/repo format. Add a Personal Access Token on the %s tab to also pick from a list of your repositories.', 'github-release-posts' ), [ 'a' => [ 'href' => [] ] ] ),
+							wp_kses( __( 'Enter any public GitHub repository in owner/repo format. Add a Personal Access Token on the %s tab to also pick from a list of your repositories.', 'auto-release-posts-for-github' ), [ 'a' => [ 'href' => [] ] ] ),
 							$ghrp_settings_link // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 						);
 						?>

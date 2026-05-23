@@ -206,16 +206,16 @@ class Email_Notifier {
 
 			if ( Post_Status::is_public( $entry->status ) ) {
 				/* translators: %s: project name and version, e.g. "Gutenberg 19.0" */
-				return sprintf( __( '%s — release post published', 'github-release-posts' ), $prefix );
+				return sprintf( __( '%s — release post published', 'auto-release-posts-for-github' ), $prefix );
 			}
 
 			/* translators: %s: project name and version, e.g. "Gutenberg 19.0" */
-			return sprintf( __( '%s — draft ready for review', 'github-release-posts' ), $prefix );
+			return sprintf( __( '%s — draft ready for review', 'auto-release-posts-for-github' ), $prefix );
 		}
 
 		return sprintf(
 			/* translators: 1: site name, 2: number of posts */
-			__( '[%1$s] %2$d release posts ready', 'github-release-posts' ),
+			__( '[%1$s] %2$d release posts ready', 'auto-release-posts-for-github' ),
 			$site_name,
 			count( $entries )
 		);
@@ -233,9 +233,9 @@ class Email_Notifier {
 
 		$lines[] = sprintf(
 			/* translators: 1: site URL, 2: plugin name */
-			__( 'New posts have been generated from GitHub releases on %1$s, via the %2$s plugin.', 'github-release-posts' ),
+			__( 'New posts have been generated from GitHub releases on %1$s, via the %2$s plugin.', 'auto-release-posts-for-github' ),
 			$site_url,
-			'GitHub Release Posts'
+			'Auto Release Posts for GitHub'
 		);
 		$lines[] = '';
 
@@ -244,12 +244,12 @@ class Email_Notifier {
 			$lines[] = sprintf( '• %s', $title );
 
 			if ( Post_Status::is_public( $entry->status ) ) {
-				$lines[] = sprintf( '  %s: %s', __( 'View post', 'github-release-posts' ), get_permalink( $entry->post_id ) );
+				$lines[] = sprintf( '  %s: %s', __( 'View post', 'auto-release-posts-for-github' ), get_permalink( $entry->post_id ) );
 			} else {
-				$lines[] = sprintf( '  %s: %s', __( 'Review draft', 'github-release-posts' ), (string) get_edit_post_link( $entry->post_id, 'raw' ) );
+				$lines[] = sprintf( '  %s: %s', __( 'Review draft', 'auto-release-posts-for-github' ), (string) get_edit_post_link( $entry->post_id, 'raw' ) );
 			}
 
-			$lines[] = sprintf( '  %s: %s', __( 'GitHub release', 'github-release-posts' ), $entry->html_url );
+			$lines[] = sprintf( '  %s: %s', __( 'GitHub release', 'auto-release-posts-for-github' ), $entry->html_url );
 			$lines[] = '';
 		}
 
@@ -274,7 +274,7 @@ class Email_Notifier {
 		$site_url    = esc_url( home_url() );
 		$site_host   = wp_parse_url( home_url(), PHP_URL_HOST );
 		$plugin_url  = 'https://github.com/jakemgold/github-release-posts-wordpress';
-		$plugin_name = 'GitHub Release Posts';
+		$plugin_name = 'Auto Release Posts for GitHub';
 
 		$html = '<div style="font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif; max-width: 600px;">';
 
@@ -284,7 +284,7 @@ class Email_Notifier {
 
 		$html .= '<p>' . sprintf(
 			/* translators: 1: linked site URL, 2: linked plugin name */
-			esc_html__( 'New posts have been generated from GitHub releases on %1$s, via the %2$s plugin.', 'github-release-posts' ),
+			esc_html__( 'New posts have been generated from GitHub releases on %1$s, via the %2$s plugin.', 'auto-release-posts-for-github' ),
 			'<a href="' . $site_url . '">' . esc_html( $site_host ) . '</a>',
 			'<a href="' . esc_url( $plugin_url ) . '">' . esc_html( $plugin_name ) . '</a>'
 		) . '</p>';
@@ -304,16 +304,16 @@ class Email_Notifier {
 				if ( Post_Status::is_public( $entry->status ) ) {
 					$view_url = esc_url( get_permalink( $entry->post_id ) );
 					$edit_url = esc_url( (string) get_edit_post_link( $entry->post_id, 'raw' ) );
-					$html    .= '<a href="' . $view_url . '">' . esc_html__( 'View post', 'github-release-posts' ) . '</a>';
-					$html    .= ' · <a href="' . $edit_url . '">' . esc_html__( 'Edit', 'github-release-posts' ) . '</a>';
+					$html    .= '<a href="' . $view_url . '">' . esc_html__( 'View post', 'auto-release-posts-for-github' ) . '</a>';
+					$html    .= ' · <a href="' . $edit_url . '">' . esc_html__( 'Edit', 'auto-release-posts-for-github' ) . '</a>';
 				} else {
 					$edit_url = esc_url( (string) get_edit_post_link( $entry->post_id, 'raw' ) );
-					$html    .= '<a href="' . $edit_url . '"><strong>' . esc_html__( 'Review draft', 'github-release-posts' ) . '</strong></a>';
+					$html    .= '<a href="' . $edit_url . '"><strong>' . esc_html__( 'Review draft', 'auto-release-posts-for-github' ) . '</strong></a>';
 				}
 				$html .= ' · ';
 			}
 
-			$html .= '<a href="' . esc_url( $entry->html_url ) . '">' . esc_html__( 'GitHub release', 'github-release-posts' ) . '</a>';
+			$html .= '<a href="' . esc_url( $entry->html_url ) . '">' . esc_html__( 'GitHub release', 'auto-release-posts-for-github' ) . '</a>';
 			$html .= '</td>';
 			$html .= '</tr>';
 		}

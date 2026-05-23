@@ -26,35 +26,6 @@ class Plugin_Constants {
 	const OPTION_REPOSITORIES = 'ghrp_repositories';
 
 	/**
-	 * Active AI provider slug. Always 'wp_ai_client' since 2.0.
-	 */
-	const OPTION_AI_PROVIDER = 'ghrp_ai_provider';
-
-	/**
-	 * Global default post status: 'draft' or 'publish'.
-	 */
-	const OPTION_DEFAULT_POST_STATUS = 'ghrp_default_post_status';
-
-	/**
-	 * Global default category ID (integer).
-	 */
-	const OPTION_DEFAULT_CATEGORY = 'ghrp_default_category';
-
-	/**
-	 * Global default tag IDs (array of integers).
-	 */
-	const OPTION_DEFAULT_TAGS = 'ghrp_default_tags';
-
-	/**
-	 * WP-Cron check interval: 'hourly', 'twicedaily', 'daily', or 'weekly'.
-	 *
-	 * @deprecated Use the `ghrp_check_frequency` filter instead. This constant
-	 *             is retained for sites that may have stored a value in this option
-	 *             but is no longer written or read by the plugin.
-	 */
-	const OPTION_CHECK_INTERVAL = 'ghrp_check_interval';
-
-	/**
 	 * Whether the site admin email (from Settings → General) receives
 	 * notifications when posts are generated (boolean).
 	 */
@@ -92,20 +63,6 @@ class Plugin_Constants {
 	 *  - 'none'    AI writes the full title with no auto-prefix.
 	 */
 	const OPTION_TITLE_FORMAT = 'ghrp_title_format';
-
-	/**
-	 * Legacy notification trigger option key.
-	 *
-	 * @deprecated Use OPTION_NOTIFY_SITE_OWNER and OPTION_ADDITIONAL_EMAILS instead.
-	 */
-	const OPTION_NOTIFICATION_TRIGGER = 'ghrp_notification_trigger';
-
-	/**
-	 * Legacy notifications enabled option key.
-	 *
-	 * @deprecated Use OPTION_NOTIFY_SITE_OWNER instead.
-	 */
-	const OPTION_NOTIFICATIONS_ENABLED = 'ghrp_notifications_enabled';
 
 	// -------------------------------------------------------------------------
 	// Release monitoring option keys
@@ -218,7 +175,6 @@ class Plugin_Constants {
 	public static function get_defaults(): array {
 		return [
 			self::OPTION_REPOSITORIES               => [],
-			self::OPTION_AI_PROVIDER                => 'wp_ai_client',
 			self::OPTION_AUDIENCE_LEVEL             => 'mixed',
 			self::OPTION_RESEARCH_DEPTH             => 'standard',
 			self::OPTION_TITLE_FORMAT               => 'full',

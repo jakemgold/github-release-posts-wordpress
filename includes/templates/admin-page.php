@@ -42,12 +42,12 @@ if ( $admin_notice ) {
 }
 ?>
 <div class="wrap">
-	<h1><?php echo esc_html__( 'GitHub Release Posts', 'github-release-posts' ); ?></h1>
-	<p class="description"><?php echo esc_html__( 'Monitor GitHub repositories for new releases and automatically generate blog posts using AI.', 'github-release-posts' ); ?></p>
+	<h1><?php echo esc_html__( 'Auto Release Posts for GitHub', 'auto-release-posts-for-github' ); ?></h1>
+	<p class="description"><?php echo esc_html__( 'Monitor GitHub repositories for new releases and automatically generate blog posts using AI.', 'auto-release-posts-for-github' ); ?></p>
 
 	<?php if ( $show_saved || $settings_updated ) : ?>
 		<div class="notice notice-success is-dismissible">
-			<p><?php echo esc_html__( 'Settings saved.', 'github-release-posts' ); ?></p>
+			<p><?php echo esc_html__( 'Settings saved.', 'auto-release-posts-for-github' ); ?></p>
 		</div>
 	<?php endif; ?>
 
@@ -77,7 +77,7 @@ if ( $admin_notice ) {
 			<p>
 				<?php echo esc_html( $admin_notice['message'] ); ?>
 				<?php if ( ! empty( $admin_notice['url'] ) ) : ?>
-					&nbsp;<a href="<?php echo esc_url( $admin_notice['url'] ); ?>"><?php echo esc_html__( 'View draft', 'github-release-posts' ); ?></a>
+					&nbsp;<a href="<?php echo esc_url( $admin_notice['url'] ); ?>"><?php echo esc_html__( 'View post', 'auto-release-posts-for-github' ); ?></a>
 				<?php endif; ?>
 			</p>
 		</div>
@@ -88,8 +88,8 @@ if ( $admin_notice ) {
 	<?php if ( ! $block_editor_active ) : ?>
 		<div class="notice notice-error">
 			<p>
-				<strong><?php echo esc_html__( 'Block editor required.', 'github-release-posts' ); ?></strong>
-				<?php echo esc_html__( 'This plugin generates posts using the block editor. Post generation is disabled while the Classic Editor is active for posts.', 'github-release-posts' ); ?>
+				<strong><?php echo esc_html__( 'Block editor required.', 'auto-release-posts-for-github' ); ?></strong>
+				<?php echo esc_html__( 'This plugin generates posts using the block editor. Post generation is disabled while the Classic Editor is active for posts.', 'auto-release-posts-for-github' ); ?>
 			</p>
 		</div>
 	<?php endif; ?>
@@ -97,12 +97,12 @@ if ( $admin_notice ) {
 	<?php if ( ! \GitHubReleasePosts\Admin\Settings_Page::is_any_connector_configured() ) : ?>
 		<div class="notice notice-warning">
 			<p>
-				<strong><?php echo esc_html__( 'No AI connector is configured.', 'github-release-posts' ); ?></strong>
+				<strong><?php echo esc_html__( 'No AI connector is configured.', 'auto-release-posts-for-github' ); ?></strong>
 				<?php
 				printf(
 					/* translators: %s: link to the WordPress Connectors settings page */
-					wp_kses( __( 'Post generation is disabled until at least one AI connector is set up and ready in %s.', 'github-release-posts' ), [ 'a' => [ 'href' => [] ] ] ),
-					'<a href="' . esc_url( admin_url( 'options-connectors.php' ) ) . '">' . esc_html__( 'WordPress Connectors', 'github-release-posts' ) . '</a>'
+					wp_kses( __( 'Post generation is disabled until at least one AI connector is set up and ready in %s.', 'auto-release-posts-for-github' ), [ 'a' => [ 'href' => [] ] ] ),
+					'<a href="' . esc_url( admin_url( 'options-connectors.php' ) ) . '">' . esc_html__( 'WordPress Connectors', 'auto-release-posts-for-github' ) . '</a>'
 				);
 				?>
 			</p>
@@ -117,8 +117,8 @@ if ( $admin_notice ) {
 		?>
 		<div class="notice notice-info">
 			<p>
-				<strong><?php echo esc_html__( 'Getting started:', 'github-release-posts' ); ?></strong>
-				<?php echo esc_html__( 'Add your first GitHub repository below to start monitoring for releases.', 'github-release-posts' ); ?>
+				<strong><?php echo esc_html__( 'Getting started:', 'auto-release-posts-for-github' ); ?></strong>
+				<?php echo esc_html__( 'Add your first GitHub repository below to start monitoring for releases.', 'auto-release-posts-for-github' ); ?>
 			</p>
 		</div>
 	<?php endif; ?>
@@ -132,7 +132,7 @@ if ( $admin_notice ) {
 			aria-selected="<?php echo 'repositories' === $active_tab ? 'true' : 'false'; ?>"
 			class="nav-tab<?php echo 'repositories' === $active_tab ? ' nav-tab-active' : ''; ?>"
 		>
-			<?php echo esc_html__( 'Repositories', 'github-release-posts' ); ?>
+			<?php echo esc_html__( 'Repositories', 'auto-release-posts-for-github' ); ?>
 		</a>
 		<a
 			href="<?php echo esc_url( add_query_arg( 'tab', 'settings', admin_url( 'tools.php?page=github-release-posts' ) ) ); ?>"
@@ -142,7 +142,7 @@ if ( $admin_notice ) {
 			aria-selected="<?php echo 'settings' === $active_tab ? 'true' : 'false'; ?>"
 			class="nav-tab<?php echo 'settings' === $active_tab ? ' nav-tab-active' : ''; ?>"
 		>
-			<?php echo esc_html__( 'Settings', 'github-release-posts' ); ?>
+			<?php echo esc_html__( 'Settings', 'auto-release-posts-for-github' ); ?>
 		</a>
 	</nav>
 
@@ -163,18 +163,18 @@ if ( $admin_notice ) {
 		<!-- Confirmation dialog for regenerating an existing post (JS-driven) -->
 		<dialog id="ghrp-conflict-dialog" class="ghrp-dialog" aria-labelledby="ghrp-conflict-dialog-title">
 			<p id="ghrp-conflict-dialog-title">
-				<strong><?php echo esc_html__( 'A post already exists for this release.', 'github-release-posts' ); ?></strong>
+				<strong><?php echo esc_html__( 'A post already exists for this release.', 'auto-release-posts-for-github' ); ?></strong>
 			</p>
 			<p id="ghrp-conflict-post-info"></p>
 			<p class="description">
-				<?php echo esc_html__( 'This will update the post with freshly generated content. The current version will be saved as a revision.', 'github-release-posts' ); ?>
+				<?php echo esc_html__( 'This will update the post with freshly generated content. The current version will be saved as a revision.', 'auto-release-posts-for-github' ); ?>
 			</p>
 			<div class="ghrp-dialog-actions">
 				<button type="button" id="ghrp-conflict-confirm" class="button button-primary">
-					<?php echo esc_html__( 'Regenerate', 'github-release-posts' ); ?>
+					<?php echo esc_html__( 'Regenerate', 'auto-release-posts-for-github' ); ?>
 				</button>
 				<button type="button" id="ghrp-conflict-cancel" class="button">
-					<?php echo esc_html__( 'Cancel', 'github-release-posts' ); ?>
+					<?php echo esc_html__( 'Cancel', 'auto-release-posts-for-github' ); ?>
 				</button>
 			</div>
 		</dialog>
@@ -182,11 +182,11 @@ if ( $admin_notice ) {
 		<!-- Version picker dialog for "Generate post" when a repo has multiple releases (JS-driven) -->
 		<dialog id="ghrp-version-picker-dialog" class="ghrp-dialog" aria-labelledby="ghrp-version-picker-title">
 			<p id="ghrp-version-picker-title">
-				<strong><?php echo esc_html__( 'Generate a post for which release?', 'github-release-posts' ); ?></strong>
+				<strong><?php echo esc_html__( 'Generate a post for which release?', 'auto-release-posts-for-github' ); ?></strong>
 			</p>
 			<p>
 				<label for="ghrp-version-picker-select">
-					<?php echo esc_html__( 'Release version', 'github-release-posts' ); ?>
+					<?php echo esc_html__( 'Release version', 'auto-release-posts-for-github' ); ?>
 				</label>
 				<br>
 				<select id="ghrp-version-picker-select" class="regular-text"></select>
@@ -196,14 +196,14 @@ if ( $admin_notice ) {
 				<span id="ghrp-version-picker-conflict-text"></span>
 			</p>
 			<p id="ghrp-version-picker-backdate" class="description" hidden>
-				<?php echo esc_html__( 'Because this is an older release, the post date will be set to one hour after the release was published. You can adjust it before publishing.', 'github-release-posts' ); ?>
+				<?php echo esc_html__( 'Because this is an older release, the post date will be set to one hour after the release was published. You can adjust it before publishing.', 'auto-release-posts-for-github' ); ?>
 			</p>
 			<div class="ghrp-dialog-actions">
 				<button type="button" id="ghrp-version-picker-confirm" class="button button-primary">
-					<?php echo esc_html__( 'Generate post', 'github-release-posts' ); ?>
+					<?php echo esc_html__( 'Generate post', 'auto-release-posts-for-github' ); ?>
 				</button>
 				<button type="button" id="ghrp-version-picker-cancel" class="button">
-					<?php echo esc_html__( 'Cancel', 'github-release-posts' ); ?>
+					<?php echo esc_html__( 'Cancel', 'auto-release-posts-for-github' ); ?>
 				</button>
 			</div>
 		</dialog>
@@ -211,19 +211,19 @@ if ( $admin_notice ) {
 		<!-- Confirmation dialog for repo removal (JS-driven) -->
 		<dialog id="ghrp-remove-dialog" class="ghrp-dialog" aria-labelledby="ghrp-remove-dialog-title">
 			<p id="ghrp-remove-dialog-title">
-				<strong><?php echo esc_html__( 'Are you sure you want to remove this repository?', 'github-release-posts' ); ?></strong>
+				<strong><?php echo esc_html__( 'Are you sure you want to remove this repository?', 'auto-release-posts-for-github' ); ?></strong>
 			</p>
-			<p class="description"><?php echo esc_html__( 'Previously generated posts will not be deleted.', 'github-release-posts' ); ?></p>
+			<p class="description"><?php echo esc_html__( 'Previously generated posts will not be deleted.', 'auto-release-posts-for-github' ); ?></p>
 			<form method="post">
 				<?php wp_nonce_field( 'ghrp_save_repositories', 'ghrp_nonce' ); ?>
 				<input type="hidden" name="ghrp_action" value="repositories">
 				<input type="hidden" id="ghrp-remove-repo-input" name="ghrp_remove_repo" value="">
 				<div class="ghrp-dialog-actions">
 					<button type="submit" class="button button-link-delete">
-						<?php echo esc_html__( 'Remove', 'github-release-posts' ); ?>
+						<?php echo esc_html__( 'Remove', 'auto-release-posts-for-github' ); ?>
 					</button>
 					<button type="button" id="ghrp-remove-cancel" class="button">
-						<?php echo esc_html__( 'Cancel', 'github-release-posts' ); ?>
+						<?php echo esc_html__( 'Cancel', 'auto-release-posts-for-github' ); ?>
 					</button>
 				</div>
 			</form>
@@ -240,7 +240,7 @@ if ( $admin_notice ) {
 		<form method="post" action="<?php echo esc_url( admin_url( 'options.php' ) ); ?>">
 			<?php require __DIR__ . '/tab-settings.php'; ?>
 
-			<?php submit_button( __( 'Save Settings', 'github-release-posts' ) ); ?>
+			<?php submit_button( __( 'Save Settings', 'auto-release-posts-for-github' ) ); ?>
 		</form>
 	</div>
 </div>

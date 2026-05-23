@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
-<ruleset name="GitHub Release Posts">
-	<description>PHP_CodeSniffer ruleset for the GitHub Release Posts plugin.</description>
+<ruleset name="Auto Release Posts for GitHub">
+	<description>PHP_CodeSniffer ruleset for the Auto Release Posts for GitHub plugin.</description>
 
 	<!-- Files to check -->
 	<file>github-release-posts.php</file>
@@ -19,13 +19,13 @@
 
 	<!-- Enforce minimum PHP version -->
 	<config name="minimum_supported_wp_version" value="6.9"/>
-	<config name="testVersion" value="8.0-"/>
+	<config name="testVersion" value="8.2-"/>
 
 	<!-- Set the correct text domain -->
 	<rule ref="WordPress.WP.I18n">
 		<properties>
 			<property name="text_domain" type="array">
-				<element value="github-release-posts"/>
+				<element value="auto-release-posts-for-github"/>
 			</property>
 		</properties>
 	</rule>

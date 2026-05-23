@@ -44,7 +44,7 @@ class WP_AI_Client_Connector implements AIProviderInterface {
 	 * {@inheritDoc}
 	 */
 	public function get_label(): string {
-		return __( 'WordPress Connectors', 'github-release-posts' );
+		return __( 'WordPress Connectors', 'auto-release-posts-for-github' );
 	}
 
 	/**
@@ -66,7 +66,7 @@ class WP_AI_Client_Connector implements AIProviderInterface {
 		if ( ! $this->is_available() ) {
 			return new \WP_Error(
 				'ghrp_wp_ai_client_unavailable',
-				__( 'The WordPress AI Client API is not available. On WordPress 7.0+ it is built in — make sure at least one AI connector is activated under Settings → AI Credentials. On older versions, install and activate the wp-ai-client plugin.', 'github-release-posts' )
+				__( 'The WordPress AI Client API is not available. On WordPress 7.0+ it is built in — make sure at least one AI connector is activated under Settings → AI Credentials. On older versions, install and activate the wp-ai-client plugin.', 'auto-release-posts-for-github' )
 			);
 		}
 
@@ -83,7 +83,7 @@ class WP_AI_Client_Connector implements AIProviderInterface {
 		if ( ! $this->is_available() ) {
 			return new \WP_Error(
 				'ghrp_wp_ai_client_unavailable',
-				__( 'The WordPress AI Client API is not available.', 'github-release-posts' )
+				__( 'The WordPress AI Client API is not available.', 'auto-release-posts-for-github' )
 			);
 		}
 
@@ -111,7 +111,7 @@ class WP_AI_Client_Connector implements AIProviderInterface {
 		if ( '' === trim( $text ) ) {
 			return new \WP_Error(
 				'ghrp_wp_ai_client_empty_response',
-				__( 'WordPress Connectors returned an empty response. Please try again.', 'github-release-posts' )
+				__( 'WordPress Connectors returned an empty response. Please try again.', 'auto-release-posts-for-github' )
 			);
 		}
 

@@ -80,6 +80,12 @@ class Post_CreatorTest extends TestCase {
 			return $args[1] ?? '';
 		} )->byDefault();
 		\WP_Mock::userFunction( 'set_post_thumbnail' )->andReturn( true )->byDefault();
+
+		// KSES is applied at the save boundary; in unit tests we pass through
+		// so callers can assert on the pre-KSES content. Real KSES behavior is
+		// validated by WordPress core itself in integration.
+		\WP_Mock::userFunction( 'wp_kses_post' )->andReturnUsing( fn( $v ) => $v )->byDefault();
+		\WP_Mock::userFunction( 'wp_strip_all_tags' )->andReturnUsing( fn( $v ) => $v )->byDefault();
 	}
 
 	public function tearDown(): void {

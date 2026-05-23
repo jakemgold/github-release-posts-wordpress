@@ -37,33 +37,13 @@ class ActivatorTest extends TestCase {
 	// -------------------------------------------------------------------------
 
 	/**
-	 * Activation returns early if current user lacks manage_options.
-	 */
-	public function test_activate_returns_early_without_capability(): void {
-		\WP_Mock::userFunction( 'current_user_can' )
-			->with( 'manage_options' )
-			->once()
-			->andReturn( false );
-
-		// add_option and cron functions should NOT be called.
-		\WP_Mock::userFunction( 'add_option' )->never();
-		\WP_Mock::userFunction( 'wp_clear_scheduled_hook' )->never();
-		\WP_Mock::userFunction( 'wp_schedule_event' )->never();
-
-		Activator::activate();
-
-		$this->assertConditionsMet();
-	}
-
-	/**
 	 * Activation writes all default options via add_option().
+	 *
+	 * No capability check is performed — activation hooks are gated by the
+	 * activator (plugins screen requires `activate_plugins`, WP-CLI runs
+	 * without a user, network activation runs as super admin).
 	 */
 	public function test_activate_writes_default_options(): void {
-		\WP_Mock::userFunction( 'current_user_can' )
-			->with( 'manage_options' )
-			->once()
-			->andReturn( true );
-
 		$defaults = Plugin_Constants::get_defaults();
 
 		foreach ( $defaults as $key => $value ) {
@@ -87,10 +67,6 @@ class ActivatorTest extends TestCase {
 	 * Activation clears any stale cron event before registering a new one (AC-004).
 	 */
 	public function test_activate_clears_stale_cron_before_registering(): void {
-		\WP_Mock::userFunction( 'current_user_can' )
-			->with( 'manage_options' )
-			->andReturn( true );
-
 		\WP_Mock::userFunction( 'add_option' )->andReturn( true );
 
 		// The stale event must be cleared first.
@@ -117,7 +93,6 @@ class ActivatorTest extends TestCase {
 	 * Activation does not register a duplicate cron event if one is already scheduled (BR-001).
 	 */
 	public function test_activate_does_not_duplicate_cron_event(): void {
-		\WP_Mock::userFunction( 'current_user_can' )->andReturn( true );
 		\WP_Mock::userFunction( 'add_option' )->andReturn( true );
 		\WP_Mock::userFunction( 'wp_clear_scheduled_hook' )->andReturn( null );
 		\WP_Mock::onFilter( 'ghrp_check_frequency' )->with( 'daily' )->reply( 'daily' );
@@ -139,7 +114,6 @@ class ActivatorTest extends TestCase {
 	 * The ghrp_check_frequency filter value is used when registering the cron event (AC-008).
 	 */
 	public function test_register_cron_event_uses_filter_value(): void {
-		\WP_Mock::userFunction( 'current_user_can' )->andReturn( true );
 		\WP_Mock::userFunction( 'add_option' )->andReturn( true );
 		\WP_Mock::userFunction( 'wp_clear_scheduled_hook' )->andReturn( null );
 

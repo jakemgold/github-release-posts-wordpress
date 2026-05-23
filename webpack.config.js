@@ -4,7 +4,7 @@ const defaultConfig = require( '@10up/scripts/config/webpack.config' );
 defaultConfig.plugins = defaultConfig.plugins.filter(
 	( plugin ) =>
 		plugin.constructor.name !== 'ESLintWebpackPlugin' &&
-		plugin.constructor.name !== 'StylelintWebpackPlugin'
+		plugin.constructor.name !== 'StylelintWebpackPlugin',
 );
 
 module.exports = defaultConfig;

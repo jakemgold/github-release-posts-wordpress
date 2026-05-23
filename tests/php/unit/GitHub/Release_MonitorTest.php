@@ -118,7 +118,7 @@ class Release_MonitorTest extends TestCase {
 			[ [ 'identifier' => 'owner/repo', 'paused' => true ] ]
 		);
 
-		$this->api_client->expects( $this->never() )->method( 'fetch_latest_release' );
+		$this->api_client->expects( $this->never() )->method( 'fetch_latest_eligible_release' );
 		$this->queue->expects( $this->never() )->method( 'enqueue' );
 
 		// dequeue_all() must still be called to process any previously queued items.
@@ -155,7 +155,7 @@ class Release_MonitorTest extends TestCase {
 
 		// First repo hits rate limit — second should never be fetched.
 		$this->api_client->expects( $this->once() )
-			->method( 'fetch_latest_release' )
+			->method( 'fetch_latest_eligible_release' )
 			->with( 'owner/repo-a' )
 			->willReturn( $rate_limit_error );
 
@@ -187,7 +187,7 @@ class Release_MonitorTest extends TestCase {
 		$this->repo_settings->method( 'get_repositories' )->willReturn(
 			[ [ 'identifier' => 'owner/repo' ] ]
 		);
-		$this->api_client->method( 'fetch_latest_release' )->willReturn( $release );
+		$this->api_client->method( 'fetch_latest_eligible_release' )->willReturn( $release );
 		$this->release_state->method( 'get_state' )->willReturn( $state );
 		$this->comparator->method( 'is_newer' )->willReturn( true );
 
@@ -227,7 +227,7 @@ class Release_MonitorTest extends TestCase {
 		$this->repo_settings->method( 'get_repositories' )->willReturn(
 			[ [ 'identifier' => 'owner/repo' ] ]
 		);
-		$this->api_client->method( 'fetch_latest_release' )->willReturn( $release );
+		$this->api_client->method( 'fetch_latest_eligible_release' )->willReturn( $release );
 		$this->release_state->method( 'get_state' )->willReturn( $state );
 		$this->comparator->method( 'is_newer' )->willReturn( false );
 

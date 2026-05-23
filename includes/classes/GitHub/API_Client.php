@@ -110,7 +110,7 @@ class API_Client {
 				// Private repo or authentication error.
 				return new \WP_Error(
 					'github_forbidden',
-					__( 'GitHub returned 403 Forbidden. The repository may be private or require authentication.', 'github-release-posts' )
+					__( 'GitHub returned 403 Forbidden. The repository may be private or require authentication.', 'auto-release-posts-for-github' )
 				);
 			}
 
@@ -119,7 +119,7 @@ class API_Client {
 					'github_http_error',
 					sprintf(
 						/* translators: %d: HTTP status code */
-						__( 'GitHub API returned HTTP %d.', 'github-release-posts' ),
+						__( 'GitHub API returned HTTP %d.', 'auto-release-posts-for-github' ),
 						$code
 					)
 				);
@@ -132,7 +132,7 @@ class API_Client {
 			if ( ! is_array( $data ) ) {
 				return new \WP_Error(
 					'github_parse_error',
-					__( 'Failed to parse GitHub API response.', 'github-release-posts' )
+					__( 'Failed to parse GitHub API response.', 'auto-release-posts-for-github' )
 				);
 			}
 
@@ -198,7 +198,7 @@ class API_Client {
 		if ( 0 === (int) $remaining ) {
 			// Log as warning — never fatal (AC-011).
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-			error_log( '[github-release-posts] GitHub API rate limit exhausted. A retry has been scheduled.' );
+			error_log( '[auto-release-posts-for-github] GitHub API rate limit exhausted. A retry has been scheduled.' );
 
 			// Schedule one-time retry (AC-010) — only if not already queued.
 			if ( ! wp_next_scheduled( Plugin_Constants::CRON_HOOK_RATE_LIMIT_RETRY ) ) {
@@ -210,7 +210,7 @@ class API_Client {
 
 			return new \WP_Error(
 				'github_rate_limit_exhausted',
-				__( 'GitHub API rate limit exhausted. A retry has been scheduled for one hour from now.', 'github-release-posts' )
+				__( 'GitHub API rate limit exhausted. A retry has been scheduled for one hour from now.', 'auto-release-posts-for-github' )
 			);
 		}
 
@@ -221,12 +221,15 @@ class API_Client {
 	 * Fetches a list of releases for a repository (latest first, capped at 100).
 	 *
 	 * Used by the manual "Generate post" flow to let admins pick an older release.
-	 * Excludes drafts and pre-releases by filtering server-side.
+	 * Drafts are always excluded. Pre-releases are excluded by default; pass
+	 * `$include_prereleases = true` to include them (used when a repo has the
+	 * Include pre-releases option turned on).
 	 *
-	 * @param string $identifier Repository identifier (owner/repo or full URL).
+	 * @param string $identifier          Repository identifier (owner/repo or full URL).
+	 * @param bool   $include_prereleases When true, pre-release versions are included.
 	 * @return Release[]|\WP_Error Releases in newest-first order, or WP_Error on failure.
 	 */
-	public function fetch_releases( string $identifier ): array|\WP_Error {
+	public function fetch_releases( string $identifier, bool $include_prereleases = false ): array|\WP_Error {
 		try {
 			$identifier = $this->normalize_identifier( $identifier );
 		} catch ( \InvalidArgumentException $e ) {
@@ -256,7 +259,7 @@ class API_Client {
 				'github_http_error',
 				sprintf(
 					/* translators: %d: HTTP status code */
-					__( 'GitHub API returned HTTP %d.', 'github-release-posts' ),
+					__( 'GitHub API returned HTTP %d.', 'auto-release-posts-for-github' ),
 					$code
 				)
 			);
@@ -264,7 +267,7 @@ class API_Client {
 
 		$data = json_decode( wp_remote_retrieve_body( $response ), true );
 		if ( ! is_array( $data ) ) {
-			return new \WP_Error( 'github_parse_error', __( 'Failed to parse GitHub API response.', 'github-release-posts' ) );
+			return new \WP_Error( 'github_parse_error', __( 'Failed to parse GitHub API response.', 'auto-release-posts-for-github' ) );
 		}
 
 		$releases = [];
@@ -272,14 +275,48 @@ class API_Client {
 			if ( ! is_array( $entry ) ) {
 				continue;
 			}
-			// Skip drafts and pre-releases — they should not be published as blog posts.
-			if ( ! empty( $entry['draft'] ) || ! empty( $entry['prerelease'] ) ) {
+			// Drafts never become blog posts.
+			if ( ! empty( $entry['draft'] ) ) {
+				continue;
+			}
+			// Pre-releases are excluded unless the caller opts in.
+			if ( ! $include_prereleases && ! empty( $entry['prerelease'] ) ) {
 				continue;
 			}
 			$releases[] = Release::from_api_response( $entry );
 		}
 
 		return $releases;
+	}
+
+	/**
+	 * Fetches the latest release eligible for post generation, honoring a
+	 * repo's pre-release preference.
+	 *
+	 * When pre-releases are excluded (the default), this delegates to
+	 * `fetch_latest_release()` which uses GitHub's `/releases/latest` endpoint
+	 * (fast, cached). When pre-releases are included, it falls back to
+	 * `/releases` and returns the newest non-draft entry — uncached, since
+	 * the cache key for `/releases/latest` would otherwise alias the two views.
+	 *
+	 * @param string $identifier          Repository identifier (owner/repo or full URL).
+	 * @param bool   $include_prereleases When true, pre-releases are eligible.
+	 * @return Release|null|\WP_Error Release on success; null if no eligible release exists;
+	 *                                WP_Error on network or HTTP failure.
+	 */
+	public function fetch_latest_eligible_release( string $identifier, bool $include_prereleases ): Release|null|\WP_Error {
+		if ( ! $include_prereleases ) {
+			return $this->fetch_latest_release( $identifier );
+		}
+
+		$releases = $this->fetch_releases( $identifier, true );
+		if ( is_wp_error( $releases ) ) {
+			return $releases;
+		}
+
+		// /releases returns entries in created_at descending order. The first
+		// non-draft entry (drafts are filtered above) is the eligible latest.
+		return $releases[0] ?? null;
 	}
 
 	/**
@@ -325,7 +362,7 @@ class API_Client {
 				'github_http_error',
 				sprintf(
 					/* translators: %d: HTTP status code */
-					__( 'GitHub API returned HTTP %d.', 'github-release-posts' ),
+					__( 'GitHub API returned HTTP %d.', 'auto-release-posts-for-github' ),
 					$code
 				)
 			);
@@ -333,10 +370,67 @@ class API_Client {
 
 		$data = json_decode( wp_remote_retrieve_body( $response ), true );
 		if ( ! is_array( $data ) ) {
-			return new \WP_Error( 'github_parse_error', __( 'Failed to parse GitHub API response.', 'github-release-posts' ) );
+			return new \WP_Error( 'github_parse_error', __( 'Failed to parse GitHub API response.', 'auto-release-posts-for-github' ) );
 		}
 
 		return Release::from_api_response( $data );
+	}
+
+	/**
+	 * Fetches the decoded README content for a repository.
+	 *
+	 * Uses GitHub's `/repos/{owner}/{repo}/readme` endpoint, which transparently
+	 * resolves all common README filenames and locations (README.md, .MD,
+	 * docs/README.md, etc.). Requests the raw representation so we receive
+	 * the decoded markdown directly rather than base64.
+	 *
+	 * Best-effort: returns an empty string on any failure (no README, HTTP error,
+	 * rate-limit exhaustion, private repo without PAT) so callers can fall back
+	 * cleanly. Never returns WP_Error — the absence of a README is a normal
+	 * condition, not an error.
+	 *
+	 * @param string $identifier Repository identifier (`owner/repo` or full GitHub URL).
+	 * @return string Raw README markdown, or empty string if unavailable.
+	 */
+	public function fetch_readme( string $identifier ): string {
+		try {
+			$identifier = $this->normalize_identifier( $identifier );
+		} catch ( \InvalidArgumentException $e ) {
+			return '';
+		}
+
+		[ $owner, $repo ] = explode( '/', $identifier, 2 );
+		$url              = sprintf( '%s/repos/%s/%s/readme', self::API_BASE, $owner, $repo );
+
+		$args                       = $this->build_request_args();
+		$args['headers']['Accept']  = 'application/vnd.github.raw';
+		// README endpoints sometimes return large payloads; keep the timeout
+		// modest since this is best-effort on a user-facing button click.
+		$args['timeout'] = 8;
+
+		$response = wp_remote_get( $url, $args );
+		if ( is_wp_error( $response ) ) {
+			return '';
+		}
+
+		// Update rate-limit accounting but never block this path on exhaustion —
+		// the caller is expected to silently fall back.
+		$this->handle_rate_limit( $response );
+
+		$code = (int) wp_remote_retrieve_response_code( $response );
+		if ( 200 !== $code ) {
+			return '';
+		}
+
+		$body = (string) wp_remote_retrieve_body( $response );
+
+		// Sanity cap: extremely large READMEs (>512 KB) are almost never what
+		// we want to parse for a heading and risk pathological regex behavior.
+		if ( strlen( $body ) > 512 * 1024 ) {
+			return '';
+		}
+
+		return $body;
 	}
 
 	/**
@@ -416,7 +510,7 @@ class API_Client {
 				'github_compare_failed',
 				sprintf(
 					/* translators: 1: base tag, 2: head tag, 3: HTTP status code */
-					__( 'GitHub compare %1$s...%2$s returned HTTP %3$d.', 'github-release-posts' ),
+					__( 'GitHub compare %1$s...%2$s returned HTTP %3$d.', 'auto-release-posts-for-github' ),
 					$base_tag,
 					$head_tag,
 					$code
@@ -426,7 +520,7 @@ class API_Client {
 
 		$data = json_decode( wp_remote_retrieve_body( $response ), true );
 		if ( ! is_array( $data ) ) {
-			return new \WP_Error( 'github_compare_parse_error', __( 'Failed to parse compare response.', 'github-release-posts' ) );
+			return new \WP_Error( 'github_compare_parse_error', __( 'Failed to parse compare response.', 'auto-release-posts-for-github' ) );
 		}
 
 		// Extract commit subject lines (first line of each message), capped at 100.
@@ -489,7 +583,7 @@ class API_Client {
 		if ( '' === $pat ) {
 			return new \WP_Error(
 				'github_no_pat',
-				__( 'A GitHub Personal Access Token is required to list accessible repositories.', 'github-release-posts' )
+				__( 'A GitHub Personal Access Token is required to list accessible repositories.', 'auto-release-posts-for-github' )
 			);
 		}
 
@@ -528,7 +622,7 @@ class API_Client {
 			if ( 401 === $code ) {
 				return new \WP_Error(
 					'github_unauthorized',
-					__( 'GitHub rejected the Personal Access Token. Check that it is valid and has not expired.', 'github-release-posts' )
+					__( 'GitHub rejected the Personal Access Token. Check that it is valid and has not expired.', 'auto-release-posts-for-github' )
 				);
 			}
 			if ( 200 !== $code ) {
@@ -536,7 +630,7 @@ class API_Client {
 					'github_http_error',
 					sprintf(
 						/* translators: %d: HTTP status code */
-						__( 'GitHub API returned HTTP %d.', 'github-release-posts' ),
+						__( 'GitHub API returned HTTP %d.', 'auto-release-posts-for-github' ),
 						$code
 					)
 				);
@@ -544,7 +638,7 @@ class API_Client {
 
 			$data = json_decode( wp_remote_retrieve_body( $response ), true );
 			if ( ! is_array( $data ) ) {
-				return new \WP_Error( 'github_parse_error', __( 'Failed to parse GitHub API response.', 'github-release-posts' ) );
+				return new \WP_Error( 'github_parse_error', __( 'Failed to parse GitHub API response.', 'auto-release-posts-for-github' ) );
 			}
 
 			foreach ( $data as $entry ) {
@@ -638,7 +732,7 @@ class API_Client {
 		if ( '' === $pat ) {
 			return new \WP_Error(
 				'github_no_pat',
-				__( 'No Personal Access Token configured.', 'github-release-posts' )
+				__( 'No Personal Access Token configured.', 'auto-release-posts-for-github' )
 			);
 		}
 
@@ -658,14 +752,14 @@ class API_Client {
 		if ( 401 === $code ) {
 			return new \WP_Error(
 				'github_unauthorized',
-				__( 'Invalid or expired token.', 'github-release-posts' )
+				__( 'Invalid or expired token.', 'auto-release-posts-for-github' )
 			);
 		}
 		return new \WP_Error(
 			'github_http_error',
 			sprintf(
 				/* translators: %d: HTTP status code */
-				__( 'GitHub API returned HTTP %d.', 'github-release-posts' ),
+				__( 'GitHub API returned HTTP %d.', 'auto-release-posts-for-github' ),
 				$code
 			)
 		);

@@ -19,5 +19,9 @@
 	},
 	"devDependencies": {
 		"@10up/scripts": "^1.3.4"
+	},
+	"overrides": {
+		"eslint-plugin-jsdoc": "^46.10.1",
+		"prettier": "npm:wp-prettier@2.2.1-beta-1"
 	}
 }

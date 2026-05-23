@@ -10,4 +10,6 @@ parameters:
         - vendor/
         - node_modules/
         - tests/
-    phpVersion: 80000
+    bootstrapFiles:
+        - tests/phpstan-stubs.php
+    phpVersion: 80200

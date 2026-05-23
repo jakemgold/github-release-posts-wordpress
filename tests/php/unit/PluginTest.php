@@ -86,12 +86,18 @@ class PluginTest extends TestCase {
 			define( 'GITHUB_RELEASE_POSTS_PATH', dirname( __DIR__, 3 ) . '/' );
 		}
 
+		// plugin_basename() returns a path relative to WP_PLUGIN_DIR; in tests
+		// we stub it to a deterministic value so the assertion below is stable.
+		\WP_Mock::userFunction( 'plugin_basename' )
+			->with( GITHUB_RELEASE_POSTS_PATH . 'github-release-posts.php' )
+			->andReturn( 'auto-release-posts-for-github/github-release-posts.php' );
+
 		\WP_Mock::userFunction( 'load_plugin_textdomain' )
 			->once()
 			->with(
-				'github-release-posts',
+				'auto-release-posts-for-github',
 				false,
-				GITHUB_RELEASE_POSTS_PATH . 'languages'
+				'auto-release-posts-for-github/languages'
 			);
 
 		Plugin::get_instance()->i18n();

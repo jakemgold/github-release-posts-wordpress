@@ -8,34 +8,14 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	// -------------------------------------------------------------------------
 	// Tab switching with ARIA and dirty-flag guard.
 	// -------------------------------------------------------------------------
-	const tabs   = Array.from( document.querySelectorAll( '[role="tab"]' ) );
-	const panels = Array.from( document.querySelectorAll( '[role="tabpanel"]' ) );
+	const tabs = Array.from( document.querySelectorAll( '[role="tab"]' ) );
 	let formDirty = false;
-
-	function activateTab( tab ) {
-		const targetId = tab.getAttribute( 'aria-controls' );
-
-		tabs.forEach( function ( t ) {
-			t.setAttribute( 'aria-selected', 'false' );
-			t.classList.remove( 'nav-tab-active' );
-		} );
-
-		tab.setAttribute( 'aria-selected', 'true' );
-		tab.classList.add( 'nav-tab-active' );
-
-		panels.forEach( function ( p ) {
-			p.hidden = p.id !== targetId;
-		} );
-	}
 
 	tabs.forEach( function ( tab, idx ) {
 		tab.addEventListener( 'click', function ( e ) {
-			if (
-				formDirty &&
-				! window.confirm( ctbpAdmin.i18n.unsavedChanges )
-			) {
+			// eslint-disable-next-line no-alert -- intentional UX: warn before discarding unsaved changes.
+			if ( formDirty && ! window.confirm( ctbpAdmin.i18n.unsavedChanges ) ) {
 				e.preventDefault();
-				return;
 			}
 			// Allow the browser to follow the href so the URL/tab updates
 			// server-side routing handles the correct panel on load.
@@ -50,7 +30,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 				nextIdx = ( idx - 1 + tabs.length ) % tabs.length;
 			}
 
-			if ( null !== nextIdx ) {
+			if ( nextIdx !== null ) {
 				e.preventDefault();
 				tabs[ nextIdx ].focus();
 				tabs[ nextIdx ].click();
@@ -73,6 +53,30 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	} );
 
 	// -------------------------------------------------------------------------
+	// HTML escape — used whenever REST response data or user input is
+	// interpolated into `innerHTML`. Message strings can originate from GitHub,
+	// HTTP errors, AI providers, or translated content, so any character that
+	// has meaning in HTML must be escaped before insertion.
+	// -------------------------------------------------------------------------
+	const HTML_ESCAPE = {
+		'&': '&amp;',
+		'<': '&lt;',
+		'>': '&gt;',
+		'"': '&quot;',
+		"'": '&#39;',
+	};
+
+	/**
+	 * Escapes the five HTML-significant characters in a string.
+	 *
+	 * @param {*} value Any value; coerced to string before escaping.
+	 * @returns {string} HTML-safe string.
+	 */
+	function escapeHtml( value ) {
+		return String( value ?? '' ).replace( /[&<>"']/g, ( c ) => HTML_ESCAPE[ c ] );
+	}
+
+	// -------------------------------------------------------------------------
 	// REST API helper.
 	// -------------------------------------------------------------------------
 
@@ -84,20 +88,20 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	 *
 	 * @param {string}   method    HTTP method ('GET' or 'POST').
 	 * @param {string}   path      Endpoint path relative to ghrp/v1 (e.g. '/ai/test-connection').
-	 * @param {Object}   data      Query params (GET) or body payload (POST).
+	 * @param {object}   data      Query params (GET) or body payload (POST).
 	 * @param {Function} onSuccess Called with the parsed response object on success.
 	 * @param {Function} onError   Called with an object containing a `message` key on failure.
 	 */
 	window.ctbpFetch = function ( method, path, data, onSuccess, onError ) {
 		const isGet = method.toUpperCase() === 'GET';
-		let url     = ctbpAdmin.restUrl.replace( /\/$/, '' ) + path;
+		let url = ctbpAdmin.restUrl.replace( /\/$/, '' ) + path;
 
 		if ( isGet && data && Object.keys( data ).length ) {
-			url += '?' + new URLSearchParams( data ).toString();
+			url += `?${ new URLSearchParams( data ).toString() }`;
 		}
 
 		const options = {
-			method:  method.toUpperCase(),
+			method: method.toUpperCase(),
 			headers: {
 				'X-WP-Nonce': ctbpAdmin.restNonce,
 			},
@@ -119,10 +123,8 @@ document.addEventListener( 'DOMContentLoaded', function () {
 					if ( typeof onSuccess === 'function' ) {
 						onSuccess( result.json );
 					}
-				} else {
-					if ( typeof onError === 'function' ) {
-						onError( { message: result.json.message || ctbpAdmin.i18n.notImplemented } );
-					}
+				} else if ( typeof onError === 'function' ) {
+					onError( { message: result.json.message || ctbpAdmin.i18n.notImplemented } );
 				}
 			} )
 			.catch( function () {
@@ -139,7 +141,9 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	if ( testNotifBtn ) {
 		testNotifBtn.addEventListener( 'click', function () {
 			const resultEl = document.getElementById( 'ghrp-test-notification-result' );
-			const spinner = testNotifBtn.parentNode.querySelector( '.ghrp-test-notification-spinner' );
+			const spinner = testNotifBtn.parentNode.querySelector(
+				'.ghrp-test-notification-spinner',
+			);
 
 			if ( spinner ) {
 				spinner.style.display = 'inline-block';
@@ -159,7 +163,8 @@ document.addEventListener( 'DOMContentLoaded', function () {
 						spinner.style.display = 'none';
 					}
 					if ( resultEl ) {
-						resultEl.innerHTML = validIcon( data.message || 'Sent!' ) + ' ' + ( data.message || 'Sent!' );
+						const sentMsg = data.message || 'Sent!';
+						resultEl.innerHTML = `${ validIcon( sentMsg ) } ${ escapeHtml( sentMsg ) }`;
 					}
 				},
 				function ( data ) {
@@ -168,10 +173,11 @@ document.addEventListener( 'DOMContentLoaded', function () {
 						spinner.style.display = 'none';
 					}
 					if ( resultEl ) {
-						var msg = ( data && data.message ) ? data.message : 'Failed to send test email.';
-						resultEl.innerHTML = warningIcon( msg ) + ' ' + msg;
+						const msg =
+							data && data.message ? data.message : 'Failed to send test email.';
+						resultEl.innerHTML = `${ warningIcon( msg ) } ${ escapeHtml( msg ) }`;
 					}
-				}
+				},
 			);
 		} );
 	}
@@ -188,19 +194,15 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	// so keyboard and screen reader users get a real listbox experience.
 	// -------------------------------------------------------------------------
 	const repoPicker = document.querySelector( '.ghrp-repo-picker' );
-	const repoInput  = document.getElementById( 'ghrp-new-repo' );
-	const repoList   = document.getElementById( 'ghrp-repo-picker-list' );
+	const repoInput = document.getElementById( 'ghrp-new-repo' );
+	const repoList = document.getElementById( 'ghrp-repo-picker-list' );
 
 	const repoState = {
-		open:           false,
-		activeId:       null,
+		open: false,
+		activeId: null,
 		visibleOptions: [],
-		nextOptId:      0,
+		nextOptId: 0,
 	};
-
-	function repoOptions() {
-		return repoList ? Array.from( repoList.querySelectorAll( '[role="option"]' ) ) : [];
-	}
 
 	function refreshVisibleOptions() {
 		if ( ! repoList ) {
@@ -211,13 +213,14 @@ document.addEventListener( 'DOMContentLoaded', function () {
 		const visible = [];
 
 		groups.forEach( function ( group ) {
-			const ownerMatches = group.dataset.owner && group.dataset.owner.toLowerCase().includes( q );
+			const ownerMatches =
+				group.dataset.owner && group.dataset.owner.toLowerCase().includes( q );
 			const opts = group.querySelectorAll( '[role="option"]' );
 			let groupVisible = 0;
 
 			opts.forEach( function ( opt ) {
 				const value = opt.dataset.value.toLowerCase();
-				const matches = '' === q || value.includes( q ) || ownerMatches;
+				const matches = q === '' || value.includes( q ) || ownerMatches;
 				opt.hidden = ! matches;
 				if ( matches ) {
 					groupVisible++;
@@ -225,7 +228,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 				}
 			} );
 
-			group.hidden = 0 === groupVisible;
+			group.hidden = groupVisible === 0;
 		} );
 
 		const emptyEl = repoList.querySelector( '.ghrp-repo-picker__empty' );
@@ -236,7 +239,12 @@ document.addEventListener( 'DOMContentLoaded', function () {
 		repoState.visibleOptions = visible;
 
 		// If the active option got filtered out, clear it.
-		if ( repoState.activeId && ! visible.find( function ( o ) { return o.id === repoState.activeId; } ) ) {
+		if (
+			repoState.activeId &&
+			! visible.find( function ( o ) {
+				return o.id === repoState.activeId;
+			} )
+		) {
 			clearRepoActive();
 		}
 	}
@@ -269,14 +277,16 @@ document.addEventListener( 'DOMContentLoaded', function () {
 
 	function moveRepoActive( direction ) {
 		const visible = repoState.visibleOptions;
-		if ( 0 === visible.length ) {
+		if ( visible.length === 0 ) {
 			return;
 		}
 
-		const currentIdx = visible.findIndex( function ( o ) { return o.id === repoState.activeId; } );
+		const currentIdx = visible.findIndex( function ( o ) {
+			return o.id === repoState.activeId;
+		} );
 		let newIdx;
 
-		if ( -1 === currentIdx ) {
+		if ( currentIdx === -1 ) {
 			newIdx = direction > 0 ? 0 : visible.length - 1;
 		} else {
 			newIdx = currentIdx + direction;
@@ -370,6 +380,8 @@ document.addEventListener( 'DOMContentLoaded', function () {
 						closeRepoPopover();
 					}
 					break;
+				default:
+					break;
 			}
 		} );
 
@@ -426,12 +438,12 @@ document.addEventListener( 'DOMContentLoaded', function () {
 		} );
 
 		const emptyEl = repoList.querySelector( '.ghrp-repo-picker__empty' );
-		const owners  = Object.keys( groups || {} );
+		const owners = Object.keys( groups || {} );
 
 		owners.forEach( function ( owner ) {
-			const groupId = 'ghrp-repo-group-' + owner.replace( /[^A-Za-z0-9_-]/g, '-' );
+			const groupId = `ghrp-repo-group-${ owner.replace( /[^A-Za-z0-9_-]/g, '-' ) }`;
 			const group = document.createElement( 'div' );
-			group.className     = 'ghrp-repo-picker__group';
+			group.className = 'ghrp-repo-picker__group';
 			group.setAttribute( 'role', 'group' );
 			group.setAttribute( 'aria-labelledby', groupId );
 			group.dataset.owner = owner;
@@ -445,7 +457,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 			groups[ owner ].forEach( function ( r ) {
 				const opt = document.createElement( 'div' );
 				++repoState.nextOptId;
-				opt.id = 'ghrp-repo-opt-r' + repoState.nextOptId;
+				opt.id = `ghrp-repo-opt-r${ repoState.nextOptId }`;
 				opt.className = 'ghrp-repo-picker__option';
 				opt.setAttribute( 'role', 'option' );
 				opt.setAttribute( 'aria-selected', 'false' );
@@ -457,12 +469,12 @@ document.addEventListener( 'DOMContentLoaded', function () {
 				opt.appendChild( nameSpan );
 
 				const link = document.createElement( 'a' );
-				link.href = 'https://github.com/' + r.identifier;
+				link.href = `https://github.com/${ r.identifier }`;
 				link.target = '_blank';
 				link.rel = 'noopener';
 				link.className = 'ghrp-repo-picker__option-link';
 				link.tabIndex = -1;
-				link.setAttribute( 'aria-label', 'View ' + r.identifier + ' on GitHub' );
+				link.setAttribute( 'aria-label', `View ${ r.identifier } on GitHub` );
 				const icon = document.createElement( 'span' );
 				icon.className = 'dashicons dashicons-external';
 				icon.setAttribute( 'aria-hidden', 'true' );
@@ -496,7 +508,9 @@ document.addEventListener( 'DOMContentLoaded', function () {
 
 	if ( refreshReposBtn ) {
 		refreshReposBtn.addEventListener( 'click', function () {
-			const spinner = refreshReposBtn.parentNode.querySelector( '.ghrp-refresh-repos-spinner' );
+			const spinner = refreshReposBtn.parentNode.querySelector(
+				'.ghrp-refresh-repos-spinner',
+			);
 
 			refreshReposBtn.disabled = true;
 			if ( spinner ) {
@@ -516,8 +530,8 @@ document.addEventListener( 'DOMContentLoaded', function () {
 					}
 					rebuildRepoList( ( data && data.groups ) || {} );
 
-					const msg = ( data && data.message ) ? data.message : 'Refreshed.';
-					setRefreshResult( validIcon( msg ) + ' ' + msg );
+					const msg = data && data.message ? data.message : 'Refreshed.';
+					setRefreshResult( `${ validIcon( msg ) } ${ escapeHtml( msg ) }` );
 
 					// Focus the input so the popover opens (or stays open)
 					// with the refreshed list visible.
@@ -530,9 +544,10 @@ document.addEventListener( 'DOMContentLoaded', function () {
 					if ( spinner ) {
 						spinner.classList.remove( 'is-active' );
 					}
-					const msg = ( data && data.message ) ? data.message : 'Failed to refresh repository list.';
-					setRefreshResult( warningIcon( msg ) + ' ' + msg );
-				}
+					const msg =
+						data && data.message ? data.message : 'Failed to refresh repository list.';
+					setRefreshResult( `${ warningIcon( msg ) } ${ escapeHtml( msg ) }` );
+				},
 			);
 		} );
 	}
@@ -552,7 +567,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 			const current = patInput.value;
 
 			// Empty field → no indicator.
-			if ( '' === current ) {
+			if ( current === '' ) {
 				patStatus.className = 'ghrp-pat-status ghrp-pat-status--none';
 				patStatus.innerHTML = '';
 				return;
@@ -564,7 +579,8 @@ document.addEventListener( 'DOMContentLoaded', function () {
 			}
 
 			patStatus.className = 'ghrp-pat-status ghrp-pat-status--checking';
-			patStatus.innerHTML = '<span class="spinner is-active" style="float:none;vertical-align:middle;margin:0 4px 0 0;"></span>';
+			patStatus.innerHTML =
+				'<span class="spinner is-active" style="float:none;vertical-align:middle;margin:0 4px 0 0;"></span>';
 
 			window.ctbpFetch(
 				'POST',
@@ -573,18 +589,19 @@ document.addEventListener( 'DOMContentLoaded', function () {
 				function ( data ) {
 					if ( data && data.valid ) {
 						patStatus.className = 'ghrp-pat-status ghrp-pat-status--valid';
-						patStatus.innerHTML = validIcon( data.message || 'Validated' ) + ' ' + ( data.message || 'Validated' );
+						const okMsg = data.message || 'Validated';
+						patStatus.innerHTML = `${ validIcon( okMsg ) } ${ escapeHtml( okMsg ) }`;
 					} else {
 						patStatus.className = 'ghrp-pat-status ghrp-pat-status--invalid';
-						var msg = ( data && data.message ) ? data.message : 'Could not validate.';
-						patStatus.innerHTML = warningIcon( msg ) + ' ' + msg;
+						const msg = data && data.message ? data.message : 'Could not validate.';
+						patStatus.innerHTML = `${ warningIcon( msg ) } ${ escapeHtml( msg ) }`;
 					}
 				},
 				function ( data ) {
 					patStatus.className = 'ghrp-pat-status ghrp-pat-status--invalid';
-					var msg = ( data && data.message ) ? data.message : 'Could not validate.';
-					patStatus.innerHTML = warningIcon( msg ) + ' ' + msg;
-				}
+					const msg = data && data.message ? data.message : 'Could not validate.';
+					patStatus.innerHTML = `${ warningIcon( msg ) } ${ escapeHtml( msg ) }`;
+				},
 			);
 		} );
 	}
@@ -604,10 +621,10 @@ document.addEventListener( 'DOMContentLoaded', function () {
 			return;
 		}
 		// Spacer is between the data row and the edit row.
-		const spacer  = activeEdit.previousElementSibling;
+		const spacer = activeEdit.previousElementSibling;
 		const dataRow = spacer ? spacer.previousElementSibling : null;
 
-		var editLink = dataRow ? dataRow.querySelector( '.ghrp-edit-repo-btn' ) : null;
+		const editLink = dataRow ? dataRow.querySelector( '.ghrp-edit-repo-btn' ) : null;
 
 		if ( dataRow ) {
 			dataRow.style.display = '';
@@ -636,85 +653,94 @@ document.addEventListener( 'DOMContentLoaded', function () {
 			return;
 		}
 
-		const repo        = dataRow.dataset.repo || '';
+		const repo = dataRow.dataset.repo || '';
 		const displayName = dataRow.dataset.displayName || '';
-		const editRow     = editTemplate.querySelector( 'tr' ).cloneNode( true );
+		const editRow = editTemplate.querySelector( 'tr' ).cloneNode( true );
 
 		// Populate the legend.
 		const legend = editRow.querySelector( '.inline-edit-legend' );
 		if ( legend ) {
-			legend.textContent = ( ctbpAdmin.i18n.editLabel || 'Edit:' ) + ' ' + displayName;
+			legend.textContent = `${ ctbpAdmin.i18n.editLabel || 'Edit:' } ${ displayName }`;
 		}
 
 		// Populate text fields.
-		var fields = {
+		const fields = {
 			display_name: dataRow.dataset.displayName || '',
-			plugin_link:  dataRow.dataset.pluginLink || '',
-			tags:         dataRow.dataset.tags || '',
+			plugin_link: dataRow.dataset.pluginLink || '',
+			tags: dataRow.dataset.tags || '',
 		};
 
 		Object.keys( fields ).forEach( function ( key ) {
-			var input = editRow.querySelector( '[data-field="' + key + '"]' );
+			const input = editRow.querySelector( `[data-field="${ key }"]` );
 			if ( input ) {
 				input.value = fields[ key ];
-				input.name  = 'repos[' + repo + '][' + key + ']';
+				input.name = `repos[${ repo }][${ key }]`;
 			}
 		} );
 
 		// Populate select: post_status.
-		var statusSelect = editRow.querySelector( '[data-field="post_status"]' );
+		const statusSelect = editRow.querySelector( '[data-field="post_status"]' );
 		if ( statusSelect ) {
-			statusSelect.name  = 'repos[' + repo + '][post_status]';
+			statusSelect.name = `repos[${ repo }][post_status]`;
 			statusSelect.value = dataRow.dataset.postStatus || 'draft';
 		}
 
 		// Populate category checklist.
-		var catHidden = editRow.querySelector( '.ghrp-tpl-cat-hidden' );
+		const catHidden = editRow.querySelector( '.ghrp-tpl-cat-hidden' );
 		if ( catHidden ) {
-			catHidden.name = 'repos[' + repo + '][categories][]';
+			catHidden.name = `repos[${ repo }][categories][]`;
 		}
-		var savedCats = [];
+		let savedCats = [];
 		try {
 			savedCats = JSON.parse( dataRow.dataset.categories || '[]' );
 		} catch ( e ) {
 			savedCats = [];
 		}
-		editRow.querySelectorAll( '.ghrp-tpl-categories input[type="checkbox"]' ).forEach( function ( cb ) {
-			cb.name    = 'repos[' + repo + '][categories][]';
-			cb.checked = savedCats.indexOf( parseInt( cb.value, 10 ) ) !== -1;
-		} );
+		editRow
+			.querySelectorAll( '.ghrp-tpl-categories input[type="checkbox"]' )
+			.forEach( function ( cb ) {
+				cb.name = `repos[${ repo }][categories][]`;
+				cb.checked = savedCats.indexOf( parseInt( cb.value, 10 ) ) !== -1;
+			} );
 
 		// Populate select: author.
-		var authorSelect = editRow.querySelector( '.ghrp-tpl-author' );
+		const authorSelect = editRow.querySelector( '.ghrp-tpl-author' );
 		if ( authorSelect ) {
-			authorSelect.name  = 'repos[' + repo + '][author]';
+			authorSelect.name = `repos[${ repo }][author]`;
 			authorSelect.value = dataRow.dataset.author || '0';
 		}
 
 		// Populate checkbox: paused.
-		var pausedCheckbox = editRow.querySelector( '[data-field="paused"]' );
+		const pausedCheckbox = editRow.querySelector( '[data-field="paused"]' );
 		if ( pausedCheckbox ) {
-			pausedCheckbox.name    = 'repos[' + repo + '][paused]';
+			pausedCheckbox.name = `repos[${ repo }][paused]`;
 			pausedCheckbox.checked = dataRow.dataset.paused === '1';
 		}
 
+		// Populate checkbox: include_prereleases.
+		const prereleasesCheckbox = editRow.querySelector( '[data-field="include_prereleases"]' );
+		if ( prereleasesCheckbox ) {
+			prereleasesCheckbox.name = `repos[${ repo }][include_prereleases]`;
+			prereleasesCheckbox.checked = dataRow.dataset.includePrereleases === '1';
+		}
+
 		// Populate featured image.
-		var featuredImageId = parseInt( dataRow.dataset.featuredImage || '0', 10 );
-		var imgInput        = editRow.querySelector( '[data-field="featured_image"]' );
+		const featuredImageId = parseInt( dataRow.dataset.featuredImage || '0', 10 );
+		const imgInput = editRow.querySelector( '[data-field="featured_image"]' );
 		if ( imgInput ) {
-			imgInput.name  = 'repos[' + repo + '][featured_image]';
+			imgInput.name = `repos[${ repo }][featured_image]`;
 			imgInput.value = featuredImageId;
 		}
 		wireFeatureImagePicker( editRow, featuredImageId );
 
 		// Wire up Cancel button.
-		var cancelBtn = editRow.querySelector( '.ghrp-cancel-edit' );
+		const cancelBtn = editRow.querySelector( '.ghrp-cancel-edit' );
 		if ( cancelBtn ) {
 			cancelBtn.addEventListener( 'click', closeActiveEditRow );
 		}
 
 		// Wire up plugin link blur validation.
-		var pluginLinkInput = editRow.querySelector( '.ghrp-plugin-link-input' );
+		const pluginLinkInput = editRow.querySelector( '.ghrp-plugin-link-input' );
 		if ( pluginLinkInput ) {
 			wirePluginLinkValidation( pluginLinkInput );
 		}
@@ -722,14 +748,14 @@ document.addEventListener( 'DOMContentLoaded', function () {
 		// Insert a hidden spacer + the edit row after the data row.
 		// WP Quick Edit does the same: dataRow, spacer, editRow — so
 		// the edit row lands at the same nth-child parity as the data row.
-		var spacer = document.createElement( 'tr' );
+		const spacer = document.createElement( 'tr' );
 		spacer.className = 'hidden';
 
 		dataRow.style.display = 'none';
 		dataRow.parentNode.insertBefore( spacer, dataRow.nextSibling );
 		spacer.parentNode.insertBefore( editRow, spacer.nextSibling );
 
-		var firstInput = editRow.querySelector( 'input, select, textarea' );
+		const firstInput = editRow.querySelector( 'input, select, textarea' );
 		if ( firstInput ) {
 			firstInput.focus();
 		}
@@ -739,7 +765,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	document.querySelectorAll( '.ghrp-edit-repo-btn' ).forEach( function ( link ) {
 		link.addEventListener( 'click', function ( e ) {
 			e.preventDefault();
-			var dataRow = link.closest( 'tr' );
+			const dataRow = link.closest( 'tr' );
 			if ( dataRow ) {
 				openEditRow( dataRow );
 			}
@@ -749,7 +775,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	// -------------------------------------------------------------------------
 	// Remove repository — dialog-based confirmation.
 	// -------------------------------------------------------------------------
-	const removeDialog    = document.getElementById( 'ghrp-remove-dialog' );
+	const removeDialog = document.getElementById( 'ghrp-remove-dialog' );
 	const removeRepoInput = document.getElementById( 'ghrp-remove-repo-input' );
 	const removeCancelBtn = document.getElementById( 'ghrp-remove-cancel' );
 
@@ -757,25 +783,24 @@ document.addEventListener( 'DOMContentLoaded', function () {
 		link.addEventListener( 'click', function ( e ) {
 			e.preventDefault();
 
-			const repo = link.dataset.repo;
+			const { repo } = link.dataset;
 
 			if ( removeDialog && removeRepoInput ) {
 				removeRepoInput.value = repo;
 				removeDialog.showModal();
-			} else {
+				// eslint-disable-next-line no-alert -- intentional fallback when <dialog> is unsupported.
+			} else if ( window.confirm( ctbpAdmin.i18n.confirmRemove ) ) {
 				// Fallback for browsers without <dialog> support.
-				if ( window.confirm( ctbpAdmin.i18n.confirmRemove ) ) {
-					const form = document.createElement( 'form' );
-					form.method = 'post';
-					form.innerHTML =
-						'<input type="hidden" name="ghrp_action" value="repositories">' +
-						'<input type="hidden" name="ghrp_nonce" value="">' +
-						'<input type="hidden" name="ghrp_remove_repo" value="' +
-						encodeURIComponent( repo ) +
-						'">';
-					document.body.appendChild( form );
-					form.submit();
-				}
+				const form = document.createElement( 'form' );
+				form.method = 'post';
+				form.innerHTML =
+					'<input type="hidden" name="ghrp_action" value="repositories">' +
+					'<input type="hidden" name="ghrp_nonce" value="">' +
+					`<input type="hidden" name="ghrp_remove_repo" value="${ encodeURIComponent(
+						repo,
+					) }">`;
+				document.body.appendChild( form );
+				form.submit();
 			}
 		} );
 	} );
@@ -797,10 +822,10 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	 * @param {number}      attachmentId    Current attachment ID (0 = none).
 	 */
 	function wireFeatureImagePicker( editRow, attachmentId ) {
-		var selectBtn = editRow.querySelector( '.ghrp-select-image' );
-		var removeBtn = editRow.querySelector( '.ghrp-remove-image' );
-		var preview   = editRow.querySelector( '.ghrp-featured-image-preview' );
-		var input     = editRow.querySelector( '[data-field="featured_image"]' );
+		const selectBtn = editRow.querySelector( '.ghrp-select-image' );
+		const removeBtn = editRow.querySelector( '.ghrp-remove-image' );
+		const preview = editRow.querySelector( '.ghrp-featured-image-preview' );
+		const input = editRow.querySelector( '[data-field="featured_image"]' );
 
 		if ( ! selectBtn || ! input ) {
 			return;
@@ -808,14 +833,16 @@ document.addEventListener( 'DOMContentLoaded', function () {
 
 		// Show existing thumbnail if set.
 		if ( attachmentId > 0 && preview ) {
-			preview.innerHTML = '<img src="" style="max-width:75px;height:auto;display:block;margin-bottom:8px;" />';
-			var img = preview.querySelector( 'img' );
+			preview.innerHTML =
+				'<img src="" style="max-width:75px;height:auto;display:block;margin-bottom:8px;" />';
+			const img = preview.querySelector( 'img' );
 			// Use wp.media attachment to get the URL.
-			var attachment = wp.media.attachment( attachmentId );
+			const attachment = wp.media.attachment( attachmentId );
 			attachment.fetch().then( function () {
-				var url = ( attachment.get( 'sizes' ) && attachment.get( 'sizes' ).thumbnail )
-					? attachment.get( 'sizes' ).thumbnail.url
-					: attachment.get( 'url' );
+				const url =
+					attachment.get( 'sizes' ) && attachment.get( 'sizes' ).thumbnail
+						? attachment.get( 'sizes' ).thumbnail.url
+						: attachment.get( 'url' );
 				if ( img ) {
 					img.src = url;
 				}
@@ -828,22 +855,23 @@ document.addEventListener( 'DOMContentLoaded', function () {
 		selectBtn.addEventListener( 'click', function ( e ) {
 			e.preventDefault();
 
-			var frame = wp.media( {
-				title:    ctbpAdmin.i18n.selectImage || 'Select Featured Image',
-				button:   { text: ctbpAdmin.i18n.useImage || 'Use this image' },
+			const frame = wp.media( {
+				title: ctbpAdmin.i18n.selectImage || 'Select Featured Image',
+				button: { text: ctbpAdmin.i18n.useImage || 'Use this image' },
 				multiple: false,
-				library:  { type: 'image' },
+				library: { type: 'image' },
 			} );
 
 			frame.on( 'select', function () {
-				var attachment = frame.state().get( 'selection' ).first().toJSON();
+				const attachment = frame.state().get( 'selection' ).first().toJSON();
 				input.value = attachment.id;
 
 				if ( preview ) {
-					var url = ( attachment.sizes && attachment.sizes.thumbnail )
-						? attachment.sizes.thumbnail.url
-						: attachment.url;
-					preview.innerHTML = '<img src="' + url + '" style="max-width:75px;height:auto;display:block;margin-bottom:8px;" />';
+					const url =
+						attachment.sizes && attachment.sizes.thumbnail
+							? attachment.sizes.thumbnail.url
+							: attachment.url;
+					preview.innerHTML = `<img src="${ url }" style="max-width:75px;height:auto;display:block;margin-bottom:8px;" />`;
 				}
 				if ( removeBtn ) {
 					removeBtn.style.display = '';
@@ -877,47 +905,59 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	 *
 	 * @param {HTMLInputElement} input The plugin link input element.
 	 */
-	var warningTooltip = ctbpAdmin.i18n.pluginLinkHint || 'Enter a valid URL or WordPress.org plugin slug';
+	const warningTooltip =
+		ctbpAdmin.i18n.pluginLinkHint || 'Enter a valid URL or WordPress.org plugin slug';
 
 	/**
 	 * Returns a green check dashicon with screen reader text.
 	 *
 	 * @param {string} [label] Accessible label. Defaults to "Valid".
+	 * @returns {string} HTML markup for the icon and screen-reader text.
 	 */
 	function validIcon( label ) {
-		var text = label || ctbpAdmin.i18n.valid || 'Valid';
-		return '<span class="dashicons dashicons-yes-alt" style="color: #00a32a;" aria-hidden="true"></span>' +
-			'<span class="screen-reader-text">' + text + '</span>';
+		const text = escapeHtml( label || ctbpAdmin.i18n.valid || 'Valid' );
+		return (
+			'<span class="dashicons dashicons-yes-alt" style="color: #00a32a;" aria-hidden="true"></span>' +
+			`<span class="screen-reader-text">${ text }</span>`
+		);
 	}
 
 	/**
 	 * Returns a yellow warning dashicon with screen reader text.
 	 *
 	 * @param {string} [label] Accessible label. Defaults to warning tooltip.
+	 * @returns {string} HTML markup for the icon and screen-reader text.
 	 */
 	function warningIcon( label ) {
-		var text = label || warningTooltip;
-		return '<span class="dashicons dashicons-warning" style="color: #dba617; cursor: help;" title="' + text + '" aria-hidden="true"></span>' +
-			'<span class="screen-reader-text">' + text + '</span>';
+		const text = escapeHtml( label || warningTooltip );
+		return (
+			`<span class="dashicons dashicons-warning" style="color: #dba617; cursor: help;" title="${ text }" aria-hidden="true"></span>` +
+			`<span class="screen-reader-text">${ text }</span>`
+		);
 	}
 
 	/**
 	 * Checks whether a value looks like a URL (has dots, suggesting a domain).
+	 *
+	 * @param {string} value The candidate value to test.
+	 * @returns {boolean} True if the value looks like a URL.
 	 */
 	function looksLikeUrl( value ) {
-		return /^https?:\/\//i.test( value ) || /[^\/\s]+\.[^\/\s]+/.test( value );
+		return /^https?:\/\//i.test( value ) || /[^/\s]+\.[^/\s]+/.test( value );
 	}
 
 	function wirePluginLinkValidation( input ) {
-		var focusValue = '';
+		let focusValue = '';
 
 		input.addEventListener( 'focus', function () {
 			focusValue = input.value;
 		} );
 
 		input.addEventListener( 'blur', function () {
-			var value    = input.value.trim();
-			var statusEl = input.closest( '.input-text-wrap' ).querySelector( '.ghrp-plugin-link-status' );
+			let value = input.value.trim();
+			const statusEl = input
+				.closest( '.input-text-wrap' )
+				.querySelector( '.ghrp-plugin-link-status' );
 
 			if ( ! statusEl ) {
 				return;
@@ -937,31 +977,27 @@ document.addEventListener( 'DOMContentLoaded', function () {
 			// Looks like a URL (has dots) — auto-prepend https:// if missing.
 			if ( looksLikeUrl( value ) ) {
 				if ( ! /^https?:\/\//i.test( value ) ) {
-					value = 'https://' + value;
+					value = `https://${ value }`;
 					input.value = value;
 				}
-				try {
-					new URL( value );
-					statusEl.innerHTML = validIcon();
-				} catch ( e ) {
-					statusEl.innerHTML = warningIcon();
-				}
+				statusEl.innerHTML = URL.canParse( value ) ? validIcon() : warningIcon();
 				return;
 			}
 
 			// Plain string — validate as WP.org slug via REST.
-			statusEl.innerHTML = '<span class="spinner is-active" style="float:none;margin:0;"></span>';
+			statusEl.innerHTML =
+				'<span class="spinner is-active" style="float:none;margin:0;"></span>';
 
 			window.ctbpFetch(
 				'GET',
 				'/wporg/validate',
-				{ value: value },
+				{ value },
 				function ( data ) {
 					statusEl.innerHTML = data && data.valid ? validIcon() : warningIcon();
 				},
 				function () {
 					statusEl.innerHTML = warningIcon();
-				}
+				},
 			);
 		} );
 	}
@@ -969,24 +1005,24 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	// -------------------------------------------------------------------------
 	// Generate draft post + regeneration dialog.
 	// -------------------------------------------------------------------------
-	const conflictDialog  = document.getElementById( 'ghrp-conflict-dialog' );
-	const conflictInfo    = document.getElementById( 'ghrp-conflict-post-info' );
+	const conflictDialog = document.getElementById( 'ghrp-conflict-dialog' );
+	const conflictInfo = document.getElementById( 'ghrp-conflict-post-info' );
 	const conflictConfirm = document.getElementById( 'ghrp-conflict-confirm' );
-	const conflictCancel  = document.getElementById( 'ghrp-conflict-cancel' );
+	const conflictCancel = document.getElementById( 'ghrp-conflict-cancel' );
 
 	/**
 	 * Updates the Last Post column for a data row with a fade-in highlight.
 	 *
 	 * @param {HTMLElement} btn  The generate button (used to find the row).
-	 * @param {Object}      post Post data from the REST response.
+	 * @param {object}      post Post data from the REST response.
 	 */
 	function updateLastPostColumn( btn, post ) {
-		var dataRow = btn.closest( 'tr' );
+		const dataRow = btn.closest( 'tr' );
 		if ( ! dataRow || ! post ) {
 			return;
 		}
 
-		var lastPostCell = dataRow.querySelector( '.column-last_post' );
+		const lastPostCell = dataRow.querySelector( '.column-last_post' );
 		if ( ! lastPostCell ) {
 			return;
 		}
@@ -995,12 +1031,12 @@ document.addEventListener( 'DOMContentLoaded', function () {
 		// post.tag is a git ref name that can legitimately contain characters
 		// the HTML parser would interpret (`<`, `>`, `&`, quotes). textContent
 		// + property assignment is the only escape that's actually safe here.
-		var label = post.tag ? post.tag + ' on ' + post.date : post.date;
+		const label = post.tag ? `${ post.tag } on ${ post.date }` : post.date;
 
 		while ( lastPostCell.firstChild ) {
 			lastPostCell.removeChild( lastPostCell.firstChild );
 		}
-		var anchor = document.createElement( 'a' );
+		const anchor = document.createElement( 'a' );
 		anchor.href = post.edit_url;
 		anchor.textContent = label;
 		lastPostCell.appendChild( anchor );
@@ -1021,40 +1057,44 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	 * @returns {string} HTML markup.
 	 */
 	function successLinkIcon( editUrl, label ) {
-		return '<a href="' + encodeURI( editUrl ) + '" class="ghrp-generate-success" title="' + label + '" aria-label="' + label + '">' +
-			'<span class="dashicons dashicons-yes-alt" style="color: #00a32a;" aria-hidden="true"></span>' +
-			'<span class="screen-reader-text">' + label + '</span>' +
-			'</a>';
+		const safeUrl = escapeHtml( encodeURI( editUrl ) );
+		const safeLabel = escapeHtml( label );
+		return (
+			`<a href="${ safeUrl }" class="ghrp-generate-success" title="${ safeLabel }" aria-label="${ safeLabel }">` +
+			`<span class="dashicons dashicons-yes-alt" style="color: #00a32a;" aria-hidden="true"></span>` +
+			`<span class="screen-reader-text">${ safeLabel }</span>` +
+			`</a>`
+		);
 	}
 
 	/**
 	 * Shows a result indicator next to the generate button.
 	 *
-	 * Success: green check icon linking to the edit screen, with tooltip.
-	 *          The Last Post column is only updated when the new post is the
-	 *          latest release for the repo (otherwise an older release would
-	 *          appear to overwrite a newer post in that column).
-	 * Error: yellow warning icon with error message as tooltip.
+	 * On success, renders a green check icon linking to the edit screen, with
+	 * tooltip. The Last Post column is only updated when the new post is the
+	 * latest release for the repo (otherwise an older release would appear to
+	 * overwrite a newer post in that column). On error, renders a yellow
+	 * warning icon with the error message as the tooltip.
 	 *
-	 * @param {HTMLElement} btn      The generate button.
-	 * @param {Object|null} post     Post data on success, null on error.
-	 * @param {string}      [error]  Error message on failure.
-	 * @param {boolean}     [isLatest] Whether this generation was for the latest release.
+	 * @param {HTMLElement}   btn        The generate button.
+	 * @param {object | null} post       Post data on success, null on error.
+	 * @param {string}        [error]    Error message on failure.
+	 * @param {boolean}       [isLatest] Whether this generation was for the latest release.
 	 */
 	function showGenerateResult( btn, post, error, isLatest ) {
 		// Hide any active spinner.
-		var spinner = btn.closest( 'td' ).querySelector( '.ghrp-generate-spinner' );
+		const spinner = btn.closest( 'td' ).querySelector( '.ghrp-generate-spinner' );
 		if ( spinner ) {
 			spinner.style.display = 'none';
 		}
 
-		var statusEl = btn.closest( 'td' ).querySelector( '.ghrp-generate-status' );
+		const statusEl = btn.closest( 'td' ).querySelector( '.ghrp-generate-status' );
 		if ( ! statusEl ) {
 			return;
 		}
 
 		if ( post ) {
-			var label = ctbpAdmin.i18n.editGeneratedPost || 'Edit the generated post';
+			const label = ctbpAdmin.i18n.editGeneratedPost || 'Edit the generated post';
 			statusEl.innerHTML = post.edit_url
 				? successLinkIcon( post.edit_url, label )
 				: validIcon( ctbpAdmin.i18n.draftCreated || 'Post created' );
@@ -1062,16 +1102,18 @@ document.addEventListener( 'DOMContentLoaded', function () {
 				updateLastPostColumn( btn, post );
 			}
 		} else {
-			var msg = error || ctbpAdmin.i18n.notImplemented;
+			const msg = error || ctbpAdmin.i18n.notImplemented;
 			statusEl.innerHTML = warningIcon( msg );
 		}
 	}
 
 	/**
 	 * Disables row action links (Edit, Remove) in the same table row.
+	 *
+	 * @param {HTMLElement} btn A button inside the target row.
 	 */
 	function disableRowActions( btn ) {
-		var row = btn.closest( 'tr' );
+		const row = btn.closest( 'tr' );
 		if ( ! row ) return;
 		row.querySelectorAll( '.row-actions a' ).forEach( function ( link ) {
 			link.dataset.ctbpHref = link.getAttribute( 'href' );
@@ -1083,9 +1125,11 @@ document.addEventListener( 'DOMContentLoaded', function () {
 
 	/**
 	 * Re-enables row action links.
+	 *
+	 * @param {HTMLElement} btn A button inside the target row.
 	 */
 	function enableRowActions( btn ) {
-		var row = btn.closest( 'tr' );
+		const row = btn.closest( 'tr' );
 		if ( ! row ) return;
 		row.querySelectorAll( '.row-actions a' ).forEach( function ( link ) {
 			if ( link.dataset.ctbpHref ) {
@@ -1121,7 +1165,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 		btn.disabled = true;
 		disableRowActions( btn );
 
-		var spinner = btn.closest( 'td' ).querySelector( '.ghrp-generate-spinner' );
+		const spinner = btn.closest( 'td' ).querySelector( '.ghrp-generate-spinner' );
 		if ( spinner ) {
 			spinner.style.display = 'inline-block';
 			spinner.classList.add( 'is-active' );
@@ -1140,56 +1184,58 @@ document.addEventListener( 'DOMContentLoaded', function () {
 				btn.disabled = false;
 				enableRowActions( btn );
 				showGenerateResult( btn, null, ( data && data.message ) || null );
-			}
+			},
 		);
 	}
 
 	// -------------------------------------------------------------------------
 	// Version picker dialog
 	// -------------------------------------------------------------------------
-	var versionDialog       = document.getElementById( 'ghrp-version-picker-dialog' );
-	var versionSelect       = document.getElementById( 'ghrp-version-picker-select' );
-	var versionConfirm      = document.getElementById( 'ghrp-version-picker-confirm' );
-	var versionCancel       = document.getElementById( 'ghrp-version-picker-cancel' );
-	var versionConflictRow  = document.getElementById( 'ghrp-version-picker-conflict' );
-	var versionConflictText = document.getElementById( 'ghrp-version-picker-conflict-text' );
-	var versionBackdateHint = document.getElementById( 'ghrp-version-picker-backdate' );
+	const versionDialog = document.getElementById( 'ghrp-version-picker-dialog' );
+	const versionSelect = document.getElementById( 'ghrp-version-picker-select' );
+	const versionConfirm = document.getElementById( 'ghrp-version-picker-confirm' );
+	const versionCancel = document.getElementById( 'ghrp-version-picker-cancel' );
+	const versionConflictRow = document.getElementById( 'ghrp-version-picker-conflict' );
+	const versionConflictText = document.getElementById( 'ghrp-version-picker-conflict-text' );
+	const versionBackdateHint = document.getElementById( 'ghrp-version-picker-backdate' );
 
 	function formatReleasePublishedAt( iso ) {
 		if ( ! iso ) {
 			return '';
 		}
-		var d = new Date( iso );
-		if ( isNaN( d.getTime() ) ) {
+		const d = new Date( iso );
+		if ( Number.isNaN( d.getTime() ) ) {
 			return '';
 		}
-		return d.toLocaleDateString( undefined, { year: 'numeric', month: 'short', day: 'numeric' } );
+		return d.toLocaleDateString( undefined, {
+			year: 'numeric',
+			month: 'short',
+			day: 'numeric',
+		} );
 	}
 
 	/**
 	 * Sends the generate request with an explicit tag.
 	 *
-	 * @param {HTMLElement} btn                 Generate button that initiated the flow.
-	 * @param {string}      tag                 Selected release tag (empty = latest).
-	 * @param {boolean}     conflictAcknowledged
-	 *     When true, a conflict response triggers regeneration immediately
-	 *     instead of opening the conflict dialog. Used by the version picker
-	 *     since its own UI already surfaced the "post exists" warning before
-	 *     the user clicked Regenerate.
+	 * @param {HTMLElement} btn                  Generate button that initiated the flow.
+	 * @param {string}      tag                  Selected release tag (empty = latest).
+	 * @param {boolean}     conflictAcknowledged When true, a conflict response triggers regeneration
+	 * immediately instead of opening the conflict dialog. Used by the version picker since its own
+	 * UI already surfaced the "post exists" warning before the user clicked Regenerate.
 	 */
 	function generateForTag( btn, tag, conflictAcknowledged ) {
 		btn.disabled = true;
 		disableRowActions( btn );
 
-		var spinner = btn.closest( 'td' ).querySelector( '.ghrp-generate-spinner' );
+		const spinner = btn.closest( 'td' ).querySelector( '.ghrp-generate-spinner' );
 		if ( spinner ) {
 			spinner.style.display = 'inline-block';
 			spinner.classList.add( 'is-active' );
 		}
 
-		var statusEl = btn.closest( 'td' ).querySelector( '.ghrp-generate-status' );
+		const statusEl = btn.closest( 'td' ).querySelector( '.ghrp-generate-status' );
 		if ( statusEl ) {
-			statusEl.innerHTML = '<span class="screen-reader-text">' + ctbpAdmin.i18n.generating + '</span>';
+			statusEl.innerHTML = `<span class="screen-reader-text">${ ctbpAdmin.i18n.generating }</span>`;
 		}
 
 		window.ctbpFetch(
@@ -1199,15 +1245,15 @@ document.addEventListener( 'DOMContentLoaded', function () {
 			function ( data ) {
 				btn.disabled = false;
 
-				var sp = btn.closest( 'td' ).querySelector( '.ghrp-generate-spinner' );
+				const sp = btn.closest( 'td' ).querySelector( '.ghrp-generate-spinner' );
 				if ( sp ) {
 					sp.style.display = 'none';
 				}
 
-				var isLatest = ! data || data.is_latest !== false;
+				const isLatest = ! data || data.is_latest !== false;
 
 				if ( data && data.conflict ) {
-					var existing = data.post;
+					const existing = data.post;
 
 					// If the caller already showed a conflict warning (e.g. the
 					// version picker), skip the confirmation dialog and go
@@ -1218,37 +1264,57 @@ document.addEventListener( 'DOMContentLoaded', function () {
 					}
 
 					if ( conflictInfo ) {
-						conflictInfo.textContent =
-							'"' + ( existing ? existing.title : '' ) + '" (' + ( existing ? existing.status : '' ) + ')';
+						conflictInfo.textContent = `"${ existing ? existing.title : '' }" (${
+							existing ? existing.status : ''
+						})`;
 					}
 
-					function onConfirm() {
+					// Mutually-recursive handlers: cleanup references the others by
+					// closure, so it's declared first and the references are
+					// resolved at call time (by which point all three exist).
+					/* eslint-disable no-use-before-define -- closure references resolved at call time. */
+					const cleanup = () => {
+						if ( conflictConfirm ) {
+							conflictConfirm.removeEventListener( 'click', onConfirm );
+						}
+						if ( conflictCancel ) {
+							conflictCancel.removeEventListener( 'click', onCancel );
+						}
+					};
+					/* eslint-enable no-use-before-define */
+					const onConfirm = () => {
 						cleanup();
 						regenerateExisting( btn, existing ? existing.id : 0, isLatest );
-					}
-					function onCancel() {
+					};
+					const onCancel = () => {
 						cleanup();
 						if ( conflictDialog ) {
 							conflictDialog.close();
 						}
-						var s = btn.closest( 'td' ).querySelector( '.ghrp-generate-status' );
+						const s = btn.closest( 'td' ).querySelector( '.ghrp-generate-status' );
 						if ( s ) {
 							s.innerHTML = '';
 						}
 						enableRowActions( btn );
 						btn.focus();
-					}
-					function cleanup() {
-						if ( conflictConfirm ) { conflictConfirm.removeEventListener( 'click', onConfirm ); }
-						if ( conflictCancel )  { conflictCancel.removeEventListener( 'click', onCancel ); }
-					}
+					};
 
-					if ( conflictConfirm ) { conflictConfirm.addEventListener( 'click', onConfirm ); }
-					if ( conflictCancel )  { conflictCancel.addEventListener( 'click', onCancel ); }
+					if ( conflictConfirm ) {
+						conflictConfirm.addEventListener( 'click', onConfirm );
+					}
+					if ( conflictCancel ) {
+						conflictCancel.addEventListener( 'click', onCancel );
+					}
 
 					if ( conflictDialog ) {
 						conflictDialog.showModal();
-					} else if ( window.confirm( ctbpAdmin.i18n.regenerateConfirm || 'A post already exists. Regenerate it?' ) ) {
+					} else if (
+						// eslint-disable-next-line no-alert -- intentional fallback when <dialog> is unsupported.
+						window.confirm(
+							ctbpAdmin.i18n.regenerateConfirm ||
+								'A post already exists. Regenerate it?',
+						)
+					) {
 						regenerateExisting( btn, existing ? existing.id : 0, isLatest );
 					}
 				} else {
@@ -1260,7 +1326,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 				btn.disabled = false;
 				enableRowActions( btn );
 				showGenerateResult( btn, null, ( data && data.message ) || null );
-			}
+			},
 		);
 	}
 
@@ -1280,11 +1346,13 @@ document.addEventListener( 'DOMContentLoaded', function () {
 		// Build the option list. Latest is preselected.
 		versionSelect.innerHTML = '';
 		releases.forEach( function ( r ) {
-			var opt = document.createElement( 'option' );
+			const opt = document.createElement( 'option' );
 			opt.value = r.tag;
-			var dateLabel = formatReleasePublishedAt( r.published_at );
-			opt.textContent = r.tag + ( dateLabel ? '  —  ' + dateLabel : '' ) +
-				( r.has_post ? '  (' + ( ctbpAdmin.i18n.postExists || 'post exists' ) + ')' : '' );
+			const dateLabel = formatReleasePublishedAt( r.published_at );
+			opt.textContent =
+				r.tag +
+				( dateLabel ? `  —  ${ dateLabel }` : '' ) +
+				( r.has_post ? `  (${ ctbpAdmin.i18n.postExists || 'post exists' })` : '' );
 			opt.dataset.hasPost = r.has_post ? '1' : '';
 			opt.dataset.postTitle = ( r.post_status && r.post_status ) || '';
 			opt.dataset.postEditUrl = r.post_edit_url || '';
@@ -1296,12 +1364,12 @@ document.addEventListener( 'DOMContentLoaded', function () {
 		} );
 
 		function refreshHints() {
-			var opt = versionSelect.options[ versionSelect.selectedIndex ];
+			const opt = versionSelect.options[ versionSelect.selectedIndex ];
 			if ( ! opt ) {
 				return;
 			}
-			var isOlder = opt.value !== latestTag;
-			var hasPost = '1' === opt.dataset.hasPost;
+			const isOlder = opt.value !== latestTag;
+			const hasPost = opt.dataset.hasPost === '1';
 
 			if ( versionBackdateHint ) {
 				versionBackdateHint.hidden = ! isOlder;
@@ -1310,7 +1378,8 @@ document.addEventListener( 'DOMContentLoaded', function () {
 			if ( versionConflictRow && versionConflictText ) {
 				if ( hasPost ) {
 					versionConflictText.textContent =
-						ctbpAdmin.i18n.versionPickerConflict || 'A post already exists for this release. Generating will create a new revision and keep the existing post date.';
+						ctbpAdmin.i18n.versionPickerConflict ||
+						'A post already exists for this release. Generating will create a new revision and keep the existing post date.';
 					versionConflictRow.hidden = false;
 					if ( versionConfirm ) {
 						versionConfirm.textContent = ctbpAdmin.i18n.regenerate || 'Regenerate';
@@ -1329,22 +1398,22 @@ document.addEventListener( 'DOMContentLoaded', function () {
 
 		function onConfirm() {
 			cleanup();
-			var tag = versionSelect.value || '';
-			var opt = versionSelect.options[ versionSelect.selectedIndex ];
+			const tag = versionSelect.value || '';
+			const opt = versionSelect.options[ versionSelect.selectedIndex ];
 			// The picker already surfaced a conflict warning for this release;
 			// no need to re-confirm via the conflict dialog downstream.
-			var acknowledged = !! ( opt && '1' === opt.dataset.hasPost );
+			const acknowledged = !! ( opt && opt.dataset.hasPost === '1' );
 			versionDialog.close();
 			generateForTag( btn, tag, acknowledged );
 		}
 		function onCancel() {
 			cleanup();
 			versionDialog.close();
-			var spinner = btn.closest( 'td' ).querySelector( '.ghrp-generate-spinner' );
+			const spinner = btn.closest( 'td' ).querySelector( '.ghrp-generate-spinner' );
 			if ( spinner ) {
 				spinner.style.display = 'none';
 			}
-			var s = btn.closest( 'td' ).querySelector( '.ghrp-generate-status' );
+			const s = btn.closest( 'td' ).querySelector( '.ghrp-generate-status' );
 			if ( s ) {
 				s.innerHTML = '';
 			}
@@ -1353,12 +1422,20 @@ document.addEventListener( 'DOMContentLoaded', function () {
 			btn.focus();
 		}
 		function cleanup() {
-			if ( versionConfirm ) { versionConfirm.removeEventListener( 'click', onConfirm ); }
-			if ( versionCancel )  { versionCancel.removeEventListener( 'click', onCancel ); }
+			if ( versionConfirm ) {
+				versionConfirm.removeEventListener( 'click', onConfirm );
+			}
+			if ( versionCancel ) {
+				versionCancel.removeEventListener( 'click', onCancel );
+			}
 		}
 
-		if ( versionConfirm ) { versionConfirm.addEventListener( 'click', onConfirm ); }
-		if ( versionCancel )  { versionCancel.addEventListener( 'click', onCancel ); }
+		if ( versionConfirm ) {
+			versionConfirm.addEventListener( 'click', onConfirm );
+		}
+		if ( versionCancel ) {
+			versionCancel.addEventListener( 'click', onCancel );
+		}
 
 		versionDialog.showModal();
 	}
@@ -1368,13 +1445,13 @@ document.addEventListener( 'DOMContentLoaded', function () {
 			btn.disabled = true;
 			disableRowActions( btn );
 
-			var spinner = btn.closest( 'td' ).querySelector( '.ghrp-generate-spinner' );
+			const spinner = btn.closest( 'td' ).querySelector( '.ghrp-generate-spinner' );
 			if ( spinner ) {
 				spinner.style.display = 'inline-block';
 				spinner.classList.add( 'is-active' );
 			}
 
-			var statusEl = btn.closest( 'td' ).querySelector( '.ghrp-generate-status' );
+			const statusEl = btn.closest( 'td' ).querySelector( '.ghrp-generate-status' );
 			if ( statusEl ) {
 				statusEl.innerHTML = '';
 			}
@@ -1385,11 +1462,13 @@ document.addEventListener( 'DOMContentLoaded', function () {
 				'/releases/list',
 				{ repo: btn.dataset.repo },
 				function ( data ) {
-					var sp = btn.closest( 'td' ).querySelector( '.ghrp-generate-spinner' );
-					if ( sp ) { sp.style.display = 'none'; }
+					const sp = btn.closest( 'td' ).querySelector( '.ghrp-generate-spinner' );
+					if ( sp ) {
+						sp.style.display = 'none';
+					}
 
-					var releases  = ( data && data.releases ) || [];
-					var latestTag = ( data && data.latest_tag ) || '';
+					const releases = ( data && data.releases ) || [];
+					const latestTag = ( data && data.latest_tag ) || '';
 
 					if ( releases.length <= 1 ) {
 						// Single release (or empty — backend will error) — go directly.
@@ -1404,7 +1483,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 					btn.disabled = false;
 					enableRowActions( btn );
 					showGenerateResult( btn, null, ( errData && errData.message ) || null );
-				}
+				},
 			);
 		} );
 	} );
@@ -1414,5 +1493,28 @@ document.addEventListener( 'DOMContentLoaded', function () {
 		conflictCancel.addEventListener( 'click', function () {
 			conflictDialog.close();
 		} );
+	}
+
+	// -------------------------------------------------------------------------
+	// Auto-trigger generate-post for a just-added repo.
+	//
+	// The add-repo form handler appends `?ghrp_just_added=<identifier>` only
+	// when (a) a latest release was found and (b) no post already exists for
+	// it — see Onboarding_Handler::handle_add(). We call generateForTag()
+	// directly to bypass the version-picker dialog: "latest release" is the
+	// unambiguous intent for a freshly added repo. The query arg is stripped
+	// from the URL after firing so a page refresh doesn't re-trigger.
+	// -------------------------------------------------------------------------
+	const justAddedRepo = new URLSearchParams( window.location.search ).get( 'ghrp_just_added' );
+	if ( justAddedRepo ) {
+		const cleanUrl = new URL( window.location.href );
+		cleanUrl.searchParams.delete( 'ghrp_just_added' );
+		window.history.replaceState( {}, '', cleanUrl.toString() );
+
+		const row = document.querySelector( `tr[data-repo="${ CSS.escape( justAddedRepo ) }"]` );
+		const autoBtn = row ? row.querySelector( '.ghrp-generate-draft' ) : null;
+		if ( autoBtn ) {
+			generateForTag( autoBtn, '' );
+		}
 	}
 } );

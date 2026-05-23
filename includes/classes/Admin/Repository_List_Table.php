@@ -34,7 +34,7 @@ class Repository_List_Table extends \WP_List_Table {
 	/**
 	 * Pre-loaded last post data, keyed by repo identifier.
 	 *
-	 * @var array<string, array{post_id: int, tag: string, date: string, edit_url: string}|null>
+	 * @var array<string, array{post_id: int, tag: string, date: string, edit_url: string, status: string}|null>
 	 */
 	private array $last_posts = [];
 
@@ -62,11 +62,11 @@ class Repository_List_Table extends \WP_List_Table {
 	 */
 	public function get_columns(): array {
 		return [
-			'title'     => __( 'Repository', 'github-release-posts' ),
-			'github'    => __( 'GitHub', 'github-release-posts' ),
-			'last_post' => __( 'Last Post', 'github-release-posts' ),
-			'status'    => __( 'Status', 'github-release-posts' ),
-			'action'    => __( 'Action', 'github-release-posts' ),
+			'title'     => __( 'Repository', 'auto-release-posts-for-github' ),
+			'github'    => __( 'GitHub', 'auto-release-posts-for-github' ),
+			'last_post' => __( 'Last Post', 'auto-release-posts-for-github' ),
+			'status'    => __( 'Status', 'auto-release-posts-for-github' ),
+			'action'    => __( 'Action', 'auto-release-posts-for-github' ),
 		];
 	}
 
@@ -157,6 +157,7 @@ class Repository_List_Table extends \WP_List_Table {
 		echo ' data-tags="' . esc_attr( Admin_Page::tag_ids_to_names( (array) ( $item['tags'] ?? [] ) ) ) . '"';
 		echo ' data-author="' . esc_attr( $item['author'] ?? 0 ) . '"';
 		echo ' data-paused="' . esc_attr( ! empty( $item['paused'] ) ? '1' : '' ) . '"';
+		echo ' data-include-prereleases="' . esc_attr( ! empty( $item['include_prereleases'] ) ? '1' : '' ) . '"';
 		echo ' data-featured-image="' . esc_attr( $item['featured_image'] ?? 0 ) . '"';
 		echo '>';
 		$this->single_row_columns( $item );
@@ -176,12 +177,12 @@ class Repository_List_Table extends \WP_List_Table {
 		$actions = [
 			'edit'   => sprintf(
 				'<a href="#" class="ghrp-edit-repo-btn">%s</a>',
-				esc_html__( 'Edit', 'github-release-posts' )
+				esc_html__( 'Edit', 'auto-release-posts-for-github' )
 			),
 			'delete' => sprintf(
 				'<a href="#" class="ghrp-remove-repo-btn submitdelete" data-repo="%s">%s</a>',
 				esc_attr( $identifier ),
-				esc_html__( 'Remove', 'github-release-posts' )
+				esc_html__( 'Remove', 'auto-release-posts-for-github' )
 			),
 		];
 
@@ -205,8 +206,8 @@ class Repository_List_Table extends \WP_List_Table {
 			'<code>%s</code> <a href="%s" target="_blank" rel="noopener" title="%s"><span class="dashicons dashicons-external" style="font-size:14px;width:14px;height:14px;text-decoration:none;"></span><span class="screen-reader-text">%s</span></a>',
 			esc_html( $identifier ),
 			esc_url( $releases_url ),
-			esc_attr__( 'View releases on GitHub', 'github-release-posts' ),
-			esc_html__( 'View releases on GitHub', 'github-release-posts' )
+			esc_attr__( 'View releases on GitHub', 'auto-release-posts-for-github' ),
+			esc_html__( 'View releases on GitHub', 'auto-release-posts-for-github' )
 		);
 	}
 
@@ -222,15 +223,15 @@ class Repository_List_Table extends \WP_List_Table {
 		if ( $paused ) {
 			return sprintf(
 				'<span class="ghrp-status-badge ghrp-status-paused" aria-label="%s">%s</span>',
-				esc_attr__( 'Paused', 'github-release-posts' ),
-				esc_html__( 'Paused', 'github-release-posts' )
+				esc_attr__( 'Paused', 'auto-release-posts-for-github' ),
+				esc_html__( 'Paused', 'auto-release-posts-for-github' )
 			);
 		}
 
 		return sprintf(
 			'<span class="ghrp-status-badge ghrp-status-active" aria-label="%s">%s</span>',
-			esc_attr__( 'Active', 'github-release-posts' ),
-			esc_html__( 'Active', 'github-release-posts' )
+			esc_attr__( 'Active', 'auto-release-posts-for-github' ),
+			esc_html__( 'Active', 'auto-release-posts-for-github' )
 		);
 	}
 
@@ -249,7 +250,7 @@ class Repository_List_Table extends \WP_List_Table {
 		}
 
 		$data  = $this->last_posts[ $identifier ];
-		$label = $data['tag'] ? $data['tag'] . ' ' . __( 'on', 'github-release-posts' ) . ' ' . $data['date'] : $data['date'];
+		$label = $data['tag'] ? $data['tag'] . ' ' . __( 'on', 'auto-release-posts-for-github' ) . ' ' . $data['date'] : $data['date'];
 
 		// Show post status for non-published posts. Pulled from WP's status
 		// registry so custom statuses (Edit Flow's "Pitch", etc.) render too.
@@ -299,8 +300,8 @@ class Repository_List_Table extends \WP_List_Table {
 		if ( ! $has_connector ) {
 			return sprintf(
 				'<button type="button" class="button button-small" disabled aria-label="%s">%s</button>',
-				esc_attr__( 'No AI connector configured. Set one up under Settings → Connectors.', 'github-release-posts' ),
-				esc_html__( 'Generate post', 'github-release-posts' )
+				esc_attr__( 'No AI connector configured. Set one up under Settings → Connectors.', 'auto-release-posts-for-github' ),
+				esc_html__( 'Generate post', 'auto-release-posts-for-github' )
 			);
 		}
 
@@ -309,8 +310,8 @@ class Repository_List_Table extends \WP_List_Table {
 			'<span class="spinner ghrp-generate-spinner"></span>' .
 			'<span class="ghrp-generate-status" aria-live="polite"></span>',
 			esc_attr( $identifier ),
-			esc_attr__( 'Generate a draft post from the latest release version', 'github-release-posts' ),
-			esc_html__( 'Generate post', 'github-release-posts' )
+			esc_attr__( 'Generate a draft post from the latest release version', 'auto-release-posts-for-github' ),
+			esc_html__( 'Generate post', 'auto-release-posts-for-github' )
 		);
 	}
 
@@ -326,21 +327,21 @@ class Repository_List_Table extends \WP_List_Table {
 		?>
 		<table style="display: none"><tbody id="ghrp-inline-edit">
 			<tr class="ghrp-repo-edit-row inline-edit-row quick-edit-row">
-				<td colspan="<?php echo esc_attr( $col_count ); ?>" class="colspanchange">
+				<td colspan="<?php echo esc_attr( (string) $col_count ); ?>" class="colspanchange">
 					<div class="inline-edit-wrapper" role="region">
 
 						<fieldset class="inline-edit-col-left">
 							<legend class="inline-edit-legend"></legend>
 							<div class="inline-edit-col">
 								<label>
-									<span class="title"><?php echo esc_html__( 'Name', 'github-release-posts' ); ?></span>
+									<span class="title"><?php echo esc_html__( 'Name', 'auto-release-posts-for-github' ); ?></span>
 									<span class="input-text-wrap">
 										<input type="text" data-field="display_name">
 									</span>
 								</label>
 
 								<label>
-									<span class="title"><?php echo esc_html__( 'Project Link', 'github-release-posts' ); ?></span>
+									<span class="title"><?php echo esc_html__( 'Project Link', 'auto-release-posts-for-github' ); ?></span>
 									<span class="input-text-wrap">
 										<input type="text" data-field="plugin_link" class="ghrp-plugin-link-input" placeholder="URL or WordPress.org slug">
 										<span class="ghrp-plugin-link-status" aria-live="polite"></span>
@@ -348,14 +349,14 @@ class Repository_List_Table extends \WP_List_Table {
 								</label>
 
 								<label>
-									<span class="title"><?php echo esc_html__( 'Status', 'github-release-posts' ); ?></span>
+									<span class="title"><?php echo esc_html__( 'Status', 'auto-release-posts-for-github' ); ?></span>
 									<?php
 									$statuses = (array) apply_filters(
 										'ghrp_post_status_options',
 										[
-											'draft'   => __( 'Draft', 'github-release-posts' ),
-											'pending' => __( 'Pending Review', 'github-release-posts' ),
-											'publish' => __( 'Published', 'github-release-posts' ),
+											'draft'   => __( 'Draft', 'auto-release-posts-for-github' ),
+											'pending' => __( 'Pending Review', 'auto-release-posts-for-github' ),
+											'publish' => __( 'Published', 'auto-release-posts-for-github' ),
 										]
 									);
 									?>
@@ -367,7 +368,7 @@ class Repository_List_Table extends \WP_List_Table {
 								</label>
 
 								<label class="inline-edit-author">
-									<span class="title"><?php echo esc_html__( 'Author', 'github-release-posts' ); ?></span>
+									<span class="title"><?php echo esc_html__( 'Author', 'auto-release-posts-for-github' ); ?></span>
 									<?php
 									wp_dropdown_users(
 										[
@@ -384,7 +385,14 @@ class Repository_List_Table extends \WP_List_Table {
 								<div class="inline-edit-group wp-clearfix">
 									<label class="alignleft">
 										<input type="checkbox" data-field="paused" value="1">
-										<span class="checkbox-title"><?php echo esc_html__( 'Pause monitoring', 'github-release-posts' ); ?></span>
+										<span class="checkbox-title"><?php echo esc_html__( 'Pause monitoring', 'auto-release-posts-for-github' ); ?></span>
+									</label>
+								</div>
+
+								<div class="inline-edit-group wp-clearfix">
+									<label class="alignleft" title="<?php echo esc_attr__( 'Generate posts for releases marked as pre-release on GitHub (betas, release candidates, etc.). Off by default; most sites only highlight stable releases.', 'auto-release-posts-for-github' ); ?>">
+										<input type="checkbox" data-field="include_prereleases" value="1">
+										<span class="checkbox-title"><?php echo esc_html__( 'Include pre-releases', 'auto-release-posts-for-github' ); ?></span>
 									</label>
 								</div>
 							</div>
@@ -392,7 +400,7 @@ class Repository_List_Table extends \WP_List_Table {
 
 						<fieldset class="inline-edit-col-center inline-edit-categories">
 							<div class="inline-edit-col">
-								<span class="title inline-edit-categories-label"><?php echo esc_html__( 'Categories', 'github-release-posts' ); ?></span>
+								<span class="title inline-edit-categories-label"><?php echo esc_html__( 'Categories', 'auto-release-posts-for-github' ); ?></span>
 								<input type="hidden" name="" value="0" class="ghrp-tpl-cat-hidden">
 								<ul class="cat-checklist category-checklist ghrp-tpl-categories">
 									<?php
@@ -411,21 +419,21 @@ class Repository_List_Table extends \WP_List_Table {
 							<div class="inline-edit-col">
 								<div class="inline-edit-tags-wrap">
 									<label class="inline-edit-tags">
-										<span class="title"><?php echo esc_html__( 'Tags', 'github-release-posts' ); ?></span>
+										<span class="title"><?php echo esc_html__( 'Tags', 'auto-release-posts-for-github' ); ?></span>
 										<textarea data-field="tags" cols="22" rows="1"></textarea>
 									</label>
-									<p class="howto"><?php echo esc_html__( 'Separate tags with commas', 'github-release-posts' ); ?></p>
+									<p class="howto"><?php echo esc_html__( 'Separate tags with commas', 'auto-release-posts-for-github' ); ?></p>
 								</div>
 
 								<div class="inline-edit-group wp-clearfix ghrp-featured-image-field">
-									<span class="title"><?php echo esc_html__( 'Featured Image', 'github-release-posts' ); ?></span>
+									<span class="title"><?php echo esc_html__( 'Featured Image', 'auto-release-posts-for-github' ); ?></span>
 									<div class="ghrp-featured-image-preview"></div>
 									<input type="hidden" data-field="featured_image" value="0">
 									<button type="button" class="button button-small ghrp-select-image">
-										<?php echo esc_html__( 'Select Image', 'github-release-posts' ); ?>
+										<?php echo esc_html__( 'Select Image', 'auto-release-posts-for-github' ); ?>
 									</button>
 									<button type="button" class="button-link ghrp-remove-image" style="display:none">
-										<?php echo esc_html__( 'Remove', 'github-release-posts' ); ?>
+										<?php echo esc_html__( 'Remove', 'auto-release-posts-for-github' ); ?>
 									</button>
 								</div>
 							</div>
@@ -433,10 +441,10 @@ class Repository_List_Table extends \WP_List_Table {
 
 						<div class="submit inline-edit-save">
 							<button type="submit" class="button button-primary save">
-								<?php echo esc_html__( 'Update', 'github-release-posts' ); ?>
+								<?php echo esc_html__( 'Update', 'auto-release-posts-for-github' ); ?>
 							</button>
 							<button type="button" class="button cancel ghrp-cancel-edit">
-								<?php echo esc_html__( 'Cancel', 'github-release-posts' ); ?>
+								<?php echo esc_html__( 'Cancel', 'auto-release-posts-for-github' ); ?>
 							</button>
 						</div>
 
@@ -453,7 +461,7 @@ class Repository_List_Table extends \WP_List_Table {
 	 * @return void
 	 */
 	public function no_items(): void {
-		esc_html_e( 'No repositories are being tracked yet. Add one below.', 'github-release-posts' );
+		esc_html_e( 'No repositories are being tracked yet. Add one below.', 'auto-release-posts-for-github' );
 	}
 
 	/**

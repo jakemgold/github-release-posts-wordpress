@@ -7,6 +7,8 @@
 
 namespace GitHubReleasePosts\Settings;
 
+use GitHubReleasePosts\GitHub\API_Client;
+use GitHubReleasePosts\GitHub\Readme_Title_Extractor;
 use GitHubReleasePosts\Plugin_Constants;
 
 /**
@@ -102,7 +104,7 @@ class Repository_Settings {
 			throw new \InvalidArgumentException(
 				sprintf(
 					/* translators: %s: user-provided repository identifier */
-					__( '"%s" is not a valid GitHub repository. Use owner/repo format or a full GitHub URL.', 'github-release-posts' ), // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+					__( '"%s" is not a valid GitHub repository. Use owner/repo format or a full GitHub URL.', 'auto-release-posts-for-github' ), // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
 					$input // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
 				)
 			);
@@ -151,10 +153,16 @@ class Repository_Settings {
 	/**
 	 * Adds a new repository to the tracked list.
 	 *
-	 * @param string $input Raw repository identifier (owner/repo or GitHub URL).
+	 * When an API_Client is supplied, the repo's README is fetched and the
+	 * first heading is used as the display name. On any failure (no README,
+	 * network error, unextractable heading, blocklisted generic heading) the
+	 * derived slug-based name is used instead.
+	 *
+	 * @param string          $input      Raw repository identifier (owner/repo or GitHub URL).
+	 * @param API_Client|null $api_client Optional client used to enrich the display name from the repo's README.
 	 * @return array{success: bool, error: string|null, repos: array} Result with repos on success.
 	 */
-	public function add_repository( string $input ): array {
+	public function add_repository( string $input, ?API_Client $api_client = null ): array {
 		try {
 			$identifier = $this->normalize_identifier( $input );
 		} catch ( \InvalidArgumentException $e ) {
@@ -174,7 +182,7 @@ class Repository_Settings {
 					'success' => false,
 					'error'   => sprintf(
 						/* translators: %s: repository identifier */
-						__( '"%s" is already being tracked.', 'github-release-posts' ),
+						__( '"%s" is already being tracked.', 'auto-release-posts-for-github' ),
 						$identifier
 					),
 					'repos'   => $repos,
@@ -189,28 +197,26 @@ class Repository_Settings {
 				'success' => false,
 				'error'   => sprintf(
 					/* translators: %d: maximum number of repositories */
-					__( 'You have reached the maximum of %d tracked repositories.', 'github-release-posts' ),
+					__( 'You have reached the maximum of %d tracked repositories.', 'auto-release-posts-for-github' ),
 					$max
 				),
 				'repos'   => $repos,
 			];
 		}
 
-		// Use the raw repo slug as the display name.
-		// Owners can edit it later via the inline editor.
-		$repo_parts   = explode( '/', $identifier );
-		$display_name = end( $repo_parts );
+		$display_name = $this->resolve_initial_display_name( $identifier, $api_client );
 
 		$repos[] = [
-			'identifier'     => $identifier,
-			'display_name'   => $display_name,
-			'paused'         => false,
-			'plugin_link'    => '',
-			'author'         => get_current_user_id(),
-			'post_status'    => (string) apply_filters( 'ghrp_default_post_status', 'draft' ),
-			'categories'     => (array) apply_filters( 'ghrp_default_categories', [] ),
-			'tags'           => (array) apply_filters( 'ghrp_default_tags', [] ),
-			'featured_image' => 0,
+			'identifier'          => $identifier,
+			'display_name'        => $display_name,
+			'paused'              => false,
+			'plugin_link'         => '',
+			'author'              => get_current_user_id(),
+			'post_status'         => (string) apply_filters( 'ghrp_default_post_status', 'draft' ),
+			'categories'          => (array) apply_filters( 'ghrp_default_categories', [] ),
+			'tags'                => (array) apply_filters( 'ghrp_default_tags', [] ),
+			'featured_image'      => 0,
+			'include_prereleases' => false,
 		];
 
 		$this->save_repositories( $repos );
@@ -220,6 +226,33 @@ class Repository_Settings {
 			'error'   => null,
 			'repos'   => $repos,
 		];
+	}
+
+	/**
+	 * Picks an initial display name for a newly-added repo.
+	 *
+	 * Tries the repo's README first heading via the GitHub API (when a client
+	 * is provided). Falls back to a slug-based derivation when the README is
+	 * missing, the API call fails, or the heading is empty / generic / out
+	 * of range. Either way the user can override via inline edit afterward.
+	 *
+	 * @param string          $identifier Normalised `owner/repo` identifier.
+	 * @param API_Client|null $api_client Optional client for README enrichment.
+	 * @return string Display name.
+	 */
+	private function resolve_initial_display_name( string $identifier, ?API_Client $api_client ): string {
+		if ( null !== $api_client ) {
+			$readme = $api_client->fetch_readme( $identifier );
+			if ( '' !== $readme ) {
+				$title = Readme_Title_Extractor::extract( $readme );
+				if ( '' !== $title ) {
+					return $title;
+				}
+			}
+		}
+
+		$parts = explode( '/', $identifier );
+		return $this->derive_display_name( end( $parts ) );
 	}
 
 	/**
@@ -260,7 +293,7 @@ class Repository_Settings {
 		$repos = $this->get_repositories();
 		$found = false;
 
-		$allowed_fields = [ 'display_name', 'paused', 'plugin_link', 'author', 'post_status', 'categories', 'tags', 'featured_image' ];
+		$allowed_fields = [ 'display_name', 'paused', 'plugin_link', 'author', 'post_status', 'categories', 'tags', 'featured_image', 'include_prereleases' ];
 
 		foreach ( $repos as &$repo ) {
 			if ( ( $repo['identifier'] ?? '' ) === $identifier ) {
@@ -323,7 +356,7 @@ class Repository_Settings {
 			return [
 				'valid'   => false,
 				'type'    => 'url',
-				'warning' => __( 'URL does not appear to be valid.', 'github-release-posts' ),
+				'warning' => __( 'URL does not appear to be valid.', 'auto-release-posts-for-github' ),
 			];
 		}
 
@@ -346,7 +379,7 @@ class Repository_Settings {
 			return [
 				'valid'   => false,
 				'type'    => 'slug',
-				'warning' => __( 'Plugin not found on WordPress.org.', 'github-release-posts' ),
+				'warning' => __( 'Plugin not found on WordPress.org.', 'auto-release-posts-for-github' ),
 			];
 		}
 

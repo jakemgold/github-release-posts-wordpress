@@ -22,4 +22,11 @@ requirements/
 
 # Build artifacts
 changelog-to-blog-post.zip
+
+# Private dev docs (not for distribution)
 CLAUDE.md
+AGENTS.md
+CODE_REVIEW_FINDINGS.md
+
+# Local agent state
+.claude/

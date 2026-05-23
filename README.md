@@ -1,8 +1,8 @@
-# GitHub Release Posts for WordPress
+# Auto Release Posts for GitHub — WordPress Plugin
 
-**Automatically generate blog posts from GitHub releases using AI.**
+**A WordPress plugin that automatically generates blog posts from GitHub releases using AI.**
 
-A WordPress plugin that monitors GitHub repositories for new releases and uses AI to research each release and generate a human-readable blog post about it. Posts can be automatically published or held as drafts for review, with email notifications when new posts are ready.
+Monitors GitHub repositories for new releases and uses AI to research each release and generate a human-readable blog post about it. Posts can be automatically published or held as drafts for review, with email notifications when new posts are ready.
 
 Built on the **[AI Client API and Connectors](https://make.wordpress.org/core/2026/05/14/wordpress-7-0-field-guide/#ai-connectors-screen)** introduced in WordPress 7.0 — configure your AI provider (Anthropic, OpenAI, Google, or any other connector) once under Settings → Connectors, and this plugin uses whatever you've set up. No AI API keys to manage in the plugin itself.
 
@@ -65,6 +65,7 @@ AI-written content with embedded images, plus the GitHub Release sidebar panel f
 - Source attribution in the block editor — see which GitHub release generated each post
 - Idempotency — the same release never creates duplicate posts
 - Optional project link support — enter a URL or WordPress.org slug for download CTAs
+- Optional pre-release tracking per repository (off by default)
 - Optional AI disclosure note appended to generated posts
 
 ## Requirements
@@ -117,7 +118,7 @@ The plugin uses a GitHub Personal Access Token (PAT) to read release data. A PAT
 A fine-grained token can be scoped to a single user or organization and to specific repositories — ideal for a "service account" that monitors a known set of releases.
 
 1. Go to [github.com/settings/personal-access-tokens/new](https://github.com/settings/personal-access-tokens/new).
-2. **Token name** — something descriptive, e.g. `My Site — GitHub Release Posts`.
+2. **Token name** — something descriptive, e.g. `My Site — Auto Release Posts for GitHub`.
 3. **Expiration** — pick a value that fits your security policy.
 4. **Resource owner** — choose your user account or an organization you belong to.
 5. **Repository access** — choose **Only select repositories** and pick the repos you want to monitor. (Or **All repositories** if you'd rather not maintain the list here.)
@@ -180,7 +181,7 @@ GPL-2.0-or-later. See [LICENSE](https://www.gnu.org/licenses/gpl-2.0.html).
 
 ## Trademarks
 
-GitHub Release Posts is an independent project. It is not affiliated with, endorsed by, or sponsored by GitHub, Inc. or the WordPress Foundation. "GitHub" and "WordPress" are used here for descriptive purposes only.
+Auto Release Posts for GitHub is an independent project. It is not affiliated with, endorsed by, or sponsored by GitHub, Inc. or the WordPress Foundation. "GitHub" and "WordPress" are used here for descriptive purposes only.
 
 ## Like what you see?
 

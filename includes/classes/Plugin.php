@@ -85,7 +85,7 @@ class Plugin {
 		if ( ! isset( $schedules['weekly'] ) ) {
 			$schedules['weekly'] = [
 				'interval' => WEEK_IN_SECONDS,
-				'display'  => __( 'Once Weekly', 'github-release-posts' ),
+				'display'  => __( 'Once Weekly', 'auto-release-posts-for-github' ),
 			];
 		}
 
@@ -98,10 +98,14 @@ class Plugin {
 	 * @return void
 	 */
 	public function i18n(): void {
+		// Third argument is documented as plugin-relative (WP concatenates it
+		// onto WP_PLUGIN_DIR). Passing an absolute path produces an invalid
+		// `/absolute/path/.../languages` lookup. Build the plugin-relative
+		// form so locally-bundled .mo files under `languages/` actually load.
 		load_plugin_textdomain(
-			'github-release-posts',
+			'auto-release-posts-for-github',
 			false,
-			GITHUB_RELEASE_POSTS_PATH . 'languages'
+			dirname( plugin_basename( GITHUB_RELEASE_POSTS_PATH . 'github-release-posts.php' ) ) . '/languages'
 		);
 	}
 

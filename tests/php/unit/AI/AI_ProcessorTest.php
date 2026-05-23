@@ -93,10 +93,9 @@ class AI_ProcessorTest extends TestCase {
 		$this->factory->method( 'get_provider' )->willReturn( $error );
 
 		// Simulate existing count of 2 — next call makes it 3.
-		$key = md5( 'owner/repo' . 'v1.0.0' );
 		\WP_Mock::userFunction( 'get_option' )
 			->with( Plugin_Constants::OPTION_AI_FAILURE_COUNTS, [] )
-			->andReturn( [ $key => 2 ] );
+			->andReturn( [ 'owner/repo' => [ 'v1.0.0' => 2 ] ] );
 
 		\WP_Mock::userFunction( 'update_option' )->andReturn( true );
 
@@ -145,11 +144,10 @@ class AI_ProcessorTest extends TestCase {
 				AI_Processor::CACHE_TTL
 			);
 
-		// Failure count cleared.
-		$key = md5( 'owner/repo' . 'v1.0.0' );
+		// Failure count cleared (uses nested [identifier][tag] schema).
 		\WP_Mock::userFunction( 'get_option' )
 			->with( Plugin_Constants::OPTION_AI_FAILURE_COUNTS, [] )
-			->andReturn( [ $key => 1 ] );
+			->andReturn( [ 'owner/repo' => [ 'v1.0.0' => 1 ] ] );
 
 		\WP_Mock::userFunction( 'update_option' )
 			->once()

@@ -84,7 +84,7 @@ class Settings_Page {
 	private function register_github_section(): void {
 		add_settings_section(
 			'ghrp_section_github',
-			__( 'GitHub', 'github-release-posts' ),
+			__( 'GitHub', 'auto-release-posts-for-github' ),
 			'__return_null',
 			self::PAGE_SLUG
 		);
@@ -101,7 +101,7 @@ class Settings_Page {
 
 		add_settings_field(
 			Plugin_Constants::OPTION_GITHUB_PAT,
-			__( 'Personal Access Token', 'github-release-posts' ),
+			__( 'Personal Access Token', 'auto-release-posts-for-github' ),
 			[ $this, 'render_github_pat_field' ],
 			self::PAGE_SLUG,
 			'ghrp_section_github',
@@ -136,7 +136,7 @@ class Settings_Page {
 		>
 			<?php if ( 'valid' === $validation['state'] ) : ?>
 				<span class="dashicons dashicons-yes-alt" style="color: #00a32a;" aria-hidden="true"></span>
-				<span><?php esc_html_e( 'Validated', 'github-release-posts' ); ?></span>
+				<span><?php esc_html_e( 'Validated', 'auto-release-posts-for-github' ); ?></span>
 			<?php elseif ( 'invalid' === $validation['state'] ) : ?>
 				<span class="dashicons dashicons-warning" style="color: #dba617;" aria-hidden="true"></span>
 				<span><?php echo esc_html( $validation['message'] ); ?></span>
@@ -144,7 +144,7 @@ class Settings_Page {
 		</span>
 		<?php if ( ! $externally_set ) : ?>
 			<p class="description">
-				<?php echo esc_html__( 'Optional. Raises the GitHub API rate limit from 60 to 5,000 requests per hour and prepopulates the repository picker on the Repositories tab.', 'github-release-posts' ); ?>
+				<?php echo esc_html__( 'Optional. Raises the GitHub API rate limit from 60 to 5,000 requests per hour and prepopulates the repository picker on the Repositories tab.', 'auto-release-posts-for-github' ); ?>
 			</p>
 		<?php endif; ?>
 		<?php
@@ -224,14 +224,14 @@ class Settings_Page {
 	private function register_ai_provider_section(): void {
 		add_settings_section(
 			'ghrp_section_ai_provider',
-			__( 'Post Creation', 'github-release-posts' ),
+			__( 'Post Creation', 'auto-release-posts-for-github' ),
 			'__return_null',
 			self::PAGE_SLUG
 		);
 
 		add_settings_field(
 			'ghrp_connector_status',
-			__( 'AI Connector', 'github-release-posts' ),
+			__( 'AI Connector', 'auto-release-posts-for-github' ),
 			[ $this, 'render_connector_status' ],
 			self::PAGE_SLUG,
 			'ghrp_section_ai_provider'
@@ -250,7 +250,7 @@ class Settings_Page {
 
 		add_settings_field(
 			Plugin_Constants::OPTION_RESEARCH_DEPTH,
-			__( 'Research Depth', 'github-release-posts' ),
+			__( 'Research Depth', 'auto-release-posts-for-github' ),
 			[ $this, 'render_research_depth_field' ],
 			self::PAGE_SLUG,
 			'ghrp_section_ai_provider'
@@ -269,7 +269,7 @@ class Settings_Page {
 
 		add_settings_field(
 			Plugin_Constants::OPTION_TITLE_FORMAT,
-			__( 'Post Titles', 'github-release-posts' ),
+			__( 'Post Titles', 'auto-release-posts-for-github' ),
 			[ $this, 'render_title_format_field' ],
 			self::PAGE_SLUG,
 			'ghrp_section_ai_provider'
@@ -288,7 +288,7 @@ class Settings_Page {
 
 		add_settings_field(
 			Plugin_Constants::OPTION_AUDIENCE_LEVEL,
-			__( 'Post Audience', 'github-release-posts' ),
+			__( 'Post Audience', 'auto-release-posts-for-github' ),
 			[ $this, 'render_audience_level_field' ],
 			self::PAGE_SLUG,
 			'ghrp_section_ai_provider',
@@ -308,7 +308,7 @@ class Settings_Page {
 
 		add_settings_field(
 			Plugin_Constants::OPTION_CUSTOM_PROMPT_INSTRUCTIONS,
-			__( 'Custom Prompt Instructions', 'github-release-posts' ),
+			__( 'Custom Prompt Instructions', 'auto-release-posts-for-github' ),
 			[ $this, 'render_custom_prompt_field' ],
 			self::PAGE_SLUG,
 			'ghrp_section_ai_provider',
@@ -328,7 +328,7 @@ class Settings_Page {
 
 		add_settings_field(
 			Plugin_Constants::OPTION_AI_DISCLOSURE,
-			__( 'AI Disclosure', 'github-release-posts' ),
+			__( 'AI Disclosure', 'auto-release-posts-for-github' ),
 			[ $this, 'render_ai_disclosure_field' ],
 			self::PAGE_SLUG,
 			'ghrp_section_ai_provider'
@@ -347,14 +347,14 @@ class Settings_Page {
 	public function render_connector_status(): void {
 		$status          = $this->get_connector_status();
 		$connectors_url  = admin_url( 'options-connectors.php' );
-		$connectors_link = '<a href="' . esc_url( $connectors_url ) . '">' . esc_html__( 'WordPress Connectors', 'github-release-posts' ) . '</a>';
+		$connectors_link = '<a href="' . esc_url( $connectors_url ) . '">' . esc_html__( 'WordPress Connectors', 'auto-release-posts-for-github' ) . '</a>';
 
 		if ( ! $status['configured'] ) {
 			printf(
 				'<p>&#10007; %s</p>',
 				sprintf(
 					/* translators: %s: link to WordPress Connectors settings */
-					esc_html__( 'No AI connector configured. Set one up in %s.', 'github-release-posts' ),
+					esc_html__( 'No AI connector configured. Set one up in %s.', 'auto-release-posts-for-github' ),
 					$connectors_link // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 				)
 			);
@@ -372,7 +372,7 @@ class Settings_Page {
 				'<p>&#10003; %s</p>',
 				sprintf(
 					/* translators: 1: link to WordPress Connectors settings, 2: provider name, 3: model ID */
-					esc_html__( 'Using %1$s for %2$s (%3$s)', 'github-release-posts' ),
+					esc_html__( 'Using %1$s for %2$s (%3$s)', 'auto-release-posts-for-github' ),
 					$connectors_link,
 					$provider_label,
 					'<code>' . $model_label . '</code>'
@@ -384,7 +384,7 @@ class Settings_Page {
 				'<p>&#9888; %s</p>',
 				sprintf(
 					/* translators: 1: link to WordPress Connectors settings, 2: provider name, 3: model ID */
-					esc_html__( 'Using %1$s for %2$s (%3$s)', 'github-release-posts' ),
+					esc_html__( 'Using %1$s for %2$s (%3$s)', 'auto-release-posts-for-github' ),
 					$connectors_link,
 					$provider_label,
 					'<code>' . $model_label . '</code>'
@@ -394,7 +394,7 @@ class Settings_Page {
 				'<p class="description">%s</p>',
 				sprintf(
 					/* translators: 1: provider name, 2: recommended model */
-					esc_html__( 'For best results, your %1$s account should support %2$s.', 'github-release-posts' ),
+					esc_html__( 'For best results, your %1$s account should support %2$s.', 'auto-release-posts-for-github' ),
 					$provider_label,
 					esc_html( $status['recommended_model'] )
 				)
@@ -405,13 +405,13 @@ class Settings_Page {
 				'<p>&#9888; %s</p>',
 				sprintf(
 					/* translators: 1: link to WordPress Connectors settings, 2: provider name, 3: model ID */
-					esc_html__( 'Using %1$s for %2$s (%3$s)', 'github-release-posts' ),
+					esc_html__( 'Using %1$s for %2$s (%3$s)', 'auto-release-posts-for-github' ),
 					$connectors_link,
 					$provider_label,
 					'<code>' . $model_label . '</code>'
 				)
 			);
-			echo '<p class="description">' . esc_html__( 'We recommend the Anthropic, OpenAI, or Google connector.', 'github-release-posts' ) . '</p>';
+			echo '<p class="description">' . esc_html__( 'We recommend the Anthropic, OpenAI, or Google connector.', 'auto-release-posts-for-github' ) . '</p>';
 		}
 		// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
 	}
@@ -555,18 +555,18 @@ class Settings_Page {
 		<fieldset>
 			<label>
 				<input type="radio" name="<?php echo esc_attr( Plugin_Constants::OPTION_RESEARCH_DEPTH ); ?>" value="standard" <?php checked( $depth, 'standard' ); ?>>
-				<strong><?php echo esc_html__( 'Standard', 'github-release-posts' ); ?></strong> —
-				<?php echo esc_html__( 'Reviews release notes, linked issues and PRs, metadata, and README.', 'github-release-posts' ); ?>
+				<strong><?php echo esc_html__( 'Standard', 'auto-release-posts-for-github' ); ?></strong> —
+				<?php echo esc_html__( 'Reviews release notes, linked issues and PRs, metadata, and README.', 'auto-release-posts-for-github' ); ?>
 			</label>
 			<br>
 			<label>
 				<input type="radio" name="<?php echo esc_attr( Plugin_Constants::OPTION_RESEARCH_DEPTH ); ?>" value="deep" <?php checked( $depth, 'deep' ); ?>>
-				<strong><?php echo esc_html__( 'Deep', 'github-release-posts' ); ?></strong> —
-				<?php echo esc_html__( 'Adds a review of commit messages and file changes since the last release.', 'github-release-posts' ); ?>
+				<strong><?php echo esc_html__( 'Deep', 'auto-release-posts-for-github' ); ?></strong> —
+				<?php echo esc_html__( 'Adds a review of commit messages and file changes since the last release.', 'auto-release-posts-for-github' ); ?>
 			</label>
 		</fieldset>
 		<p class="description">
-			<?php echo esc_html__( 'Deep research may increase API usage and generation time, especially for repositories with many commits between releases.', 'github-release-posts' ); ?>
+			<?php echo esc_html__( 'Deep research may increase API usage and generation time, especially for repositories with many commits between releases.', 'auto-release-posts-for-github' ); ?>
 		</p>
 		<?php
 	}
@@ -593,24 +593,24 @@ class Settings_Page {
 		<fieldset>
 			<label>
 				<input type="radio" name="<?php echo esc_attr( Plugin_Constants::OPTION_TITLE_FORMAT ); ?>" value="full" <?php checked( $format, 'full' ); ?>>
-				<strong><?php echo esc_html__( 'Plugin name and version', 'github-release-posts' ); ?></strong> —
-				<?php echo esc_html__( 'e.g. "My Plugin v1.2 — New dashboard widget"', 'github-release-posts' ); ?>
+				<strong><?php echo esc_html__( 'Plugin name and version', 'auto-release-posts-for-github' ); ?></strong> —
+				<?php echo esc_html__( 'e.g. "My Plugin v1.2 — New dashboard widget"', 'auto-release-posts-for-github' ); ?>
 			</label>
 			<br>
 			<label>
 				<input type="radio" name="<?php echo esc_attr( Plugin_Constants::OPTION_TITLE_FORMAT ); ?>" value="version" <?php checked( $format, 'version' ); ?>>
-				<strong><?php echo esc_html__( 'Version number only', 'github-release-posts' ); ?></strong> —
-				<?php echo esc_html__( 'e.g. "Version 1.2 — New dashboard widget"', 'github-release-posts' ); ?>
+				<strong><?php echo esc_html__( 'Version number only', 'auto-release-posts-for-github' ); ?></strong> —
+				<?php echo esc_html__( 'e.g. "Version 1.2 — New dashboard widget"', 'auto-release-posts-for-github' ); ?>
 			</label>
 			<br>
 			<label>
 				<input type="radio" name="<?php echo esc_attr( Plugin_Constants::OPTION_TITLE_FORMAT ); ?>" value="none" <?php checked( $format, 'none' ); ?>>
-				<strong><?php echo esc_html__( 'No prefix', 'github-release-posts' ); ?></strong> —
-				<?php echo esc_html__( 'The AI writes the full title with no automatic prefix.', 'github-release-posts' ); ?>
+				<strong><?php echo esc_html__( 'No prefix', 'auto-release-posts-for-github' ); ?></strong> —
+				<?php echo esc_html__( 'The AI writes the full title with no automatic prefix.', 'auto-release-posts-for-github' ); ?>
 			</label>
 		</fieldset>
 		<p class="description">
-			<?php echo esc_html__( 'For sites covering multiple plugins, the plugin name prefix is recommended. For single-plugin sites, the version-only or no-prefix options give more variety.', 'github-release-posts' ); ?>
+			<?php echo esc_html__( 'For sites covering multiple plugins, the plugin name prefix is recommended. For single-plugin sites, the version-only or no-prefix options give more variety.', 'auto-release-posts-for-github' ); ?>
 		</p>
 		<?php
 	}
@@ -636,30 +636,30 @@ class Settings_Page {
 		<fieldset>
 			<label>
 				<input type="radio" name="<?php echo esc_attr( Plugin_Constants::OPTION_AUDIENCE_LEVEL ); ?>" value="general" <?php checked( $level, 'general' ); ?>>
-				<strong><?php echo esc_html__( 'Site owners & managers', 'github-release-posts' ); ?></strong> —
-				<?php echo esc_html__( 'Plain language, no jargon.', 'github-release-posts' ); ?>
+				<strong><?php echo esc_html__( 'Site owners & managers', 'auto-release-posts-for-github' ); ?></strong> —
+				<?php echo esc_html__( 'Plain language, no jargon.', 'auto-release-posts-for-github' ); ?>
 			</label>
 			<br>
 			<label>
 				<input type="radio" name="<?php echo esc_attr( Plugin_Constants::OPTION_AUDIENCE_LEVEL ); ?>" value="mixed" <?php checked( $level, 'mixed' ); ?>>
-				<strong><?php echo esc_html__( 'Mixed audience', 'github-release-posts' ); ?></strong> —
-				<?php echo esc_html__( 'Accessible language, developer section when relevant (default).', 'github-release-posts' ); ?>
+				<strong><?php echo esc_html__( 'Mixed audience', 'auto-release-posts-for-github' ); ?></strong> —
+				<?php echo esc_html__( 'Accessible language, developer section when relevant (default).', 'auto-release-posts-for-github' ); ?>
 			</label>
 			<br>
 			<label>
 				<input type="radio" name="<?php echo esc_attr( Plugin_Constants::OPTION_AUDIENCE_LEVEL ); ?>" value="developer" <?php checked( $level, 'developer' ); ?>>
-				<strong><?php echo esc_html__( 'Developers & builders', 'github-release-posts' ); ?></strong> —
-				<?php echo esc_html__( 'Technical details woven throughout.', 'github-release-posts' ); ?>
+				<strong><?php echo esc_html__( 'Developers & builders', 'auto-release-posts-for-github' ); ?></strong> —
+				<?php echo esc_html__( 'Technical details woven throughout.', 'auto-release-posts-for-github' ); ?>
 			</label>
 			<br>
 			<label>
 				<input type="radio" name="<?php echo esc_attr( Plugin_Constants::OPTION_AUDIENCE_LEVEL ); ?>" value="engineering" <?php checked( $level, 'engineering' ); ?>>
-				<strong><?php echo esc_html__( 'Engineering teams', 'github-release-posts' ); ?></strong> —
-				<?php echo esc_html__( 'Full technical depth, API and hook details.', 'github-release-posts' ); ?>
+				<strong><?php echo esc_html__( 'Engineering teams', 'auto-release-posts-for-github' ); ?></strong> —
+				<?php echo esc_html__( 'Full technical depth, API and hook details.', 'auto-release-posts-for-github' ); ?>
 			</label>
 		</fieldset>
 		<p class="description">
-			<?php echo esc_html__( 'Controls how technical the generated posts are and who they are written for.', 'github-release-posts' ); ?>
+			<?php echo esc_html__( 'Controls how technical the generated posts are and who they are written for.', 'auto-release-posts-for-github' ); ?>
 		</p>
 		<?php
 	}
@@ -688,10 +688,10 @@ class Settings_Page {
 			name="<?php echo esc_attr( Plugin_Constants::OPTION_CUSTOM_PROMPT_INSTRUCTIONS ); ?>"
 			rows="5"
 			class="large-text"
-			placeholder="<?php echo esc_attr__( 'e.g. Write in a friendly, conversational tone. Our audience is non-technical WordPress site owners. Avoid jargon. See example post: https://example.com/blog/plugin-update', 'github-release-posts' ); ?>"
+			placeholder="<?php echo esc_attr__( 'e.g. Write in a friendly, conversational tone. Our audience is non-technical WordPress site owners. Avoid jargon. See example post: https://example.com/blog/plugin-update', 'auto-release-posts-for-github' ); ?>"
 		><?php echo esc_textarea( $custom_instructions ); ?></textarea>
 		<p class="description">
-			<?php echo esc_html__( 'Optional. Additional instructions sent to the AI when generating posts. Use this to guide the writing style, tone, voice, audience, or point to examples of posts you like. Best results with under 500 characters.', 'github-release-posts' ); ?>
+			<?php echo esc_html__( 'Optional. Additional instructions sent to the AI when generating posts. Use this to guide the writing style, tone, voice, audience, or point to examples of posts you like. Best results with under 500 characters.', 'auto-release-posts-for-github' ); ?>
 		</p>
 		<?php
 	}
@@ -711,7 +711,7 @@ class Settings_Page {
 				value="1"
 				<?php checked( $enabled ); ?>
 			>
-			<?php echo esc_html__( 'Append a note to generated posts stating the content was created with AI assistance.', 'github-release-posts' ); ?>
+			<?php echo esc_html__( 'Append a note to generated posts stating the content was created with AI assistance.', 'auto-release-posts-for-github' ); ?>
 		</label>
 		<?php
 	}
@@ -732,9 +732,9 @@ class Settings_Page {
 	private function register_notifications_section(): void {
 		add_settings_section(
 			'ghrp_section_notifications',
-			__( 'Notifications', 'github-release-posts' ),
+			__( 'Notifications', 'auto-release-posts-for-github' ),
 			function () {
-				echo '<p>' . esc_html__( 'Send email notifications when posts are generated.', 'github-release-posts' ) . '</p>';
+				echo '<p>' . esc_html__( 'Send email notifications when posts are generated.', 'auto-release-posts-for-github' ) . '</p>';
 			},
 			self::PAGE_SLUG
 		);
@@ -752,7 +752,7 @@ class Settings_Page {
 
 		add_settings_field(
 			Plugin_Constants::OPTION_NOTIFY_SITE_OWNER,
-			__( 'Site Owner', 'github-release-posts' ),
+			__( 'Site Owner', 'auto-release-posts-for-github' ),
 			[ $this, 'render_notify_site_owner_field' ],
 			self::PAGE_SLUG,
 			'ghrp_section_notifications'
@@ -771,7 +771,7 @@ class Settings_Page {
 
 		add_settings_field(
 			Plugin_Constants::OPTION_ADDITIONAL_EMAILS,
-			__( 'Additional Addresses', 'github-release-posts' ),
+			__( 'Additional Addresses', 'auto-release-posts-for-github' ),
 			[ $this, 'render_additional_emails_field' ],
 			self::PAGE_SLUG,
 			'ghrp_section_notifications',
@@ -807,7 +807,7 @@ class Settings_Page {
 			<?php
 			printf(
 				/* translators: %s: admin email address */
-				esc_html__( 'Send notifications to %s (the admin email from Settings > General)', 'github-release-posts' ),
+				esc_html__( 'Send notifications to %s (the admin email from Settings > General)', 'auto-release-posts-for-github' ),
 				'<code>' . esc_html( $admin_email ) . '</code>'
 			);
 			?>
@@ -827,12 +827,12 @@ class Settings_Page {
 			type="text"
 			id="<?php echo esc_attr( Plugin_Constants::OPTION_ADDITIONAL_EMAILS ); ?>"
 			name="<?php echo esc_attr( Plugin_Constants::OPTION_ADDITIONAL_EMAILS ); ?>"
-			value="<?php echo esc_attr( $notif['additional_emails'] ?? '' ); ?>"
+			value="<?php echo esc_attr( $notif['additional_emails'] ); ?>"
 			class="large-text"
 			placeholder="editor@example.com, team@example.com"
 		>
 		<p class="description">
-			<?php echo esc_html__( 'Comma-separated list of email addresses (up to 5).', 'github-release-posts' ); ?>
+			<?php echo esc_html__( 'Comma-separated list of email addresses (up to 5).', 'auto-release-posts-for-github' ); ?>
 		</p>
 		<?php
 	}
@@ -845,7 +845,7 @@ class Settings_Page {
 	public function render_test_notification_field(): void {
 		?>
 		<button type="button" id="ghrp-test-notification" class="button">
-			<?php echo esc_html__( 'Send Test Email', 'github-release-posts' ); ?>
+			<?php echo esc_html__( 'Send Test Email', 'auto-release-posts-for-github' ); ?>
 		</button>
 		<span class="spinner ghrp-test-notification-spinner"></span>
 		<span id="ghrp-test-notification-result" style="vertical-align: middle;" aria-live="polite"></span>
@@ -900,7 +900,7 @@ class Settings_Page {
 				'ghrp_invalid_additional_emails',
 				sprintf(
 					/* translators: %s: comma-separated list of invalid addresses */
-					__( 'The following email addresses are invalid and were removed: %s', 'github-release-posts' ),
+					__( 'The following email addresses are invalid and were removed: %s', 'auto-release-posts-for-github' ),
 					esc_html( implode( ', ', $invalid ) )
 				),
 				'error'
@@ -911,7 +911,7 @@ class Settings_Page {
 			add_settings_error(
 				self::OPTION_GROUP,
 				'ghrp_too_many_emails',
-				__( 'Only the first 5 valid email addresses were saved.', 'github-release-posts' ),
+				__( 'Only the first 5 valid email addresses were saved.', 'auto-release-posts-for-github' ),
 				'warning'
 			);
 		}
@@ -931,7 +931,7 @@ class Settings_Page {
 	private function register_schedule_section(): void {
 		add_settings_section(
 			'ghrp_section_schedule',
-			__( 'Release Check Schedule', 'github-release-posts' ),
+			__( 'Release Check Schedule', 'auto-release-posts-for-github' ),
 			[ $this, 'render_schedule_section' ],
 			self::PAGE_SLUG
 		);
@@ -954,12 +954,12 @@ class Settings_Page {
 				<?php
 				printf(
 					/* translators: %s: human-readable time since last run */
-					esc_html__( 'Last run: %s ago.', 'github-release-posts' ),
+					esc_html__( 'Last run: %s ago.', 'auto-release-posts-for-github' ),
 					esc_html( human_time_diff( $last_run_at, $now ) )
 				);
 				?>
 			<?php else : ?>
-				<?php echo esc_html__( 'Last run: No runs yet.', 'github-release-posts' ); ?>
+				<?php echo esc_html__( 'Last run: No runs yet.', 'auto-release-posts-for-github' ); ?>
 			<?php endif; ?>
 
 			<?php if ( $next_check ) : ?>
@@ -967,20 +967,20 @@ class Settings_Page {
 				<?php
 				printf(
 					/* translators: %s: human-readable time until next check */
-					esc_html__( 'Next run: in %s.', 'github-release-posts' ),
+					esc_html__( 'Next run: in %s.', 'auto-release-posts-for-github' ),
 					esc_html( human_time_diff( $now, $next_check ) )
 				);
 				?>
 			<?php else : ?>
 				&nbsp;
-				<?php echo esc_html__( 'Next run: not scheduled. If this persists, check your site\'s WP-Cron health or configure a real server cron to call wp-cron.php.', 'github-release-posts' ); ?>
+				<?php echo esc_html__( 'Next run: not scheduled. If this persists, check your site\'s WP-Cron health or configure a real server cron to call wp-cron.php.', 'auto-release-posts-for-github' ); ?>
 			<?php endif; ?>
 		</p>
 		<p class="description">
 			<?php
 			printf(
 				/* translators: %s: current frequency (e.g. "daily") */
-				esc_html__( 'Checks run %1$s by default. Developers can override this with the %2$s filter.', 'github-release-posts' ),
+				esc_html__( 'Checks run %1$s by default. Developers can override this with the %2$s filter.', 'auto-release-posts-for-github' ),
 				esc_html( (string) apply_filters( 'ghrp_check_frequency', 'daily' ) ),
 				'<code>ghrp_check_frequency</code>'
 			);
@@ -993,33 +993,4 @@ class Settings_Page {
 	// Helpers
 	// -------------------------------------------------------------------------
 
-	/**
-	 * Converts a comma-separated string of tag names into an array of term IDs.
-	 *
-	 * Tags that don't exist are silently skipped.
-	 *
-	 * @param string $raw Comma-separated tag names.
-	 * @return int[] Array of tag term IDs.
-	 */
-	private function resolve_tag_names_to_ids( string $raw ): array {
-		if ( '' === trim( $raw ) ) {
-			return [];
-		}
-
-		$names = array_map( 'trim', explode( ',', $raw ) );
-		$ids   = [];
-
-		foreach ( $names as $name ) {
-			if ( '' === $name ) {
-				continue;
-			}
-
-			$term = get_term_by( 'name', $name, 'post_tag' );
-			if ( $term && ! is_wp_error( $term ) ) {
-				$ids[] = (int) $term->term_id;
-			}
-		}
-
-		return $ids;
-	}
 }

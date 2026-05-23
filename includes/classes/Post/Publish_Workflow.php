@@ -196,7 +196,7 @@ class Publish_Workflow {
 			);
 			$lines[] = sprintf(
 				/* translators: 1: count, 2: comma-separated edit links */
-				_n( '%1$d draft created: %2$s', '%1$d drafts created: %2$s', $count, 'github-release-posts' ),
+				_n( '%1$d draft created: %2$s', '%1$d drafts created: %2$s', $count, 'auto-release-posts-for-github' ),
 				$count,
 				implode( ', ', $links )
 			);
@@ -217,7 +217,7 @@ class Publish_Workflow {
 			);
 			$lines[] = sprintf(
 				/* translators: 1: count, 2: comma-separated edit links */
-				_n( '%1$d post published: %2$s', '%1$d posts published: %2$s', $count, 'github-release-posts' ),
+				_n( '%1$d post published: %2$s', '%1$d posts published: %2$s', $count, 'auto-release-posts-for-github' ),
 				$count,
 				implode( ', ', $links )
 			);
@@ -231,7 +231,7 @@ class Publish_Workflow {
 					'%d release skipped due to errors — check the debug log for details.',
 					'%d releases skipped due to errors — check the debug log for details.',
 					$count,
-					'github-release-posts'
+					'auto-release-posts-for-github'
 				),
 				$count
 			);
@@ -239,7 +239,7 @@ class Publish_Workflow {
 
 		printf(
 			'<div class="notice notice-info is-dismissible" id="ghrp-cron-results"><p><strong>%s</strong></p><p>%s</p></div>',
-			esc_html__( 'Changelog to Blog Post', 'github-release-posts' ),
+			esc_html__( 'Changelog to Blog Post', 'auto-release-posts-for-github' ),
 			wp_kses_post( implode( '<br>', $lines ) )
 		);
 

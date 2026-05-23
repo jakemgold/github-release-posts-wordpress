@@ -103,7 +103,7 @@ class Admin_Page {
 		$configure_link = sprintf(
 			'<a href="%s">%s</a>',
 			esc_url( admin_url( 'tools.php?page=github-release-posts' ) ),
-			esc_html__( 'Configure', 'github-release-posts' )
+			esc_html__( 'Configure', 'auto-release-posts-for-github' )
 		);
 		array_unshift( $links, $configure_link );
 		return $links;
@@ -116,8 +116,8 @@ class Admin_Page {
 	 */
 	public function register_menu_page(): void {
 		$this->page_hook = (string) add_management_page(
-			__( 'GitHub Release Posts', 'github-release-posts' ),
-			__( 'Release Posts', 'github-release-posts' ),
+			__( 'Auto Release Posts for GitHub', 'auto-release-posts-for-github' ),
+			__( 'Release Posts', 'auto-release-posts-for-github' ),
 			'manage_options',
 			'github-release-posts',
 			[ $this, 'render_page' ]
@@ -141,152 +141,153 @@ class Admin_Page {
 		$screen->add_help_tab(
 			[
 				'id'      => 'ghrp-help-overview',
-				'title'   => __( 'Overview', 'github-release-posts' ),
-				'content' => '<h3>' . esc_html__( 'GitHub Release Posts', 'github-release-posts' ) . '</h3>'
-					. '<p>' . esc_html__( 'This plugin monitors GitHub repositories for new releases and uses AI to automatically generate blog posts from release notes. Posts are created as drafts (or published immediately) so your readers always know what changed in the projects you maintain.', 'github-release-posts' ) . '</p>'
-					. '<p>' . esc_html__( 'The plugin checks for new releases on a daily schedule via WP-Cron. You can also generate a post manually from the Repositories tab at any time.', 'github-release-posts' ) . '</p>',
+				'title'   => __( 'Overview', 'auto-release-posts-for-github' ),
+				'content' => '<h3>' . esc_html__( 'Auto Release Posts for GitHub', 'auto-release-posts-for-github' ) . '</h3>'
+					. '<p>' . esc_html__( 'This plugin monitors GitHub repositories for new releases and uses AI to automatically generate blog posts from release notes. Posts are created as drafts (or published immediately) so your readers always know what changed in the projects you maintain.', 'auto-release-posts-for-github' ) . '</p>'
+					. '<p>' . esc_html__( 'The plugin checks for new releases on a daily schedule via WP-Cron. You can also generate a post manually from the Repositories tab at any time.', 'auto-release-posts-for-github' ) . '</p>',
 			]
 		);
 
 		$screen->add_help_tab(
 			[
 				'id'      => 'ghrp-help-getting-started',
-				'title'   => __( 'Getting Started', 'github-release-posts' ),
-				'content' => '<h3>' . esc_html__( 'Getting Started', 'github-release-posts' ) . '</h3>'
+				'title'   => __( 'Getting Started', 'auto-release-posts-for-github' ),
+				'content' => '<h3>' . esc_html__( 'Getting Started', 'auto-release-posts-for-github' ) . '</h3>'
 					. '<ol>'
-					. '<li>' . esc_html__( 'Set up an AI connector under Settings → Connectors (Anthropic, OpenAI, or Google recommended).', 'github-release-posts' ) . '</li>'
-					. '<li>' . esc_html__( 'Add a GitHub repository in the Repositories tab — either pick one from the dropdown (if a Personal Access Token is configured) or enter it in "owner/repo" format (e.g. "WordPress/gutenberg").', 'github-release-posts' ) . '</li>'
-					. '<li>' . esc_html__( 'When you add a repository, the plugin automatically checks for the latest release and generates a draft post if one is found. You can also generate a post manually at any time.', 'github-release-posts' ) . '</li>'
+					. '<li>' . esc_html__( 'Set up an AI connector under Settings → Connectors (Anthropic, OpenAI, or Google recommended).', 'auto-release-posts-for-github' ) . '</li>'
+					. '<li>' . esc_html__( 'Add a GitHub repository in the Repositories tab — either pick one from the dropdown (if a Personal Access Token is configured) or enter it in "owner/repo" format (e.g. "WordPress/gutenberg").', 'auto-release-posts-for-github' ) . '</li>'
+					. '<li>' . esc_html__( 'When you add a repository, the plugin automatically checks for the latest release and generates a draft post if one is found. You can also generate a post manually at any time.', 'auto-release-posts-for-github' ) . '</li>'
 					. '</ol>'
-					. '<p>' . esc_html__( 'Optionally, add a GitHub Personal Access Token in the Settings tab to raise the API rate limit from 60 to 5,000 requests per hour and to populate a picker of your repositories on the Repositories tab.', 'github-release-posts' ) . '</p>',
+					. '<p>' . esc_html__( 'Optionally, add a GitHub Personal Access Token in the Settings tab to raise the API rate limit from 60 to 5,000 requests per hour and to populate a picker of your repositories on the Repositories tab.', 'auto-release-posts-for-github' ) . '</p>',
 			]
 		);
 
 		$screen->add_help_tab(
 			[
 				'id'      => 'ghrp-help-repositories',
-				'title'   => __( 'Repositories', 'github-release-posts' ),
-				'content' => '<h3>' . esc_html__( 'Managing Repositories', 'github-release-posts' ) . '</h3>'
-					. '<p>' . esc_html__( 'Each repository you add is monitored for new GitHub releases. When a new release is detected, the plugin fetches the release notes, sends them to your configured AI provider, and creates a blog post.', 'github-release-posts' ) . '</p>'
-					. '<h4>' . esc_html__( 'Adding a Repository', 'github-release-posts' ) . '</h4>'
-					. '<p>' . esc_html__( 'When a Personal Access Token is configured, the Add Repository form shows a dropdown of repositories the token can access, grouped by owner and filtered to ones you are not already tracking. A Refresh button next to Add re-fetches the list — useful after granting the token access to additional repos on GitHub. Without a token, the form falls back to a free-text "owner/repo" field.', 'github-release-posts' ) . '</p>'
-					. '<h4>' . esc_html__( 'Per-Repository Options', 'github-release-posts' ) . '</h4>'
+				'title'   => __( 'Repositories', 'auto-release-posts-for-github' ),
+				'content' => '<h3>' . esc_html__( 'Managing Repositories', 'auto-release-posts-for-github' ) . '</h3>'
+					. '<p>' . esc_html__( 'Each repository you add is monitored for new GitHub releases. When a new release is detected, the plugin fetches the release notes, sends them to your configured AI provider, and creates a blog post.', 'auto-release-posts-for-github' ) . '</p>'
+					. '<h4>' . esc_html__( 'Adding a Repository', 'auto-release-posts-for-github' ) . '</h4>'
+					. '<p>' . esc_html__( 'When a Personal Access Token is configured, the Add Repository form shows a dropdown of repositories the token can access, grouped by owner and filtered to ones you are not already tracking. A Refresh button next to Add re-fetches the list — useful after granting the token access to additional repos on GitHub. Without a token, the form falls back to a free-text "owner/repo" field.', 'auto-release-posts-for-github' ) . '</p>'
+					. '<h4>' . esc_html__( 'Per-Repository Options', 'auto-release-posts-for-github' ) . '</h4>'
 					. '<ul>'
-					. '<li><strong>' . esc_html__( 'Display Name', 'github-release-posts' ) . '</strong> — ' . esc_html__( 'The project name used in post titles. Defaults to a cleaned-up version of the repo name.', 'github-release-posts' ) . '</li>'
-					. '<li><strong>' . esc_html__( 'Project Link', 'github-release-posts' ) . '</strong> — ' . esc_html__( 'A URL included in the generated post as a download or project link. If the repository is a WordPress plugin, you can enter just the WordPress.org slug instead. If left blank, the GitHub release URL is used.', 'github-release-posts' ) . '</li>'
-					. '<li><strong>' . esc_html__( 'Author', 'github-release-posts' ) . '</strong> — ' . esc_html__( 'The WordPress user assigned as the author of generated posts for this repository.', 'github-release-posts' ) . '</li>'
-					. '<li><strong>' . esc_html__( 'Post Status', 'github-release-posts' ) . '</strong> — ' . esc_html__( 'Whether new posts are created as drafts, pending review, or published immediately. Defaults to draft.', 'github-release-posts' ) . '</li>'
-					. '<li><strong>' . esc_html__( 'Categories', 'github-release-posts' ) . '</strong> — ' . esc_html__( 'Categories applied to every post generated for this repository.', 'github-release-posts' ) . '</li>'
-					. '<li><strong>' . esc_html__( 'Tags', 'github-release-posts' ) . '</strong> — ' . esc_html__( 'Tags applied to every post generated for this repository. Tags must already exist in WordPress; new ones are not created automatically.', 'github-release-posts' ) . '</li>'
-					. '<li><strong>' . esc_html__( 'Featured Image', 'github-release-posts' ) . '</strong> — ' . esc_html__( 'A featured image used as a fallback when the release notes do not contain any images suitable for promotion.', 'github-release-posts' ) . '</li>'
-					. '<li><strong>' . esc_html__( 'Paused', 'github-release-posts' ) . '</strong> — ' . esc_html__( 'Temporarily skip this repository during scheduled checks. The repo and its history are preserved; uncheck to resume monitoring.', 'github-release-posts' ) . '</li>'
+					. '<li><strong>' . esc_html__( 'Display Name', 'auto-release-posts-for-github' ) . '</strong> — ' . esc_html__( 'The project name used in post titles. Defaults to a cleaned-up version of the repo name.', 'auto-release-posts-for-github' ) . '</li>'
+					. '<li><strong>' . esc_html__( 'Project Link', 'auto-release-posts-for-github' ) . '</strong> — ' . esc_html__( 'A URL included in the generated post as a download or project link. If the repository is a WordPress plugin, you can enter just the WordPress.org slug instead. If left blank, the GitHub release URL is used.', 'auto-release-posts-for-github' ) . '</li>'
+					. '<li><strong>' . esc_html__( 'Author', 'auto-release-posts-for-github' ) . '</strong> — ' . esc_html__( 'The WordPress user assigned as the author of generated posts for this repository.', 'auto-release-posts-for-github' ) . '</li>'
+					. '<li><strong>' . esc_html__( 'Post Status', 'auto-release-posts-for-github' ) . '</strong> — ' . esc_html__( 'Whether new posts are created as drafts, pending review, or published immediately. Defaults to draft.', 'auto-release-posts-for-github' ) . '</li>'
+					. '<li><strong>' . esc_html__( 'Categories', 'auto-release-posts-for-github' ) . '</strong> — ' . esc_html__( 'Categories applied to every post generated for this repository.', 'auto-release-posts-for-github' ) . '</li>'
+					. '<li><strong>' . esc_html__( 'Tags', 'auto-release-posts-for-github' ) . '</strong> — ' . esc_html__( 'Tags applied to every post generated for this repository. Tags must already exist in WordPress; new ones are not created automatically.', 'auto-release-posts-for-github' ) . '</li>'
+					. '<li><strong>' . esc_html__( 'Featured Image', 'auto-release-posts-for-github' ) . '</strong> — ' . esc_html__( 'A featured image used as a fallback when the release notes do not contain any images suitable for promotion.', 'auto-release-posts-for-github' ) . '</li>'
+					. '<li><strong>' . esc_html__( 'Paused', 'auto-release-posts-for-github' ) . '</strong> — ' . esc_html__( 'Temporarily skip this repository during scheduled checks. The repo and its history are preserved; uncheck to resume monitoring.', 'auto-release-posts-for-github' ) . '</li>'
+					. '<li><strong>' . esc_html__( 'Include pre-releases', 'auto-release-posts-for-github' ) . '</strong> — ' . esc_html__( 'Generate posts for releases marked as pre-release on GitHub (betas, release candidates, etc.). Off by default; most sites only highlight stable releases.', 'auto-release-posts-for-github' ) . '</li>'
 					. '</ul>'
-					. '<p>' . esc_html__( 'Use the Edit row action to change any of these inline, then click Save Repositories at the bottom of the page.', 'github-release-posts' ) . '</p>'
-					. '<h4>' . esc_html__( 'Generate Post', 'github-release-posts' ) . '</h4>'
-					. '<p>' . esc_html__( 'Creates a post from a GitHub release immediately, bypassing the cron schedule. If the repository has multiple releases, a picker lets you choose any historical version — useful for backfilling an archive of past releases.', 'github-release-posts' ) . '</p>'
-					. '<p>' . esc_html__( 'Posts generated for older releases are automatically backdated to one hour after the release\'s GitHub publication time, so they slot into the archive in the correct chronological order. You can adjust the date in the editor before publishing.', 'github-release-posts' ) . '</p>'
-					. '<p>' . esc_html__( 'If a post already exists for the selected version, the picker shows an inline warning and re-generation creates a new revision while preserving the existing post date and URL slug.', 'github-release-posts' ) . '</p>'
-					. '<p>' . esc_html__( 'After generation succeeds, a green checkmark appears next to the Generate post button — click it to jump straight to the new post in the editor.', 'github-release-posts' ) . '</p>',
+					. '<p>' . esc_html__( 'Use the Edit row action to change any of these inline, then click Save Repositories at the bottom of the page.', 'auto-release-posts-for-github' ) . '</p>'
+					. '<h4>' . esc_html__( 'Generate Post', 'auto-release-posts-for-github' ) . '</h4>'
+					. '<p>' . esc_html__( 'Creates a post from a GitHub release immediately, bypassing the cron schedule. If the repository has multiple releases, a picker lets you choose any historical version — useful for backfilling an archive of past releases.', 'auto-release-posts-for-github' ) . '</p>'
+					. '<p>' . esc_html__( 'Posts generated for older releases are automatically backdated to one hour after the release\'s GitHub publication time, so they slot into the archive in the correct chronological order. You can adjust the date in the editor before publishing.', 'auto-release-posts-for-github' ) . '</p>'
+					. '<p>' . esc_html__( 'If a post already exists for the selected version, the picker shows an inline warning and re-generation creates a new revision while preserving the existing post date and URL slug.', 'auto-release-posts-for-github' ) . '</p>'
+					. '<p>' . esc_html__( 'After generation succeeds, a green checkmark appears next to the Generate post button — click it to jump straight to the new post in the editor.', 'auto-release-posts-for-github' ) . '</p>',
 			]
 		);
 
 		$screen->add_help_tab(
 			[
 				'id'      => 'ghrp-help-ai-settings',
-				'title'   => __( 'AI & Prompts', 'github-release-posts' ),
-				'content' => '<h3>' . esc_html__( 'Post Creation Settings', 'github-release-posts' ) . '</h3>'
-				. '<p>' . esc_html__( 'This plugin uses WordPress Connectors to communicate with AI providers. Configure your preferred connector (Anthropic, OpenAI, or Google) under Settings → Connectors.', 'github-release-posts' ) . '</p>'
-				. '<h4>' . esc_html__( 'Recommended Models', 'github-release-posts' ) . '</h4>'
-				. '<p>' . esc_html__( 'The plugin specifies a list of preferred models and automatically uses the best available one via your configured connector. For best results, your AI provider account should support one of these models:', 'github-release-posts' ) . '</p>'
+				'title'   => __( 'AI & Prompts', 'auto-release-posts-for-github' ),
+				'content' => '<h3>' . esc_html__( 'Post Creation Settings', 'auto-release-posts-for-github' ) . '</h3>'
+				. '<p>' . esc_html__( 'This plugin uses WordPress Connectors to communicate with AI providers. Configure your preferred connector (Anthropic, OpenAI, or Google) under Settings → Connectors.', 'auto-release-posts-for-github' ) . '</p>'
+				. '<h4>' . esc_html__( 'Recommended Models', 'auto-release-posts-for-github' ) . '</h4>'
+				. '<p>' . esc_html__( 'The plugin specifies a list of preferred models and automatically uses the best available one via your configured connector. For best results, your AI provider account should support one of these models:', 'auto-release-posts-for-github' ) . '</p>'
 				. '<ul>'
-				. '<li>' . esc_html__( 'Anthropic — Claude Opus 4.7', 'github-release-posts' ) . '</li>'
-				. '<li>' . esc_html__( 'OpenAI — GPT-5.5', 'github-release-posts' ) . '</li>'
-				. '<li>' . esc_html__( 'Google — Gemini 2.5 Pro', 'github-release-posts' ) . '</li>'
+				. '<li>' . esc_html__( 'Anthropic — Claude Opus 4.7', 'auto-release-posts-for-github' ) . '</li>'
+				. '<li>' . esc_html__( 'OpenAI — GPT-5.5', 'auto-release-posts-for-github' ) . '</li>'
+				. '<li>' . esc_html__( 'Google — Gemini 2.5 Pro', 'auto-release-posts-for-github' ) . '</li>'
 				. '</ul>'
 				. '<p>' . sprintf(
 					/* translators: %s: filter name wrapped in <code> tags */
-					esc_html__( 'If none of these models are available, the plugin falls back to whatever model your connector provides. Developers can customize the preferred model list via the %s filter.', 'github-release-posts' ),
+					esc_html__( 'If none of these models are available, the plugin falls back to whatever model your connector provides. Developers can customize the preferred model list via the %s filter.', 'auto-release-posts-for-github' ),
 					'<code>ghrp_wp_ai_client_model_preferences</code>'
 				) . '</p>'
-				. '<h4>' . esc_html__( 'Research Depth', 'github-release-posts' ) . '</h4>'
-				. '<p>' . esc_html__( 'Controls how much context the AI gathers before writing. "Standard" uses the release notes, linked issues/PRs, and README. "Deep" also fetches commit messages and file change summaries between the previous and current release, giving the AI more detail to work with — especially useful for releases with sparse notes.', 'github-release-posts' ) . '</p>'
-				. '<h4>' . esc_html__( 'Post Audience', 'github-release-posts' ) . '</h4>'
-				. '<p>' . esc_html__( 'Controls the technical depth of generated posts. "Site owners & managers" avoids all jargon; "Engineering teams" includes hook signatures, code examples, and architecture details.', 'github-release-posts' ) . '</p>'
-				. '<h4>' . esc_html__( 'Post Titles', 'github-release-posts' ) . '</h4>'
-				. '<p>' . esc_html__( 'Controls the format of generated post titles:', 'github-release-posts' ) . '</p>'
+				. '<h4>' . esc_html__( 'Research Depth', 'auto-release-posts-for-github' ) . '</h4>'
+				. '<p>' . esc_html__( 'Controls how much context the AI gathers before writing. "Standard" uses the release notes, linked issues/PRs, and README. "Deep" also fetches commit messages and file change summaries between the previous and current release, giving the AI more detail to work with — especially useful for releases with sparse notes.', 'auto-release-posts-for-github' ) . '</p>'
+				. '<h4>' . esc_html__( 'Post Audience', 'auto-release-posts-for-github' ) . '</h4>'
+				. '<p>' . esc_html__( 'Controls the technical depth of generated posts. "Site owners & managers" avoids all jargon; "Engineering teams" includes hook signatures, code examples, and architecture details.', 'auto-release-posts-for-github' ) . '</p>'
+				. '<h4>' . esc_html__( 'Post Titles', 'auto-release-posts-for-github' ) . '</h4>'
+				. '<p>' . esc_html__( 'Controls the format of generated post titles:', 'auto-release-posts-for-github' ) . '</p>'
 				. '<ul>'
-				. '<li><strong>' . esc_html__( 'Plugin name and version', 'github-release-posts' ) . '</strong> — ' . esc_html__( 'e.g. "My Plugin v1.2 — New dashboard widget". Recommended for sites covering multiple projects.', 'github-release-posts' ) . '</li>'
-				. '<li><strong>' . esc_html__( 'Version number only', 'github-release-posts' ) . '</strong> — ' . esc_html__( 'e.g. "Version 1.2 — New dashboard widget". Drops the project name from the prefix.', 'github-release-posts' ) . '</li>'
-				. '<li><strong>' . esc_html__( 'No prefix', 'github-release-posts' ) . '</strong> — ' . esc_html__( 'The AI writes the full title with no automatic prefix. Recommended for sites focused on a single project, where leading every title with the project name and version reads as repetitive.', 'github-release-posts' ) . '</li>'
+				. '<li><strong>' . esc_html__( 'Plugin name and version', 'auto-release-posts-for-github' ) . '</strong> — ' . esc_html__( 'e.g. "My Plugin v1.2 — New dashboard widget". Recommended for sites covering multiple projects.', 'auto-release-posts-for-github' ) . '</li>'
+				. '<li><strong>' . esc_html__( 'Version number only', 'auto-release-posts-for-github' ) . '</strong> — ' . esc_html__( 'e.g. "Version 1.2 — New dashboard widget". Drops the project name from the prefix.', 'auto-release-posts-for-github' ) . '</li>'
+				. '<li><strong>' . esc_html__( 'No prefix', 'auto-release-posts-for-github' ) . '</strong> — ' . esc_html__( 'The AI writes the full title with no automatic prefix. Recommended for sites focused on a single project, where leading every title with the project name and version reads as repetitive.', 'auto-release-posts-for-github' ) . '</li>'
 				. '</ul>'
 				. '<p>' . sprintf(
 					/* translators: %s: filter name wrapped in <code> tags */
-					esc_html__( 'Developers can override the final title via the %s filter.', 'github-release-posts' ),
+					esc_html__( 'Developers can override the final title via the %s filter.', 'auto-release-posts-for-github' ),
 					'<code>ghrp_post_title</code>'
 				) . '</p>'
-				. '<h4>' . esc_html__( 'Custom Prompt Instructions', 'github-release-posts' ) . '</h4>'
-				. '<p>' . esc_html__( 'Add extra instructions to guide the AI\'s writing style, tone, or voice. For example: "Write in a friendly, conversational tone" or "Our readers are non-technical site owners." Keep it under 500 characters for best results.', 'github-release-posts' ) . '</p>'
-				. '<h4>' . esc_html__( 'AI Disclosure', 'github-release-posts' ) . '</h4>'
-				. '<p>' . esc_html__( 'When enabled, the following note is appended to the end of each generated post in small italic text:', 'github-release-posts' ) . '</p>'
-				. '<blockquote><em>' . esc_html__( 'This post was generated from release notes with the help of AI using GitHub Release Posts plugin for WordPress.', 'github-release-posts' ) . '</em></blockquote>'
+				. '<h4>' . esc_html__( 'Custom Prompt Instructions', 'auto-release-posts-for-github' ) . '</h4>'
+				. '<p>' . esc_html__( 'Add extra instructions to guide the AI\'s writing style, tone, or voice. For example: "Write in a friendly, conversational tone" or "Our readers are non-technical site owners." Keep it under 500 characters for best results.', 'auto-release-posts-for-github' ) . '</p>'
+				. '<h4>' . esc_html__( 'AI Disclosure', 'auto-release-posts-for-github' ) . '</h4>'
+				. '<p>' . esc_html__( 'When enabled, the following note is appended to the end of each generated post in small italic text:', 'auto-release-posts-for-github' ) . '</p>'
+				. '<blockquote><em>' . esc_html__( 'This post was generated from release notes with the help of AI using the Auto Release Posts for GitHub plugin.', 'auto-release-posts-for-github' ) . '</em></blockquote>'
 				. '<p>' . sprintf(
 					/* translators: %s: filter name wrapped in <code> tags */
-					esc_html__( 'This text is part of the post content and can be edited or removed. Developers can customize it with the %s filter.', 'github-release-posts' ),
+					esc_html__( 'This text is part of the post content and can be edited or removed. Developers can customize it with the %s filter.', 'auto-release-posts-for-github' ),
 					'<code>ghrp_ai_disclosure_text</code>'
 				) . '</p>'
-				. '<h4>' . esc_html__( 'SEO: Excerpts & Slugs', 'github-release-posts' ) . '</h4>'
-				. '<p>' . esc_html__( 'Each generated post includes an AI-written excerpt (150–160 characters, optimized as a meta description) and an SEO-friendly URL slug based on the project name, version, and key topics. Published posts keep their existing slug when regenerated to preserve live URLs.', 'github-release-posts' ) . '</p>',
+				. '<h4>' . esc_html__( 'SEO: Excerpts & Slugs', 'auto-release-posts-for-github' ) . '</h4>'
+				. '<p>' . esc_html__( 'Each generated post includes an AI-written excerpt (150–160 characters, optimized as a meta description) and an SEO-friendly URL slug based on the project name, version, and key topics. Published posts keep their existing slug when regenerated to preserve live URLs.', 'auto-release-posts-for-github' ) . '</p>',
 			]
 		);
 
 		$screen->add_help_tab(
 			[
 				'id'      => 'ghrp-help-github',
-				'title'   => __( 'GitHub Token', 'github-release-posts' ),
-				'content' => '<h3>' . esc_html__( 'GitHub Personal Access Token', 'github-release-posts' ) . '</h3>'
-				. '<p>' . esc_html__( 'A Personal Access Token is optional for public repositories — without one, GitHub limits the plugin to 60 API requests per hour. Adding a token does three things:', 'github-release-posts' ) . '</p>'
+				'title'   => __( 'GitHub Token', 'auto-release-posts-for-github' ),
+				'content' => '<h3>' . esc_html__( 'GitHub Personal Access Token', 'auto-release-posts-for-github' ) . '</h3>'
+				. '<p>' . esc_html__( 'A Personal Access Token is optional for public repositories — without one, GitHub limits the plugin to 60 API requests per hour. Adding a token does three things:', 'auto-release-posts-for-github' ) . '</p>'
 				. '<ul>'
-				. '<li>' . esc_html__( 'Raises the GitHub API rate limit from 60 to 5,000 requests per hour.', 'github-release-posts' ) . '</li>'
-				. '<li>' . esc_html__( 'Replaces the "owner/repo" text field on the Repositories tab with a dropdown of repositories the token can access.', 'github-release-posts' ) . '</li>'
-				. '<li>' . esc_html__( 'Grants access to private repositories.', 'github-release-posts' ) . '</li>'
+				. '<li>' . esc_html__( 'Raises the GitHub API rate limit from 60 to 5,000 requests per hour.', 'auto-release-posts-for-github' ) . '</li>'
+				. '<li>' . esc_html__( 'Replaces the "owner/repo" text field on the Repositories tab with a dropdown of repositories the token can access.', 'auto-release-posts-for-github' ) . '</li>'
+				. '<li>' . esc_html__( 'Grants access to private repositories.', 'auto-release-posts-for-github' ) . '</li>'
 				. '</ul>'
-				. '<h4>' . esc_html__( 'Creating a Token (fine-grained recommended)', 'github-release-posts' ) . '</h4>'
+				. '<h4>' . esc_html__( 'Creating a Token (fine-grained recommended)', 'auto-release-posts-for-github' ) . '</h4>'
 				. '<ol>'
 				. '<li>'
 					. sprintf(
 						/* translators: %s: link to GitHub fine-grained token settings */
-						esc_html__( 'Visit %s on GitHub.', 'github-release-posts' ),
-						'<a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">' . esc_html__( 'Settings &rarr; Personal access tokens &rarr; Fine-grained tokens', 'github-release-posts' ) . '</a>'
+						esc_html__( 'Visit %s on GitHub.', 'auto-release-posts-for-github' ),
+						'<a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">' . esc_html__( 'Settings &rarr; Personal access tokens &rarr; Fine-grained tokens', 'auto-release-posts-for-github' ) . '</a>'
 					)
 				. '</li>'
-				. '<li>' . esc_html__( 'Under Repository access, choose "Only select repositories" and pick the repos you want to monitor — or "All repositories" if you prefer.', 'github-release-posts' ) . '</li>'
-				. '<li>' . esc_html__( 'Set Repository permissions to Read-only for: Contents (required), Metadata (auto-selected), Issues, and Pull requests. The last two are used during AI prompt enrichment.', 'github-release-posts' ) . '</li>'
-				. '<li>' . esc_html__( 'Generate the token and copy the github_pat_… value immediately — GitHub will not show it again.', 'github-release-posts' ) . '</li>'
-				. '<li>' . esc_html__( 'Paste the token into the GitHub Personal Access Token field in the Settings tab. A green Validated indicator appears once GitHub confirms the token.', 'github-release-posts' ) . '</li>'
+				. '<li>' . esc_html__( 'Under Repository access, choose "Only select repositories" and pick the repos you want to monitor — or "All repositories" if you prefer.', 'auto-release-posts-for-github' ) . '</li>'
+				. '<li>' . esc_html__( 'Set Repository permissions to Read-only for: Contents (required), Metadata (auto-selected), Issues, and Pull requests. The last two are used during AI prompt enrichment.', 'auto-release-posts-for-github' ) . '</li>'
+				. '<li>' . esc_html__( 'Generate the token and copy the github_pat_… value immediately — GitHub will not show it again.', 'auto-release-posts-for-github' ) . '</li>'
+				. '<li>' . esc_html__( 'Paste the token into the GitHub Personal Access Token field in the Settings tab. A green Validated indicator appears once GitHub confirms the token.', 'auto-release-posts-for-github' ) . '</li>'
 				. '</ol>'
-				. '<h4>' . esc_html__( 'Supplying the Token Outside the Database', 'github-release-posts' ) . '</h4>'
-				. '<p>' . esc_html__( 'For sites that prefer not to store secrets in wp_options, the token can be supplied via the GITHUB_RELEASE_POSTS_PAT PHP constant in wp-config.php, or via an environment variable of the same name. The plugin reads the constant first, then the env var, then the encrypted database value. When supplied externally, the Settings field becomes read-only.', 'github-release-posts' ) . '</p>'
-				. '<p>' . esc_html__( 'When stored in the database, the token is encrypted at rest using libsodium and is never exposed in the admin UI after saving.', 'github-release-posts' ) . '</p>'
-				. '<h4>' . esc_html__( 'Classic Tokens', 'github-release-posts' ) . '</h4>'
-				. '<p>' . esc_html__( 'Classic tokens are still supported. Use the "public_repo" scope for public repos or the full "repo" scope for private repos.', 'github-release-posts' ) . '</p>',
+				. '<h4>' . esc_html__( 'Supplying the Token Outside the Database', 'auto-release-posts-for-github' ) . '</h4>'
+				. '<p>' . esc_html__( 'For sites that prefer not to store secrets in wp_options, the token can be supplied via the GITHUB_RELEASE_POSTS_PAT PHP constant in wp-config.php, or via an environment variable of the same name. The plugin reads the constant first, then the env var, then the encrypted database value. When supplied externally, the Settings field becomes read-only.', 'auto-release-posts-for-github' ) . '</p>'
+				. '<p>' . esc_html__( 'When stored in the database, the token is encrypted at rest using libsodium and is never exposed in the admin UI after saving.', 'auto-release-posts-for-github' ) . '</p>'
+				. '<h4>' . esc_html__( 'Classic Tokens', 'auto-release-posts-for-github' ) . '</h4>'
+				. '<p>' . esc_html__( 'Classic tokens are still supported. Use the "public_repo" scope for public repos or the full "repo" scope for private repos.', 'auto-release-posts-for-github' ) . '</p>',
 			]
 		);
 
 		$screen->add_help_tab(
 			[
 				'id'      => 'ghrp-help-troubleshooting',
-				'title'   => __( 'Troubleshooting', 'github-release-posts' ),
-				'content' => '<h3>' . esc_html__( 'Troubleshooting', 'github-release-posts' ) . '</h3>'
-					. '<h4>' . esc_html__( 'Post generation fails or times out', 'github-release-posts' ) . '</h4>'
-					. '<p>' . esc_html__( 'AI generation can take 30–60 seconds for complex releases. If your hosting environment has a short PHP execution time limit, the request may time out before the AI responds. Contact your host about increasing the limit, or try generating again — some releases take longer than others.', 'github-release-posts' ) . '</p>'
-					. '<h4>' . esc_html__( 'API credits or billing error', 'github-release-posts' ) . '</h4>'
-					. '<p>' . esc_html__( 'If you see a billing or credits error, verify that your AI provider account has API credits loaded. Some providers have separate billing for API usage and chat subscriptions.', 'github-release-posts' ) . '</p>'
-					. '<h4>' . esc_html__( 'Images show "unexpected or invalid content"', 'github-release-posts' ) . '</h4>'
-					. '<p>' . esc_html__( 'If image blocks show a validation warning in the editor, click "Attempt recovery" — this usually resolves the issue. The plugin rebuilds image blocks from AI output, and minor formatting differences can occasionally trigger this warning.', 'github-release-posts' ) . '</p>'
-					. '<h4>' . esc_html__( 'Posts are empty or very short', 'github-release-posts' ) . '</h4>'
-					. '<p>' . esc_html__( 'This usually means the GitHub release has no release notes (just a tag with no body text). The plugin generates content from the release notes — if there are none, the AI has little to work with. Check the release on GitHub to confirm it has a description.', 'github-release-posts' ) . '</p>'
-					. '<h4>' . esc_html__( 'Scheduled checks are not running', 'github-release-posts' ) . '</h4>'
-					. '<p>' . esc_html__( 'The plugin relies on WP-Cron, which requires regular site traffic to trigger. On low-traffic sites, consider setting up a real server cron job to call wp-cron.php. Check Tools → Site Health for WP-Cron status.', 'github-release-posts' ) . '</p>',
+				'title'   => __( 'Troubleshooting', 'auto-release-posts-for-github' ),
+				'content' => '<h3>' . esc_html__( 'Troubleshooting', 'auto-release-posts-for-github' ) . '</h3>'
+					. '<h4>' . esc_html__( 'Post generation fails or times out', 'auto-release-posts-for-github' ) . '</h4>'
+					. '<p>' . esc_html__( 'AI generation can take 30–60 seconds for complex releases. If your hosting environment has a short PHP execution time limit, the request may time out before the AI responds. Contact your host about increasing the limit, or try generating again — some releases take longer than others.', 'auto-release-posts-for-github' ) . '</p>'
+					. '<h4>' . esc_html__( 'API credits or billing error', 'auto-release-posts-for-github' ) . '</h4>'
+					. '<p>' . esc_html__( 'If you see a billing or credits error, verify that your AI provider account has API credits loaded. Some providers have separate billing for API usage and chat subscriptions.', 'auto-release-posts-for-github' ) . '</p>'
+					. '<h4>' . esc_html__( 'Images show "unexpected or invalid content"', 'auto-release-posts-for-github' ) . '</h4>'
+					. '<p>' . esc_html__( 'If image blocks show a validation warning in the editor, click "Attempt recovery" — this usually resolves the issue. The plugin rebuilds image blocks from AI output, and minor formatting differences can occasionally trigger this warning.', 'auto-release-posts-for-github' ) . '</p>'
+					. '<h4>' . esc_html__( 'Posts are empty or very short', 'auto-release-posts-for-github' ) . '</h4>'
+					. '<p>' . esc_html__( 'This usually means the GitHub release has no release notes (just a tag with no body text). The plugin generates content from the release notes — if there are none, the AI has little to work with. Check the release on GitHub to confirm it has a description.', 'auto-release-posts-for-github' ) . '</p>'
+					. '<h4>' . esc_html__( 'Scheduled checks are not running', 'auto-release-posts-for-github' ) . '</h4>'
+					. '<p>' . esc_html__( 'The plugin relies on WP-Cron, which requires regular site traffic to trigger. On low-traffic sites, consider setting up a real server cron job to call wp-cron.php. Check Tools → Site Health for WP-Cron status.', 'auto-release-posts-for-github' ) . '</p>',
 			]
 		);
 	}
@@ -333,33 +334,33 @@ class Admin_Page {
 				'restNonce'         => wp_create_nonce( 'wp_rest' ),
 				'blockEditorActive' => self::is_block_editor_active(),
 				'i18n'              => [
-					'unsavedChanges'        => __( 'You have unsaved changes. Are you sure you want to leave this tab?', 'github-release-posts' ),
-					'confirmRemove'         => __( 'Are you sure you want to remove this repository? This cannot be undone.', 'github-release-posts' ),
-					'validating'            => __( 'Validating…', 'github-release-posts' ),
-					'slugValid'             => __( 'Found on WordPress.org.', 'github-release-posts' ),
-					'slugNotFound'          => __( 'Not found on WordPress.org.', 'github-release-posts' ),
-					'validUrl'              => __( 'Valid URL.', 'github-release-posts' ),
-					'invalidUrl'            => __( 'Invalid URL format.', 'github-release-posts' ),
-					'pluginLinkHint'        => __( 'Enter a valid URL or WordPress.org slug.', 'github-release-posts' ),
-					'selectImage'           => __( 'Select Featured Image', 'github-release-posts' ),
-					'useImage'              => __( 'Use this image', 'github-release-posts' ),
-					'removeImage'           => __( 'Remove', 'github-release-posts' ),
-					'notImplemented'        => __( 'This feature is not yet available.', 'github-release-posts' ),
-					'edit'                  => __( 'Edit', 'github-release-posts' ),
-					'editLabel'             => __( 'Edit:', 'github-release-posts' ),
-					'done'                  => __( 'Done', 'github-release-posts' ),
-					'generateDraft'         => __( 'Generate draft post', 'github-release-posts' ),
-					'generatePost'          => __( 'Generate post', 'github-release-posts' ),
-					'generating'            => __( 'Generating…', 'github-release-posts' ),
-					'draftCreated'          => __( 'Draft created.', 'github-release-posts' ),
-					'editGeneratedPost'     => __( 'Edit the generated post', 'github-release-posts' ),
-					'viewDraft'             => __( 'View draft', 'github-release-posts' ),
-					'regenerate'            => __( 'Regenerate', 'github-release-posts' ),
-					'regenerateConfirm'     => __( 'A post already exists for this release. Regenerate it?', 'github-release-posts' ),
-					'postExists'            => __( 'post exists', 'github-release-posts' ),
-					'versionPickerConflict' => __( 'A post already exists for this release. Generating will create a new revision and keep the existing post date.', 'github-release-posts' ),
-					'valid'                 => __( 'Valid', 'github-release-posts' ),
-					'connectionSuccess'     => __( 'Connection successful.', 'github-release-posts' ),
+					'unsavedChanges'        => __( 'You have unsaved changes. Are you sure you want to leave this tab?', 'auto-release-posts-for-github' ),
+					'confirmRemove'         => __( 'Are you sure you want to remove this repository? This cannot be undone.', 'auto-release-posts-for-github' ),
+					'validating'            => __( 'Validating…', 'auto-release-posts-for-github' ),
+					'slugValid'             => __( 'Found on WordPress.org.', 'auto-release-posts-for-github' ),
+					'slugNotFound'          => __( 'Not found on WordPress.org.', 'auto-release-posts-for-github' ),
+					'validUrl'              => __( 'Valid URL.', 'auto-release-posts-for-github' ),
+					'invalidUrl'            => __( 'Invalid URL format.', 'auto-release-posts-for-github' ),
+					'pluginLinkHint'        => __( 'Enter a valid URL or WordPress.org slug.', 'auto-release-posts-for-github' ),
+					'selectImage'           => __( 'Select Featured Image', 'auto-release-posts-for-github' ),
+					'useImage'              => __( 'Use this image', 'auto-release-posts-for-github' ),
+					'removeImage'           => __( 'Remove', 'auto-release-posts-for-github' ),
+					'notImplemented'        => __( 'This feature is not yet available.', 'auto-release-posts-for-github' ),
+					'edit'                  => __( 'Edit', 'auto-release-posts-for-github' ),
+					'editLabel'             => __( 'Edit:', 'auto-release-posts-for-github' ),
+					'done'                  => __( 'Done', 'auto-release-posts-for-github' ),
+					'generateDraft'         => __( 'Generate draft post', 'auto-release-posts-for-github' ),
+					'generatePost'          => __( 'Generate post', 'auto-release-posts-for-github' ),
+					'generating'            => __( 'Generating…', 'auto-release-posts-for-github' ),
+					'draftCreated'          => __( 'Draft created.', 'auto-release-posts-for-github' ),
+					'editGeneratedPost'     => __( 'Edit the generated post', 'auto-release-posts-for-github' ),
+					'viewDraft'             => __( 'View draft', 'auto-release-posts-for-github' ),
+					'regenerate'            => __( 'Regenerate', 'auto-release-posts-for-github' ),
+					'regenerateConfirm'     => __( 'A post already exists for this release. Regenerate it?', 'auto-release-posts-for-github' ),
+					'postExists'            => __( 'post exists', 'auto-release-posts-for-github' ),
+					'versionPickerConflict' => __( 'A post already exists for this release. Generating will create a new revision and keep the existing post date.', 'auto-release-posts-for-github' ),
+					'valid'                 => __( 'Valid', 'auto-release-posts-for-github' ),
+					'connectionSuccess'     => __( 'Connection successful.', 'auto-release-posts-for-github' ),
 				],
 			]
 		);
@@ -418,8 +419,12 @@ class Admin_Page {
 					'show_in_rest'  => true,
 					'single'        => true,
 					'type'          => 'string',
+					// Tightened from edit_posts: only admins should be able to
+					// write release-attribution meta via REST. The meta drives
+					// dedup, so a lower-privileged user shouldn't be able to
+					// tag arbitrary posts as already-generated for a release.
 					'auth_callback' => function () {
-						return current_user_can( 'edit_posts' );
+						return current_user_can( 'manage_options' );
 					},
 				]
 			);
@@ -559,7 +564,7 @@ class Admin_Page {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			return new \WP_Error(
 				'ghrp_forbidden',
-				__( 'You do not have permission to perform this action.', 'github-release-posts' ),
+				__( 'You do not have permission to perform this action.', 'auto-release-posts-for-github' ),
 				[ 'status' => 403 ]
 			);
 		}
@@ -573,7 +578,7 @@ class Admin_Page {
 	 */
 	public function render_page(): void {
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( esc_html__( 'You do not have permission to access this page.', 'github-release-posts' ) );
+			wp_die( esc_html__( 'You do not have permission to access this page.', 'auto-release-posts-for-github' ) );
 		}
 
 		include GITHUB_RELEASE_POSTS_PATH . 'includes/templates/admin-page.php';
@@ -606,7 +611,7 @@ class Admin_Page {
 		check_admin_referer( 'ghrp_save_repositories', 'ghrp_nonce' );
 
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( esc_html__( 'Insufficient permissions.', 'github-release-posts' ) );
+			wp_die( esc_html__( 'Insufficient permissions.', 'auto-release-posts-for-github' ) );
 		}
 
 		// Handle "Remove" action.
@@ -615,6 +620,10 @@ class Admin_Page {
 			$this->repo_settings->remove_repository( $identifier );
 			// Clear per-repo state so a re-add starts clean (AC-003, AC-004).
 			( new Release_State() )->clear_state( $identifier );
+			// Clear AI failure counts so a re-add doesn't inherit stale failure
+			// state and trigger the threshold notification email after fewer
+			// than FAILURE_THRESHOLD new failures.
+			\GitHubReleasePosts\AI\AI_Processor::clear_failure_counts_for_identifier( $identifier );
 			wp_safe_redirect(
 				add_query_arg(
 					[
@@ -627,21 +636,24 @@ class Admin_Page {
 			exit;
 		}
 
-		// Handle "Add repository" action.
+		// Handle "Add repository" action. Pass the API client so the display
+		// name can be enriched from the repo's README first heading; the
+		// settings layer silently falls back to slug-derivation on any failure.
 		if ( isset( $_POST['ghrp_add_repo'] ) && ! empty( $_POST['ghrp_new_repo'] ) ) {
 			$result = $this->repo_settings->add_repository(
-				sanitize_text_field( wp_unslash( $_POST['ghrp_new_repo'] ) )
+				sanitize_text_field( wp_unslash( $_POST['ghrp_new_repo'] ) ),
+				new API_Client( $this->global_settings )
 			);
 
 			if ( ! $result['success'] ) {
-				$this->set_admin_error( $result['error'] ?? __( 'Could not add repository.', 'github-release-posts' ) );
+				$this->set_admin_error( $result['error'] ?? __( 'Could not add repository.', 'auto-release-posts-for-github' ) );
 				wp_safe_redirect(
 					add_query_arg( 'tab', 'repositories', $this->get_page_url() )
 				);
 				exit;
 			}
 
-			// Trigger onboarding preview draft (US-003).
+			// Identify the just-added repo (it'll be the last entry in the array).
 			$added_identifier = '';
 			foreach ( array_reverse( $result['repos'] ) as $repo ) {
 				if ( isset( $repo['identifier'] ) ) {
@@ -650,28 +662,43 @@ class Admin_Page {
 				}
 			}
 
+			// Server-side post-add bookkeeping: fetch latest release, record
+			// last_seen so cron doesn't double-process, and decide whether to
+			// tell the client to auto-trigger AI generation on page load.
+			$auto_trigger = false;
 			if ( '' !== $added_identifier ) {
 				try {
-					$onboarding = ( new Onboarding_Handler(
+					$outcome = ( new Onboarding_Handler(
 						new API_Client( $this->global_settings ),
 						new Release_State()
-					) )->trigger( $added_identifier );
+					) )->handle_add( $added_identifier );
 
-					$this->set_admin_notice( $onboarding['type'], $onboarding['message'], $onboarding['post_url'] );
+					if ( null !== $outcome['notice'] ) {
+						$this->set_admin_notice(
+							$outcome['notice']['type'],
+							$outcome['notice']['message'],
+							$outcome['notice']['url']
+						);
+					}
+					$auto_trigger = $outcome['auto_trigger'];
 				} catch ( \Throwable $e ) {
-					$this->set_admin_notice( 'warning', __( 'Repository added, but initial release check failed. It will be checked on the next scheduled run.', 'github-release-posts' ), '' );
+					$this->set_admin_notice( 'warning', __( 'Repository added, but the initial release check failed. It will be retried on the next scheduled run.', 'auto-release-posts-for-github' ), '' );
 				}
 			}
 
-			wp_safe_redirect(
-				add_query_arg(
-					[
-						'tab'   => 'repositories',
-						'saved' => '1',
-					],
-					$this->get_page_url()
-				)
-			);
+			$redirect_args = [
+				'tab'   => 'repositories',
+				'saved' => '1',
+			];
+			if ( $auto_trigger ) {
+				// JS reads this on load, finds the matching row, and calls
+				// `generateForTag( btn, '' )` directly — skipping the version
+				// picker dialog since "latest" is the unambiguous intent for
+				// a freshly added repo.
+				$redirect_args['ghrp_just_added'] = $added_identifier;
+			}
+
+			wp_safe_redirect( add_query_arg( $redirect_args, $this->get_page_url() ) );
 			exit;
 		}
 
@@ -689,14 +716,15 @@ class Admin_Page {
 			}
 
 			$sanitized = [
-				'display_name'   => sanitize_text_field( wp_unslash( $config['display_name'] ?? '' ) ),
-				'plugin_link'    => $raw_plugin_link,
-				'author'         => absint( $config['author'] ?? 0 ),
-				'post_status'    => sanitize_key( $config['post_status'] ?? '' ),
-				'categories'     => array_map( 'absint', array_filter( (array) ( $config['categories'] ?? [] ) ) ),
-				'tags'           => $this->resolve_tag_names_to_ids( $raw_repo_tags ),
-				'paused'         => ! empty( $config['paused'] ),
-				'featured_image' => absint( $config['featured_image'] ?? 0 ),
+				'display_name'        => sanitize_text_field( wp_unslash( $config['display_name'] ?? '' ) ),
+				'plugin_link'         => $raw_plugin_link,
+				'author'              => absint( $config['author'] ?? 0 ),
+				'post_status'         => sanitize_key( $config['post_status'] ?? '' ),
+				'categories'          => array_map( 'absint', array_filter( (array) ( $config['categories'] ?? [] ) ) ),
+				'tags'                => $this->resolve_tag_names_to_ids( $raw_repo_tags ),
+				'paused'              => ! empty( $config['paused'] ),
+				'featured_image'      => absint( $config['featured_image'] ?? 0 ),
+				'include_prereleases' => ! empty( $config['include_prereleases'] ),
 			];
 			if ( ! $this->repo_settings->update_repository( $identifier, $sanitized ) ) {
 				++$update_failures;
@@ -713,7 +741,7 @@ class Admin_Page {
 				Cache_Keys::admin_errors( get_current_user_id() ),
 				sprintf(
 					/* translators: %d: number of repositories that failed to update */
-					__( '%d repository update(s) failed. Please try again.', 'github-release-posts' ),
+					__( '%d repository update(s) failed. Please try again.', 'auto-release-posts-for-github' ),
 					$update_failures
 				),
 				30
@@ -759,7 +787,13 @@ class Admin_Page {
 		$identifier = (string) $request->get_param( 'repo' );
 		$api_client = new API_Client( $this->global_settings );
 
-		$releases = $api_client->fetch_releases( $identifier );
+		// Honor the per-repo Include pre-releases setting so the version picker
+		// matches the cron's eligibility rules. Falls back to false for repos
+		// where the field is missing (pre-1.0 entries).
+		$repo                = $this->repo_settings->get_repository( $identifier );
+		$include_prereleases = ! empty( $repo['include_prereleases'] );
+
+		$releases = $api_client->fetch_releases( $identifier, $include_prereleases );
 
 		if ( is_wp_error( $releases ) ) {
 			return new \WP_Error( $releases->get_error_code(), $releases->get_error_message(), [ 'status' => 400 ] );
@@ -819,7 +853,7 @@ class Admin_Page {
 	 */
 	public function rest_generate_draft( \WP_REST_Request $request ): \WP_REST_Response|\WP_Error {
 		if ( ! self::is_block_editor_active() ) {
-			return new \WP_Error( 'ghrp_no_block_editor', __( 'Post generation requires the block editor.', 'github-release-posts' ), [ 'status' => 400 ] );
+			return new \WP_Error( 'ghrp_no_block_editor', __( 'Post generation requires the block editor.', 'auto-release-posts-for-github' ), [ 'status' => 400 ] );
 		}
 
 		$identifier   = $request->get_param( 'repo' );
@@ -835,7 +869,7 @@ class Admin_Page {
 		}
 
 		if ( null === $latest_release ) {
-			return new \WP_Error( 'ghrp_no_release', __( 'No releases found for this repository.', 'github-release-posts' ), [ 'status' => 404 ] );
+			return new \WP_Error( 'ghrp_no_release', __( 'No releases found for this repository.', 'auto-release-posts-for-github' ), [ 'status' => 404 ] );
 		}
 
 		if ( '' === $selected_tag || $selected_tag === $latest_release->tag ) {
@@ -847,7 +881,7 @@ class Admin_Page {
 				return new \WP_Error( $release->get_error_code(), $release->get_error_message(), [ 'status' => 400 ] );
 			}
 			if ( null === $release ) {
-				return new \WP_Error( 'ghrp_no_release', __( 'The selected release was not found on GitHub.', 'github-release-posts' ), [ 'status' => 404 ] );
+				return new \WP_Error( 'ghrp_no_release', __( 'The selected release was not found on GitHub.', 'auto-release-posts-for-github' ), [ 'status' => 404 ] );
 			}
 			$is_latest = false;
 		}
@@ -930,7 +964,7 @@ class Admin_Page {
 
 		return new \WP_Error(
 			'ghrp_generation_failed',
-			__( 'Draft could not be generated. Check the debug log for details or verify your connector configuration under Settings → Connectors.', 'github-release-posts' ),
+			__( 'Draft could not be generated. Check the debug log for details or verify your connector configuration under Settings → Connectors.', 'auto-release-posts-for-github' ),
 			[ 'status' => 422 ]
 		);
 	}
@@ -959,7 +993,7 @@ class Admin_Page {
 		if ( empty( $notif['notify_site_owner'] ) && empty( $this->global_settings->get_additional_email_list() ) ) {
 			return new \WP_Error(
 				'ghrp_no_recipients',
-				__( 'No notification recipients configured. Enable the site owner checkbox or add email addresses first.', 'github-release-posts' ),
+				__( 'No notification recipients configured. Enable the site owner checkbox or add email addresses first.', 'auto-release-posts-for-github' ),
 				[ 'status' => 400 ]
 			);
 		}
@@ -971,13 +1005,13 @@ class Admin_Page {
 		$display = $entry->display_name . ' ' . $entry->tag;
 		if ( Post_Status::is_public( $entry->status ) ) {
 			/* translators: %s: project name and version */
-			$subject = sprintf( __( '[Test] %s — release post published', 'github-release-posts' ), $display );
+			$subject = sprintf( __( '[Test] %s — release post published', 'auto-release-posts-for-github' ), $display );
 		} else {
 			/* translators: %s: project name and version */
-			$subject = sprintf( __( '[Test] %s — draft ready for review', 'github-release-posts' ), $display );
+			$subject = sprintf( __( '[Test] %s — draft ready for review', 'auto-release-posts-for-github' ), $display );
 		}
 
-		$preamble  = '<p><em>' . esc_html__( 'This is a test email.', 'github-release-posts' ) . '</em></p>';
+		$preamble  = '<p><em>' . esc_html__( 'This is a test email.', 'auto-release-posts-for-github' ) . '</em></p>';
 		$html_body = Email_Notifier::build_html_body( $entries, $preamble );
 		$headers   = [ 'Content-Type: text/html; charset=UTF-8' ];
 
@@ -1004,7 +1038,7 @@ class Admin_Page {
 		if ( ! $sent ) {
 			return new \WP_Error(
 				'ghrp_mail_failed',
-				__( 'Failed to send test email. Check your site\'s email configuration.', 'github-release-posts' ),
+				__( 'Failed to send test email. Check your site\'s email configuration.', 'auto-release-posts-for-github' ),
 				[ 'status' => 500 ]
 			);
 		}
@@ -1013,7 +1047,7 @@ class Admin_Page {
 			[
 				'message' => sprintf(
 					/* translators: %s: comma-separated list of recipient emails */
-					__( 'Test email sent to %s.', 'github-release-posts' ),
+					__( 'Test email sent to %s.', 'auto-release-posts-for-github' ),
 					implode( ', ', $recipients )
 				),
 			],
@@ -1031,7 +1065,7 @@ class Admin_Page {
 		if ( 'none' === $this->global_settings->get_github_pat_source() ) {
 			return new \WP_Error(
 				'ghrp_no_pat',
-				__( 'No Personal Access Token is configured.', 'github-release-posts' ),
+				__( 'No Personal Access Token is configured.', 'auto-release-posts-for-github' ),
 				[ 'status' => 400 ]
 			);
 		}
@@ -1067,7 +1101,7 @@ class Admin_Page {
 			[
 				'count'   => $count,
 				/* translators: %d: number of repositories */
-				'message' => sprintf( _n( '%d repository available.', '%d repositories available.', $count, 'github-release-posts' ), $count ),
+				'message' => sprintf( _n( '%d repository available.', '%d repositories available.', $count, 'auto-release-posts-for-github' ), $count ),
 				'groups'  => (object) $groups,
 			],
 			200
@@ -1099,7 +1133,7 @@ class Admin_Page {
 			return new \WP_REST_Response(
 				[
 					'valid'   => true,
-					'message' => __( 'Validated', 'github-release-posts' ),
+					'message' => __( 'Validated', 'auto-release-posts-for-github' ),
 				],
 				200
 			);
@@ -1176,7 +1210,7 @@ class Admin_Page {
 
 		$post = get_post( $post_id );
 		if ( ! $post ) {
-			return new \WP_Error( 'ghrp_post_not_found', __( 'Post not found.', 'github-release-posts' ), [ 'status' => 404 ] );
+			return new \WP_Error( 'ghrp_post_not_found', __( 'Post not found.', 'auto-release-posts-for-github' ), [ 'status' => 404 ] );
 		}
 
 		// Read source meta.
@@ -1184,7 +1218,7 @@ class Admin_Page {
 		$release_tag = (string) get_post_meta( $post_id, Plugin_Constants::META_RELEASE_TAG, true );
 
 		if ( empty( $identifier ) || empty( $release_tag ) ) {
-			return new \WP_Error( 'ghrp_not_generated', __( 'This post was not generated by the plugin.', 'github-release-posts' ), [ 'status' => 422 ] );
+			return new \WP_Error( 'ghrp_not_generated', __( 'This post was not generated by the plugin.', 'auto-release-posts-for-github' ), [ 'status' => 422 ] );
 		}
 
 		// Fetch the specific release this post was generated from — NOT the
@@ -1204,7 +1238,7 @@ class Admin_Page {
 				'ghrp_no_release',
 				sprintf(
 					/* translators: %s: release tag */
-					__( 'Release %s not found on GitHub.', 'github-release-posts' ),
+					__( 'Release %s not found on GitHub.', 'auto-release-posts-for-github' ),
 					$release_tag
 				),
 				[ 'status' => 404 ]
@@ -1257,17 +1291,19 @@ class Admin_Page {
 		);
 
 		// Convert HTML to blocks and update the existing post (creates a revision).
+		// KSES at the save boundary as defense-in-depth against unfiltered_html
+		// admins receiving prompt-injected AI HTML (see Post_Creator::create()).
 		$block_content  = Post_Creator::convert_html_to_blocks( $result->content );
 		$block_content .= Post_Creator::build_disclosure_block( $data );
 		$update_args    = [
 			'ID'           => $post_id,
-			'post_title'   => $full_title,
-			'post_content' => $block_content,
+			'post_title'   => wp_strip_all_tags( $full_title ),
+			'post_content' => wp_kses_post( $block_content ),
 		];
 
 		// Always update the excerpt.
 		if ( '' !== $result->excerpt ) {
-			$update_args['post_excerpt'] = $result->excerpt;
+			$update_args['post_excerpt'] = wp_kses_post( $result->excerpt );
 		}
 
 		// Only update the slug if the post is not yet published (preserve live URLs).
@@ -1371,7 +1407,7 @@ class Admin_Page {
 			}
 
 			$term = get_term_by( 'name', $name, 'post_tag' );
-			if ( $term && ! is_wp_error( $term ) ) {
+			if ( $term instanceof \WP_Term ) {
 				$ids[] = (int) $term->term_id;
 			}
 		}

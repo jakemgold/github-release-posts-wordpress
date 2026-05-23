@@ -36,7 +36,7 @@ class AI_Provider_Factory {
 		if ( '' === $slug ) {
 			return new \WP_Error(
 				'ghrp_no_provider',
-				__( 'No AI connector is configured. Set one up under Settings → Connectors.', 'github-release-posts' )
+				__( 'No AI connector is configured. Set one up under Settings → Connectors.', 'auto-release-posts-for-github' )
 			);
 		}
 
@@ -47,7 +47,7 @@ class AI_Provider_Factory {
 				'ghrp_unknown_provider',
 				sprintf(
 					/* translators: %s: provider slug */
-					__( 'AI provider "%s" is not registered. It may have been deactivated.', 'github-release-posts' ),
+					__( 'AI provider "%s" is not registered. It may have been deactivated.', 'auto-release-posts-for-github' ),
 					$slug
 				)
 			);

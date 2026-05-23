@@ -66,7 +66,7 @@ class AI_Processor {
 	 * Called by the ghrp_process_release action fired from Release_Monitor::process_queue().
 	 *
 	 * @param array $entry   Queue entry (identifier, tag, name, body, html_url, published_at, assets).
-	 * @param array $context Optional context flags (e.g. ['force_draft' => true, 'onboarding' => true]).
+	 * @param array $context Optional context flags (e.g. ['force_draft' => true, 'manual' => true]).
 	 * @return void
 	 */
 	public function handle( array $entry, array $context ): void {
@@ -105,7 +105,7 @@ class AI_Processor {
 				$data,
 				new \WP_Error(
 					'ghrp_empty_prompt',
-					__( 'AI prompt is empty. Check that the prompt builder is configured correctly.', 'github-release-posts' )
+					__( 'AI prompt is empty. Check that the prompt builder is configured correctly.', 'auto-release-posts-for-github' )
 				)
 			);
 			return;
@@ -151,10 +151,19 @@ class AI_Processor {
 			);
 		}
 
-		$counts         = (array) get_option( Plugin_Constants::OPTION_AI_FAILURE_COUNTS, [] );
-		$key            = md5( $data->identifier . $data->tag );
-		$count          = (int) ( $counts[ $key ] ?? 0 ) + 1;
-		$counts[ $key ] = $count;
+		// Schema: $counts[ $identifier ][ $tag ] = (int) consecutive failures.
+		// (Pre-1.0 used $counts[ md5( $identifier . $tag ) ] = int — those entries
+		// are silently ignored here since they don't match the nested lookup, and
+		// new failures rebuild the count from zero. The orphan entries are tiny
+		// and don't affect behavior; they'd require a one-time DB migration to
+		// remove cleanly, which isn't worth the complexity for ~32-byte entries.)
+		$counts                                       = (array) get_option( Plugin_Constants::OPTION_AI_FAILURE_COUNTS, [] );
+		$repo_counts                                  = isset( $counts[ $data->identifier ] ) && is_array( $counts[ $data->identifier ] )
+			? $counts[ $data->identifier ]
+			: [];
+		$count                                        = (int) ( $repo_counts[ $data->tag ] ?? 0 ) + 1;
+		$repo_counts[ $data->tag ]                    = $count;
+		$counts[ $data->identifier ]                  = $repo_counts;
 		update_option( Plugin_Constants::OPTION_AI_FAILURE_COUNTS, $counts, false );
 
 		if ( $count >= self::FAILURE_THRESHOLD ) {
@@ -210,7 +219,7 @@ class AI_Processor {
 		$site_name = get_bloginfo( 'name' );
 		$subject   = sprintf(
 			/* translators: 1: site name, 2: repo identifier */
-			__( '[%1$s] Post generation failing for %2$s', 'github-release-posts' ),
+			__( '[%1$s] Post generation failing for %2$s', 'auto-release-posts-for-github' ),
 			$site_name,
 			$data->identifier
 		);
@@ -218,14 +227,14 @@ class AI_Processor {
 		$body = sprintf(
 			/* translators: 1: repo identifier, 2: release tag, 3: failure count, 4: error message */
 			__(
-				'GitHub Release Posts has failed to generate a post for %1$s (%2$s) after %3$d consecutive attempts.
+				'Auto Release Posts for GitHub has failed to generate a post for %1$s (%2$s) after %3$d consecutive attempts.
 
 Last error: %4$s
 
 This may be caused by an issue with your AI connector configuration, insufficient API credits, or server timeout limits. You can try generating the post manually from Tools → Release Posts, or check your connector setup under Settings → Connectors.
 
 This notification will not be sent again for this release unless the issue is resolved and a new failure streak occurs.',
-				'github-release-posts'
+				'auto-release-posts-for-github'
 			),
 			$data->identifier,
 			$data->tag,
@@ -253,11 +262,37 @@ This notification will not be sent again for this release unless the issue is re
 	 */
 	private function clear_failure_count( ReleaseData $data ): void {
 		$counts = (array) get_option( Plugin_Constants::OPTION_AI_FAILURE_COUNTS, [] );
-		$key    = md5( $data->identifier . $data->tag );
 
-		if ( isset( $counts[ $key ] ) ) {
-			unset( $counts[ $key ] );
-			update_option( Plugin_Constants::OPTION_AI_FAILURE_COUNTS, $counts, false );
+		if ( ! isset( $counts[ $data->identifier ][ $data->tag ] ) ) {
+			return;
 		}
+
+		unset( $counts[ $data->identifier ][ $data->tag ] );
+		// Drop the per-repo subarray when it becomes empty so the option doesn't
+		// accumulate empty entries over time.
+		if ( empty( $counts[ $data->identifier ] ) ) {
+			unset( $counts[ $data->identifier ] );
+		}
+
+		update_option( Plugin_Constants::OPTION_AI_FAILURE_COUNTS, $counts, false );
+	}
+
+	/**
+	 * Removes all failure-count entries for a repository.
+	 *
+	 * Called from the remove-repo flow so re-adding the same repo doesn't
+	 * inherit stale failure counts — which would otherwise risk firing the
+	 * threshold failure email after fewer than FAILURE_THRESHOLD new failures.
+	 *
+	 * @param string $identifier Normalised `owner/repo` identifier.
+	 * @return void
+	 */
+	public static function clear_failure_counts_for_identifier( string $identifier ): void {
+		$counts = (array) get_option( Plugin_Constants::OPTION_AI_FAILURE_COUNTS, [] );
+		if ( ! isset( $counts[ $identifier ] ) ) {
+			return;
+		}
+		unset( $counts[ $identifier ] );
+		update_option( Plugin_Constants::OPTION_AI_FAILURE_COUNTS, $counts, false );
 	}
 }

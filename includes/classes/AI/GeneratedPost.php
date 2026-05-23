@@ -80,7 +80,7 @@ readonly class GeneratedPost {
 		if ( '' === $title ) {
 			$title = sprintf(
 				/* translators: 1: repo identifier, 2: release tag */
-				__( '%1$s %2$s Release Notes', 'github-release-posts' ),
+				__( '%1$s %2$s Release Notes', 'auto-release-posts-for-github' ),
 				$data->identifier,
 				$data->tag
 			);

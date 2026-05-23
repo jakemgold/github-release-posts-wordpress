@@ -85,16 +85,24 @@ class Post_Creator {
 		$author_id      = $this->resolve_author( $data->identifier );
 		$slug           = $this->build_slug( $data->identifier, $data->tag, $post->slug_keywords );
 
+		// Defense-in-depth: KSES the AI-generated content before save. WordPress
+		// normally runs wp_filter_post_kses on insert, but users with the
+		// `unfiltered_html` capability (default for single-site admins) bypass
+		// that filter. AI output is prompt-injectable through release notes
+		// from any tracked repository, so we apply the same allowlist here
+		// regardless of the current user's capability. `wp_kses_post` preserves
+		// HTML comments, so the block-boundary markers (`<!-- wp:image ... -->`)
+		// survive intact.
 		$insert_args = [
-			'post_title'   => $title,
-			'post_content' => $block_content,
+			'post_title'   => wp_strip_all_tags( $title ),
+			'post_content' => wp_kses_post( $block_content ),
 			'post_status'  => 'draft',
 			'post_type'    => 'post',
 			'post_author'  => $author_id,
 		];
 
 		if ( '' !== $post->excerpt ) {
-			$insert_args['post_excerpt'] = $post->excerpt;
+			$insert_args['post_excerpt'] = wp_kses_post( $post->excerpt );
 		}
 
 		if ( '' !== $slug ) {
@@ -189,7 +197,7 @@ class Post_Creator {
 			return '';
 		}
 
-		$text = __( 'This post was generated from release notes with the help of AI using GitHub Release Posts plugin for WordPress.', 'github-release-posts' );
+		$text = __( 'This post was generated from release notes with the help of AI using GitHub Release Posts plugin for WordPress.', 'auto-release-posts-for-github' );
 
 		/**
 		 * Filters the AI disclosure text appended to generated posts.
@@ -758,12 +766,14 @@ class Post_Creator {
 
 		remove_filter( 'http_request_args', $timeout_filter );
 
-		// Update the post with local image URLs.
+		// Update the post with local image URLs. Re-apply KSES even though
+		// the sideload replacement only rewrites image URLs — defense in depth
+		// for the unfiltered_html admin case (see KSES note in create()).
 		if ( $content !== $post->post_content ) {
 			wp_update_post(
 				[
 					'ID'           => $post_id,
-					'post_content' => $content,
+					'post_content' => wp_kses_post( $content ),
 				]
 			);
 		}

@@ -27,7 +27,7 @@ class Version_Comparator {
 	 * @return bool
 	 */
 	public function is_newer( Release $candidate, array $state ): bool {
-		$last_tag = $state['last_seen_tag'] ?? '';
+		$last_tag = $state['last_seen_tag'];
 
 		// No last-seen tag means the repo is newly added — always treat as new (AC-008).
 		if ( '' === $last_tag ) {
@@ -51,7 +51,7 @@ class Version_Comparator {
 		// Non-semver — compare ISO 8601 publication dates (AC-007).
 		// ISO 8601 strings sort correctly as strings (lexicographic order).
 		$candidate_date = $candidate->published_at;
-		$last_date      = $state['last_seen_published_at'] ?? '';
+		$last_date      = $state['last_seen_published_at'];
 
 		if ( '' === $candidate_date || '' === $last_date ) {
 			// Can't compare without dates — treat as new to avoid silently skipping.

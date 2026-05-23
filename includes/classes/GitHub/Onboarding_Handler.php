@@ -1,6 +1,6 @@
 <?php
 /**
- * Onboarding preview draft handler.
+ * Post-add bookkeeping handler.
  *
  * @package GitHubReleasePosts
  */
@@ -8,11 +8,18 @@
 namespace GitHubReleasePosts\GitHub;
 
 /**
- * Triggers an immediate preview draft when a repository is first added.
+ * Runs the server-side bookkeeping for a newly added repository.
  *
- * Fires the ghrp_process_release action (DOM-05/06 hooks here for generation),
- * records the latest release tag as last-seen so the first cron run does not
- * re-process it, and returns a notice payload for the admin UI.
+ * Fetches the latest release (so the cron has something to compare against),
+ * records it as last-seen (so the cron won't double-process it once the
+ * client-side auto-generate completes), and returns a decision payload
+ * telling the form handler what notice to surface and whether to include
+ * the `?ghrp_just_added=<identifier>` query arg on the redirect that
+ * triggers the JS auto-generate flow.
+ *
+ * AI post generation itself is deferred to the client — the admin gets a
+ * fast redirect and the post is generated via the same REST endpoint the
+ * manual "Generate post" button uses.
  */
 class Onboarding_Handler {
 
@@ -28,87 +35,92 @@ class Onboarding_Handler {
 	) {}
 
 	/**
-	 * Fetches the latest release and triggers onboarding generation.
+	 * Decides what to do after a newly added repository.
 	 *
-	 * Always records the last-seen tag (if a release is found) so the first
-	 * scheduled cron run does not duplicate the onboarding post (AC-012).
+	 * Possible outcomes:
+	 *  - Latest release fetched, no existing post → auto-trigger generation
+	 *    on the client; no admin notice (the inline spinner speaks for itself).
+	 *  - Latest release fetched, post already exists → no auto-trigger;
+	 *    show an info notice linking to the existing post.
+	 *  - No releases yet → no auto-trigger; show a success notice explaining
+	 *    cron will pick up the first release.
+	 *  - Fetch failed (network / rate limit / private repo without PAT) →
+	 *    no auto-trigger; show a warning notice; cron will retry.
 	 *
 	 * @param string $identifier Normalised `owner/repo` identifier.
-	 * @return array{type: string, message: string, post_url: string|null}
+	 * @return array{
+	 *     auto_trigger: bool,
+	 *     notice: array{type: string, message: string, url: string}|null
+	 * }
 	 */
-	public function trigger( string $identifier ): array {
-		$release = $this->api_client->fetch_latest_release( $identifier );
+	public function handle_add( string $identifier ): array {
+		// New repos default to excluding pre-releases (see Repository_Settings
+		// defaults). We still surface a helpful notice if the repo turns out to
+		// have only pre-releases — see the null branch below.
+		$release = $this->api_client->fetch_latest_eligible_release( $identifier, false );
 
 		if ( is_wp_error( $release ) ) {
-			return $this->failure_notice(
-				sprintf(
-					/* translators: %s: error message */
-					__( 'Could not fetch the latest release: %s Use "Generate post" once your configuration is complete.', 'github-release-posts' ),
-					$release->get_error_message()
-				)
-			);
-		}
-
-		if ( null === $release ) {
-			return $this->failure_notice(
-				__( 'No releases found for this repository. A draft will be generated automatically after the first release is published.', 'github-release-posts' )
-			);
-		}
-
-		// Record the latest tag as last-seen before attempting generation.
-		// This prevents the cron from re-processing the same release (AC-012).
-		$this->state->update_last_seen( $identifier, $release->tag, $release->published_at );
-
-		/**
-		 * Fires to trigger AI generation for the onboarding preview draft.
-		 *
-		 * DOM-05/06 hooks here. The generated post must always be a draft
-		 * regardless of the global publish/draft setting (AC-011).
-		 *
-		 * @param array<string, mixed> $entry   Queue entry with release data.
-		 * @param array<string, mixed> $context Context flags: force_draft, onboarding.
-		 */
-		do_action(
-			'ghrp_process_release',
-			Release_Queue::from_release( $identifier, $release ),
-			[
-				'force_draft' => true,
-				'onboarding'  => true,
-			]
-		);
-
-		// Check whether a post was created by the action subscribers (AC-013, AC-014).
-		$post = Release_Monitor::find_post( $identifier, $release->tag );
-
-		if ( $post instanceof \WP_Post ) {
 			return [
-				'type'     => 'success',
-				'message'  => sprintf(
-					/* translators: %s: post title */
-					__( 'Preview draft created: "%s". Review it, then publish or discard to confirm your setup is working correctly.', 'github-release-posts' ),
-					$post->post_title
-				),
-				'post_url' => get_edit_post_link( $post->ID, 'raw' ),
+				'auto_trigger' => false,
+				'notice'       => [
+					'type'    => 'warning',
+					'message' => sprintf(
+						/* translators: %s: error message from GitHub API */
+						__( 'Repository added, but the initial release check failed: %s It will be retried on the next scheduled run.', 'auto-release-posts-for-github' ),
+						$release->get_error_message()
+					),
+					'url'     => '',
+				],
 			];
 		}
 
-		// AC-014: generation not available yet (no AI connector configured).
-		return $this->failure_notice(
-			__( 'Repository saved. To generate a preview draft, set up an AI connector under Settings → Connectors, then use "Generate post".', 'github-release-posts' )
-		);
-	}
+		if ( null === $release ) {
+			// No stable release. Before saying "no releases yet," check whether
+			// the repo has pre-releases — this is a common case for projects in
+			// beta lifecycle, and the "no releases" notice would be misleading.
+			$prereleases = $this->api_client->fetch_releases( $identifier, true );
+			if ( is_array( $prereleases ) && count( $prereleases ) > 0 ) {
+				return [
+					'auto_trigger' => false,
+					'notice'       => [
+						'type'    => 'success',
+						'message' => __( 'Repository added. This repo only has pre-release versions (betas, release candidates, etc.). Edit the repo and turn on "Include pre-releases" to start tracking them.', 'auto-release-posts-for-github' ),
+						'url'     => '',
+					],
+				];
+			}
 
-	/**
-	 * Builds a warning notice array.
-	 *
-	 * @param string $message Notice message.
-	 * @return array{type: string, message: string, post_url: null}
-	 */
-	private function failure_notice( string $message ): array {
+			return [
+				'auto_trigger' => false,
+				'notice'       => [
+					'type'    => 'success',
+					'message' => __( 'Repository added. No releases yet — a draft will be generated automatically once the first release is published.', 'auto-release-posts-for-github' ),
+					'url'     => '',
+				],
+			];
+		}
+
+		// Record the latest tag as last-seen before deciding anything else.
+		// This prevents the cron from re-processing this release while the
+		// client-side auto-generate is in flight (or after it completes).
+		$this->state->update_last_seen( $identifier, $release->tag, $release->published_at );
+
+		$existing = Release_Monitor::find_post( $identifier, $release->tag );
+		if ( $existing instanceof \WP_Post ) {
+			return [
+				'auto_trigger' => false,
+				'notice'       => [
+					'type'    => 'success',
+					'message' => __( 'Repository added. A post already exists for the latest release — use "Generate post" if you want to regenerate it.', 'auto-release-posts-for-github' ),
+					'url'     => (string) get_edit_post_link( $existing->ID, 'raw' ),
+				],
+			];
+		}
+
+		// Happy path: client will trigger generation via the inline UI.
 		return [
-			'type'     => 'warning',
-			'message'  => $message,
-			'post_url' => null,
+			'auto_trigger' => true,
+			'notice'       => null,
 		];
 	}
 }

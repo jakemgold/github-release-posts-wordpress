@@ -125,7 +125,7 @@ class Release_Enricher {
 
 		// Get the previous tag from stored release state.
 		$state        = ( new Release_State() )->get_state( $data->identifier );
-		$previous_tag = $state['last_seen_tag'] ?? '';
+		$previous_tag = $state['last_seen_tag'];
 
 		if ( '' === $previous_tag ) {
 			return $body; // First release tracked — nothing to compare against.

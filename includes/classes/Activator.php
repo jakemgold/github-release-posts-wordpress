@@ -23,10 +23,11 @@ class Activator {
 	 * @return void
 	 */
 	public static function activate(): void {
-		if ( ! current_user_can( 'manage_options' ) ) {
-			return;
-		}
-
+		// No capability guard — activation hooks are already capability-gated by
+		// the activator (the plugins screen requires `activate_plugins`, WP-CLI
+		// runs as no-user, network activation runs as super admin). A stricter
+		// inline check breaks CLI / network / automated activation by silently
+		// skipping defaults and cron registration.
 		self::write_default_options();
 		self::register_cron_event();
 	}
@@ -90,7 +91,7 @@ class Activator {
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 			error_log(
 				sprintf(
-					'[github-release-posts] Failed to schedule cron event with interval "%s". The interval may not be a registered WP-Cron schedule.',
+					'[auto-release-posts-for-github] Failed to schedule cron event with interval "%s". The interval may not be a registered WP-Cron schedule.',
 					$interval
 				)
 			);

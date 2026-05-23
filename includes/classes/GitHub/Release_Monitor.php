@@ -61,59 +61,65 @@ class Release_Monitor {
 		}
 		set_transient( $lock_key, time(), 10 * MINUTE_IN_SECONDS );
 
-		// Record start time before processing so a partial run still updates the display (BR-004).
-		update_option( Plugin_Constants::OPTION_LAST_RUN_AT, time(), false );
+		// Wrap the run body in try/finally so any uncaught exception from
+		// HTTP, AI provider, image sideload, or third-party action/filter
+		// listeners still releases the lock — without this, the cron would
+		// be silently blocked for up to 10 minutes after a single failure.
+		try {
+			// Record start time before processing so a partial run still updates the display (BR-004).
+			update_option( Plugin_Constants::OPTION_LAST_RUN_AT, time(), false );
 
-		$repos = $this->repo_settings->get_repositories();
+			$repos = $this->repo_settings->get_repositories();
 
-		foreach ( $repos as $repo ) {
-			$identifier = $repo['identifier'] ?? '';
-			if ( '' === $identifier ) {
-				continue;
-			}
-
-			// Skip paused repos — no API call, no state update (AC-025, BR-004).
-			if ( ! empty( $repo['paused'] ) ) {
-				$this->log( $identifier, 'skipped — paused' );
-				continue;
-			}
-
-			$release = $this->api_client->fetch_latest_release( $identifier );
-
-			if ( is_wp_error( $release ) ) {
-				if ( 'github_rate_limit_exhausted' === $release->get_error_code() ) {
-					// API_Client already scheduled the retry event. Stop the run.
-					$this->log( $identifier, 'rate limit exhausted — stopping run' );
-					break;
+			foreach ( $repos as $repo ) {
+				$identifier = $repo['identifier'] ?? '';
+				if ( '' === $identifier ) {
+					continue;
 				}
 
-				$this->log( $identifier, 'error: ' . $release->get_error_message() );
+				// Skip paused repos — no API call, no state update (AC-025, BR-004).
+				if ( ! empty( $repo['paused'] ) ) {
+					$this->log( $identifier, 'skipped — paused' );
+					continue;
+				}
+
+				$include_prereleases = ! empty( $repo['include_prereleases'] );
+				$release             = $this->api_client->fetch_latest_eligible_release( $identifier, $include_prereleases );
+
+				if ( is_wp_error( $release ) ) {
+					if ( 'github_rate_limit_exhausted' === $release->get_error_code() ) {
+						// API_Client already scheduled the retry event. Stop the run.
+						$this->log( $identifier, 'rate limit exhausted — stopping run' );
+						break;
+					}
+
+					$this->log( $identifier, 'error: ' . $release->get_error_message() );
+					$this->state->update_last_checked( $identifier );
+					continue;
+				}
+
+				if ( null === $release ) {
+					$this->log( $identifier, 'no releases found' );
+					$this->state->update_last_checked( $identifier );
+					continue;
+				}
+
+				$repo_state = $this->state->get_state( $identifier );
+
+				if ( $this->comparator->is_newer( $release, $repo_state ) ) {
+					$this->queue->enqueue( $identifier, $release );
+					$this->log( $identifier, 'new release found: ' . $release->tag );
+				} else {
+					$this->log( $identifier, 'no new release (last seen: ' . $repo_state['last_seen_tag'] . ')' );
+				}
+
 				$this->state->update_last_checked( $identifier );
-				continue;
 			}
 
-			if ( null === $release ) {
-				$this->log( $identifier, 'no releases found' );
-				$this->state->update_last_checked( $identifier );
-				continue;
-			}
-
-			$repo_state = $this->state->get_state( $identifier );
-
-			if ( $this->comparator->is_newer( $release, $repo_state ) ) {
-				$this->queue->enqueue( $identifier, $release );
-				$this->log( $identifier, 'new release found: ' . $release->tag );
-			} else {
-				$this->log( $identifier, 'no new release (last seen: ' . $repo_state['last_seen_tag'] . ')' );
-			}
-
-			$this->state->update_last_checked( $identifier );
+			$this->process_queue();
+		} finally {
+			delete_transient( $lock_key );
 		}
-
-		$this->process_queue();
-
-		// Release the concurrency lock.
-		delete_transient( $lock_key );
 	}
 
 	/**
@@ -261,7 +267,7 @@ class Release_Monitor {
 		// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 		error_log(
 			sprintf(
-				'[github-release-posts] %s — %s',
+				'[auto-release-posts-for-github] %s — %s',
 				$identifier,
 				$message
 			)

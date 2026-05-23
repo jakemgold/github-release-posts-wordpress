@@ -1,11 +1,11 @@
-=== GitHub Release Posts ===
+=== Auto Release Posts for GitHub ===
 
 Contributors:      jakemgold, 10up, retlehs, tott
 Tags:              github, releases, blog post, ai, automation
 Requires at least: 7.0
 Tested up to:      7.0
 Requires PHP:      8.2
-Stable tag:        0.11.1
+Stable tag:        1.0.0
 License:           GPL-2.0-or-later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -13,7 +13,7 @@ Automatically generate blog posts from GitHub releases using AI.
 
 == Description ==
 
-GitHub Release Posts monitors GitHub repositories for new releases and uses AI to research each release and generate a human-readable blog post about it. Posts can be automatically published or held as drafts for review, with email notifications when new posts are ready.
+Auto Release Posts for GitHub monitors GitHub repositories for new releases and uses AI to research each release and generate a human-readable blog post about it. Posts can be automatically published or held as drafts for review, with email notifications when new posts are ready.
 
 Built on the AI Client API and Connectors introduced in WordPress 7.0 — configure your AI provider (Anthropic, OpenAI, Google, or any other connector) once under Settings → Connectors, and this plugin uses whatever you've set up. No AI API keys to manage in the plugin itself.
 
@@ -42,6 +42,7 @@ You can also generate a post on demand at any time from the Repositories tab.
 * Source attribution in the block editor — see which GitHub release generated each post
 * Idempotency — the same release never creates duplicate posts
 * Optional project link support — enter a URL or WordPress.org slug for download CTAs
+* Optional pre-release tracking per repository — track stable releases by default, or opt in to include betas, release candidates, and other pre-release versions
 
 **For developers:**
 
@@ -56,13 +57,44 @@ You can also generate a post on demand at any time from the Repositories tab.
 * PHP 8.2 or later
 * At least one AI connector configured under Settings → Connectors (Anthropic, OpenAI, or Google recommended)
 
-*GitHub Release Posts is an independent project. It is not affiliated with, endorsed by, or sponsored by GitHub, Inc. or the WordPress Foundation. "GitHub" and "WordPress" are used here for descriptive purposes only.*
+*Auto Release Posts for GitHub is an independent project. It is not affiliated with, endorsed by, or sponsored by GitHub, Inc. or the WordPress Foundation. "GitHub" and "WordPress" are used here for descriptive purposes only.*
 
 == Installation ==
 
-1. Upload the plugin files to `/wp-content/plugins/github-release-posts/`, or install via the WordPress Plugins screen.
+1. Upload the plugin files to `/wp-content/plugins/auto-release-posts-for-github/`, or install via the WordPress Plugins screen.
 2. Activate the plugin through the Plugins screen in WordPress.
 3. Go to **Tools → Release Posts** to configure your AI provider and add repositories.
+
+== External Services ==
+
+This plugin connects to external services to fetch release data and (via WordPress Connectors) generate post content. Each service is described below.
+
+**GitHub REST API**
+
+* What it is: GitHub's REST API (`https://api.github.com`) is used to read release data and repository metadata, and — when a Personal Access Token is configured — to list repositories the token can access.
+* What is sent: HTTP requests to `api.github.com` containing the repository owner and name. If a GitHub Personal Access Token is configured (in the Settings tab, or via the `GITHUB_RELEASE_POSTS_PAT` constant or environment variable), the token is sent in the Authorization header.
+* When it is sent: Daily via WP-Cron (configurable via the `ghrp_check_frequency` filter), and on demand when generating, regenerating, or refreshing posts from the plugin's admin screens.
+* Terms of Service: [https://docs.github.com/en/site-policy/github-terms/github-terms-of-service](https://docs.github.com/en/site-policy/github-terms/github-terms-of-service)
+* Privacy Policy: [https://docs.github.com/en/site-policy/privacy-policies/github-privacy-statement](https://docs.github.com/en/site-policy/privacy-policies/github-privacy-statement)
+
+**Image sideloading from GitHub-hosted domains**
+
+* What it is: When AI-generated post content references images hosted on `github.com`, `githubusercontent.com`, or `github.io`, the plugin downloads those images to the WordPress Media Library so posts render without external image dependencies.
+* What is sent: HTTP GET requests to the specific image URLs referenced by the AI output. No data beyond a standard HTTP request.
+* When it is sent: At post creation or regeneration time, for image URLs included in the AI-generated content. The allowed domains and limits are configurable via the `ghrp_sideload_allowed_domains`, `ghrp_max_sideload_images`, `ghrp_sideload_time_budget`, and related filters.
+* Terms of Service and Privacy Policy: same as GitHub above.
+
+**AI providers (via WordPress Connectors)**
+
+* What it is: AI-generated post content is produced by whichever AI connector you have configured under **Settings → Connectors** in WordPress 7.0+. The plugin does not call AI provider APIs directly — it dispatches prompts through the WordPress AI Client API.
+* What is sent: The release title, release notes body, repository metadata (owner/name, language, description), and any custom prompt instructions you have configured are sent to the AI provider selected by your connector. Optional Deep research mode additionally sends recent commit messages and file change summaries between releases.
+* When it is sent: When a new release is detected by the daily scheduled check, when you click "Generate post" or "Regenerate," and when regenerating from the block editor sidebar.
+
+Privacy and terms for the AI provider depend on which connector is configured. Common providers:
+
+* Anthropic — [Terms](https://www.anthropic.com/legal/consumer-terms) — [Privacy](https://www.anthropic.com/legal/privacy)
+* OpenAI — [Terms](https://openai.com/policies/terms-of-use) — [Privacy](https://openai.com/policies/privacy-policy)
+* Google AI — [Terms](https://policies.google.com/terms) — [Privacy](https://policies.google.com/privacy)
 
 == Frequently Asked Questions ==
 
@@ -104,6 +136,22 @@ A Release Attribution panel appears in the document sidebar, showing which GitHu
 6. Generated post in the block editor — AI-written content with embedded images, plus the GitHub Release sidebar panel for source attribution and regeneration.
 
 == Changelog ==
+
+= 1.0.0 =
+
+* **Plugin renamed to Auto Release Posts for GitHub** for WordPress.org compatibility (the prior name began with a trademark, which the Plugin Directory guidelines disallow). The WordPress.org slug and text domain are now `auto-release-posts-for-github`. The Composer package name (`github-release-posts/github-release-posts`), main plugin file, PHP namespace, hook prefix (`ghrp_*`), and REST namespace (`ghrp/v1`) are unchanged — existing Composer-installed sites are unaffected.
+* New **External Services** section in the readme covering the GitHub REST API, image sideloading from GitHub-hosted domains, and AI provider connectors — meets the WordPress.org disclosure requirement for plugins that contact third-party services.
+* Smarter display naming on add — names are pulled from the repo's README first heading when possible (e.g., "Ads.txt" instead of "ads-txt"), with a cleaned-up slug as fallback.
+* New per-repo "Include pre-releases" option to opt into tracking beta/RC versions. Off by default.
+* Adding a repository now redirects immediately; the first post generates in the background instead of blocking the page for 30–60 seconds.
+
+**For developers**
+
+* Modernized the admin and editor JavaScript: `var` → `let`/`const`, template literals, `URL.canParse()` for URL validation, full `wp-prettier` compliance. Build output is byte-stable; runtime behavior is unchanged.
+* Toolchain: pinned `eslint-plugin-jsdoc@^46.10.1` and `prettier@npm:wp-prettier@2.2.1-beta-1` via `package.json` `overrides` to fix a JSDoc plugin crash on Node 20+ and to honor the codebase's WordPress paren-spacing style.
+* JS lint and PHPCS now both pass with zero errors and zero warnings.
+* Pre-release security review and hardening pass — KSES sanitization on AI/GitHub-sourced content at all save boundaries (defense-in-depth against prompt-injected HTML in release notes), output escaping for REST response data in admin JS, Unicode bidi-control character stripping in extracted display names, and tighter capability checks on release-attribution post meta REST endpoints.
+* Engineering pass — PHPStan analysis now runs clean, dead constants and unused methods removed, several type-annotation gaps closed, cron lock guaranteed-released via try/finally so a single failing release can no longer block the next scheduled run.
 
 = 0.11.1 =
 
@@ -175,23 +223,3 @@ Thanks to [Thorsten Ott](https://github.com/tott) for the code review that promp
 * Connector status panel replaces manual provider/API key configuration.
 * Improved notification emails with contextual subject lines and post titles.
 * Test notification email feature.
-
-== Upgrade Notice ==
-
-= 0.10.0 =
-Adds a configurable post title format, a version picker for generating posts from any historical GitHub release (with automatic backdating), inline conflict warnings, and a one-click checkmark link to the generated post. Title prompt is now project-neutral and varies title openings across the archive.
-
-= 0.9.2 =
-Adds a top-of-page warning notice on the plugin admin page when no AI connector is configured.
-
-= 0.9.1 =
-Fixes a fatal error when the plugin is loaded on WordPress versions older than 7.0; now degrades gracefully with an admin notice.
-
-= 0.9.0 =
-Plugin renamed to GitHub Release Posts. Hooks, options, REST routes, and CSS prefixes all changed to `ghrp_*` / `ghrp-`. No migration from earlier pre-release versions — uninstall the old plugin and install fresh.
-
-= 0.8.1 =
-Adds optional Deep research mode (commit history and file changes) and minor settings UI polish.
-
-= 0.8.0 =
-Pre-release. Requires WordPress 7.0 RC or later.
