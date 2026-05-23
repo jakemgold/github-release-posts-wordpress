@@ -218,11 +218,21 @@ class Release_Monitor {
 			return self::$find_post_cache[ $cache_key ];
 		}
 
+		// Order by ID descending so the most recently inserted post wins
+		// when multiple posts share the same (identifier, tag) — possible
+		// when manual "Generate post" runs against a release that already
+		// had a trashed predecessor (Post_Creator's bypass_idempotency path
+		// inserts a fresh draft alongside the trashed one). Ordering by
+		// post_date alone would return the wrong post when an older release
+		// is backdated, since the trashed predecessor could have a more
+		// recent post_date than the freshly-inserted backdated draft.
 		$posts = get_posts(
 			[
 				'post_type'      => 'post',
 				'post_status'    => [ 'publish', 'draft', 'pending', 'private', 'trash' ],
 				'posts_per_page' => 1,
+				'orderby'        => 'ID',
+				'order'          => 'DESC',
 				'meta_query'     => [ // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
 					'relation' => 'AND',
 					[
