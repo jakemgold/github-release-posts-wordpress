@@ -105,13 +105,12 @@ class Onboarding_Handler {
 			];
 		}
 
-		// Record the latest tag as last-seen before deciding anything else.
-		// This prevents the cron from re-processing this release while the
-		// client-side auto-generate is in flight (or after it completes).
-		$this->state->update_last_seen( $identifier, $release->tag, $release->published_at );
-
 		$existing = Release_Monitor::find_post( $identifier, $release->tag );
 		if ( $existing instanceof \WP_Post ) {
+			// A post already exists for the latest tag — record last_seen so
+			// the cron doesn't re-process. Safe here because there is no
+			// in-flight generation that might fail.
+			$this->state->update_last_seen( $identifier, $release->tag, $release->published_at );
 			return [
 				'auto_trigger' => false,
 				'notice'       => [
@@ -123,6 +122,14 @@ class Onboarding_Handler {
 		}
 
 		// Happy path: client will trigger generation via the inline UI.
+		// Deliberately do NOT pre-record last_seen here — if the client-side
+		// auto-generate fails (browser close, JS error, AI provider down)
+		// before a post is created, the cron must be free to pick up the
+		// slack on its next run. The cron's own pipeline records last_seen
+		// after successful post creation (Release_Monitor::process_queue()),
+		// and Post_Creator's idempotency check via find_post() prevents
+		// double-creation when the cron and client race in the narrow window
+		// during AI generation.
 		return [
 			'auto_trigger' => true,
 			'notice'       => null,

@@ -899,8 +899,9 @@ class Admin_Page {
 		// "Generate post" deliberately, and surfacing a conflict over an
 		// already-trashed draft would be confusing. The cron pipeline still
 		// honors trash as a "skip this release" signal (Post_Creator::handle).
-		$existing = Release_Monitor::find_post( $identifier, $release->tag );
-		if ( $existing instanceof \WP_Post && 'trash' === $existing->post_status ) {
+		$existing          = Release_Monitor::find_post( $identifier, $release->tag );
+		$existing_in_trash = ( $existing instanceof \WP_Post && 'trash' === $existing->post_status );
+		if ( $existing_in_trash ) {
 			$existing = null;
 		}
 
@@ -921,6 +922,15 @@ class Admin_Page {
 			'force_draft' => true,
 			'manual'      => true,
 		];
+
+		// If the prior post for this tag was in trash, bypass Post_Creator's
+		// idempotency check — otherwise it would find the trashed post again
+		// downstream and silently skip the insert, leaving the user with a
+		// "success" response and no new draft. The trashed post stays in
+		// trash; a new draft is created alongside it.
+		if ( $existing_in_trash ) {
+			$context['bypass_idempotency'] = true;
+		}
 
 		if ( ! $is_latest && '' !== $release->published_at ) {
 			$timestamp = strtotime( $release->published_at );
@@ -950,6 +960,20 @@ class Admin_Page {
 		$post = Release_Monitor::find_post( $identifier, $release->tag );
 
 		if ( $post instanceof \WP_Post ) {
+			// Record last_seen for latest-release generation so the cron
+			// doesn't re-enqueue and waste another AI call. Skip when the
+			// user generated for an older release via the version picker —
+			// pinning last_seen to an older tag would suppress newer real
+			// releases. The cron's own pipeline records last_seen after
+			// its successful generations; this closes the same gap for
+			// client-initiated generation.
+			if ( $is_latest ) {
+				( new Release_State() )->update_last_seen(
+					$identifier,
+					$release->tag,
+					$release->published_at
+				);
+			}
 			return new \WP_REST_Response(
 				[
 					'conflict'  => false,
@@ -1338,14 +1362,25 @@ class Admin_Page {
 		update_post_meta( $post_id, Plugin_Constants::META_GENERATED_BY, $result->provider_slug );
 
 		$updated_post = get_post( $post_id );
+
+		// Include content and excerpt in the response so the editor can rehydrate
+		// its block list and meta in-place. Without this the editor's local
+		// state still holds the pre-regeneration content; the next Save click
+		// would clobber the server-side regenerated content with stale blocks.
+		$post_payload = $updated_post ? $this->build_post_response( $updated_post ) : [
+			'id'       => $post_id,
+			'title'    => $full_title,
+			'edit_url' => get_edit_post_link( $post_id, 'raw' ),
+		];
+		if ( $updated_post ) {
+			$post_payload['content'] = $updated_post->post_content;
+			$post_payload['excerpt'] = $updated_post->post_excerpt;
+		}
+
 		return new \WP_REST_Response(
 			[
 				'success' => true,
-				'post'    => $updated_post ? $this->build_post_response( $updated_post ) : [
-					'id'       => $post_id,
-					'title'    => $full_title,
-					'edit_url' => get_edit_post_link( $post_id, 'raw' ),
-				],
+				'post'    => $post_payload,
 			],
 			200
 		);

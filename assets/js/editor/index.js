@@ -71,19 +71,22 @@ function ReleaseAttribution() {
 				setIsRegenerating( false );
 				setShowFeedback( false );
 				setFeedback( '' );
-				setResultMessage(
-					__(
-						'Content regenerated. Refresh to see changes.',
-						'auto-release-posts-for-github',
-					),
-				);
+				setResultMessage( __( 'Content regenerated.', 'auto-release-posts-for-github' ) );
 
-				// Update the post content in the editor.
 				if ( response && response.post ) {
+					// Rehydrate the editor's local state from the regenerated
+					// server content. Without resetBlocks(), the in-memory
+					// block list still holds the pre-regeneration content and
+					// the next Save would write that back over the server.
+					if ( typeof response.post.content === 'string' ) {
+						const blocks = wp.blocks.parse( response.post.content );
+						wp.data.dispatch( 'core/block-editor' ).resetBlocks( blocks );
+					}
 					editPost( {
 						title: response.post.title,
+						excerpt: response.post.excerpt || '',
 					} );
-					// Force a content refresh by dispatching a notice.
+
 					wp.data
 						.dispatch( 'core/notices' )
 						.createSuccessNotice(

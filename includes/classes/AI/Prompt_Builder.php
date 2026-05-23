@@ -244,7 +244,7 @@ class Prompt_Builder {
 			. "- Do NOT use multi-sentence or multi-line bullet items. Do NOT nest bullets inside bullets.\n"
 			. "- Prefer short, scannable lists over long, dense ones.\n"
 			. "\n"
-			. "LENGTH: Scale content to match the release substance. A single-fix release may be one or two paragraphs. A feature-rich release may use up to approximately 7 paragraphs. Do not pad thin releases to reach a minimum length, and do not truncate rich ones.";
+			. 'LENGTH: Scale content to match the release substance. A single-fix release may be one or two paragraphs. A feature-rich release may use up to approximately 7 paragraphs. Do not pad thin releases to reach a minimum length, and do not truncate rich ones.';
 
 		$structure .= "\n\n" . $this->build_image_instructions( $images );
 
@@ -401,7 +401,7 @@ EOT
 			. "\n"
 			. "Use HTML tags for formatting: <p>, <ul>, <li>, <ol>, <strong>, <em>, <h2>, <h3>.\n"
 			. "Do NOT use Markdown. Do NOT include an <h1> or full post title in the body.\n"
-			. "Do NOT mention that this post was AI-generated.";
+			. 'Do NOT mention that this post was AI-generated.';
 
 		if ( '' !== $custom_instructions ) {
 			$prompt .= "\n\nADDITIONAL INSTRUCTIONS FROM THE SITE OWNER:\n{$custom_instructions}";

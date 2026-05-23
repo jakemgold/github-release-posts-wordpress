@@ -161,14 +161,14 @@ class AI_Processor {
 		// are silently ignored here since they don't match the nested lookup, and
 		// new failures rebuild the count from zero. The orphan entries are tiny
 		// and don't affect behavior; they'd require a one-time DB migration to
-		// remove cleanly, which isn't worth the complexity for ~32-byte entries.)
-		$counts                                       = (array) get_option( Plugin_Constants::OPTION_AI_FAILURE_COUNTS, [] );
-		$repo_counts                                  = isset( $counts[ $data->identifier ] ) && is_array( $counts[ $data->identifier ] )
+		// remove cleanly, which isn't worth the complexity for ~32-byte entries.
+		$counts                      = (array) get_option( Plugin_Constants::OPTION_AI_FAILURE_COUNTS, [] );
+		$repo_counts                 = isset( $counts[ $data->identifier ] ) && is_array( $counts[ $data->identifier ] )
 			? $counts[ $data->identifier ]
 			: [];
-		$count                                        = (int) ( $repo_counts[ $data->tag ] ?? 0 ) + 1;
-		$repo_counts[ $data->tag ]                    = $count;
-		$counts[ $data->identifier ]                  = $repo_counts;
+		$count                       = (int) ( $repo_counts[ $data->tag ] ?? 0 ) + 1;
+		$repo_counts[ $data->tag ]   = $count;
+		$counts[ $data->identifier ] = $repo_counts;
 		update_option( Plugin_Constants::OPTION_AI_FAILURE_COUNTS, $counts, false );
 
 		if ( $count >= self::FAILURE_THRESHOLD ) {

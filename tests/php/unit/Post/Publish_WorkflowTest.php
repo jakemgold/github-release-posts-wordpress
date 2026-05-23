@@ -34,6 +34,10 @@ class Publish_WorkflowTest extends TestCase {
 
 		// Mock current_time for tests that resolve to 'publish' status.
 		\WP_Mock::userFunction( 'current_time' )->andReturn( '2025-01-15 12:00:00' );
+
+		// Default: the post being processed is not in trash. Individual tests
+		// covering the trash-skip behavior override this with their own mock.
+		\WP_Mock::userFunction( 'get_post_status' )->andReturn( 'draft' )->byDefault();
 	}
 
 	// -------------------------------------------------------------------------
@@ -169,6 +173,24 @@ class Publish_WorkflowTest extends TestCase {
 		\WP_Mock::expectAction( 'ghrp_post_status_set', 42, 'draft', $data, [] );
 
 		$this->workflow->handle( 42, $this->make_post(), $data, [] );
+		$this->assertConditionsMet();
+	}
+
+	// -------------------------------------------------------------------------
+	// handle() — respects trashed posts
+	// -------------------------------------------------------------------------
+
+	public function test_handle_skips_trashed_posts(): void {
+		// Existing post is in trash — the workflow must not touch it.
+		\WP_Mock::userFunction( 'get_post_status' )->with( 42 )->andReturn( 'trash' );
+
+		// repo_settings should never be consulted, no wp_update_post call,
+		// no ghrp_post_status_set fired.
+		$this->repo_settings->shouldNotReceive( 'get_repository' );
+		\WP_Mock::userFunction( 'wp_update_post' )->never();
+
+		$this->workflow->handle( 42, $this->make_post(), $this->make_data(), [] );
+
 		$this->assertConditionsMet();
 	}
 

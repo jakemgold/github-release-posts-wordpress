@@ -407,8 +407,8 @@ class API_Client {
 		[ $owner, $repo ] = explode( '/', $identifier, 2 );
 		$url              = sprintf( '%s/repos/%s/%s/readme', self::API_BASE, $owner, $repo );
 
-		$args                       = $this->build_request_args();
-		$args['headers']['Accept']  = 'application/vnd.github.raw';
+		$args                      = $this->build_request_args();
+		$args['headers']['Accept'] = 'application/vnd.github.raw';
 		// README endpoints sometimes return large payloads; keep the timeout
 		// modest since this is best-effort on a user-facing button click.
 		$args['timeout'] = 8;

@@ -54,6 +54,14 @@ class Publish_Workflow {
 	 * @return void
 	 */
 	public function handle( int $post_id, GeneratedPost $post, ReleaseData $data, array $context ): void {
+		// Respect deliberately-trashed posts. Post_Creator::handle() fires
+		// ghrp_post_created even when the existing post is in trash so that
+		// the dedup signal can be observed; without this guard the workflow
+		// would then update the trashed post's status back to draft/publish.
+		if ( 'trash' === get_post_status( $post_id ) ) {
+			return;
+		}
+
 		$status = $this->resolve_status( $data->identifier, $context );
 
 		/**

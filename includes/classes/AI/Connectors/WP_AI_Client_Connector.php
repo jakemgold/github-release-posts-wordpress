@@ -94,19 +94,21 @@ class WP_AI_Client_Connector implements AIProviderInterface {
 
 		// Temporarily override the default request timeout for this call.
 		// Blog post generation typically needs 60-120s, well above the 30s default.
+		// The filter must remain installed until generate_text() returns —
+		// the underlying HTTP request reads the timeout at request-fire time,
+		// not at builder construction.
 		$timeout_override = static function () {
 			return self::REQUEST_TIMEOUT;
 		};
 		add_filter( 'wp_ai_client_default_request_timeout', $timeout_override );
-
-		$builder = wp_ai_client_prompt( $prompt ) // phpcs:ignore
-			->using_max_tokens( 16384 );
-
-		remove_filter( 'wp_ai_client_default_request_timeout', $timeout_override );
-
-		$this->configure_model( $builder );
-
-		$response = $builder->generate_text();
+		try {
+			$builder = wp_ai_client_prompt( $prompt ) // phpcs:ignore
+				->using_max_tokens( 16384 );
+			$this->configure_model( $builder );
+			$response = $builder->generate_text();
+		} finally {
+			remove_filter( 'wp_ai_client_default_request_timeout', $timeout_override );
+		}
 
 		if ( is_wp_error( $response ) ) {
 			return $response;

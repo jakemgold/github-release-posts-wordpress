@@ -60,11 +60,26 @@ class Release_Monitor {
 		}
 
 		// Prevent overlapping cron runs from processing the same releases.
-		$lock_key = Cache_Keys::cron_lock();
-		if ( get_transient( $lock_key ) ) {
-			return;
+		// add_option() is atomic at the DB level (INSERT IGNORE semantics on
+		// the unique option_name index) — get_transient() + set_transient()
+		// is not, and a sufficiently fast second worker could pass the check
+		// before the first one wrote the lock. The value stored is the lock's
+		// acquisition timestamp so a crashed/abandoned lock can be detected
+		// and forcibly reclaimed after 10 minutes.
+		$lock_key     = Cache_Keys::cron_lock();
+		$now          = time();
+		$lock_max_age = 10 * MINUTE_IN_SECONDS;
+		$acquired     = add_option( $lock_key, $now, '', false );
+		if ( ! $acquired ) {
+			$existing = (int) get_option( $lock_key, 0 );
+			if ( $existing > 0 && ( $now - $existing ) > $lock_max_age ) {
+				delete_option( $lock_key );
+				$acquired = add_option( $lock_key, $now, '', false );
+			}
+			if ( ! $acquired ) {
+				return; // another worker holds the lock; bail.
+			}
 		}
-		set_transient( $lock_key, time(), 10 * MINUTE_IN_SECONDS );
 
 		// Wrap the run body in try/finally so any uncaught exception from
 		// HTTP, AI provider, image sideload, or third-party action/filter
@@ -123,7 +138,7 @@ class Release_Monitor {
 
 			$this->process_queue();
 		} finally {
-			delete_transient( $lock_key );
+			delete_option( $lock_key );
 		}
 	}
 
