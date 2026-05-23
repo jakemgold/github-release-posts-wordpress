@@ -46,14 +46,13 @@ class PluginTest extends TestCase {
 	}
 
 	/**
-	 * setup() registers cron_schedules filter and both init actions.
+	 * setup() registers cron_schedules filter and the init action.
 	 */
 	public function test_setup_registers_hooks(): void {
 		$plugin = Plugin::get_instance();
 
 		// Verify the hooks are registered by calling setup methods directly.
 		$this->assertTrue( method_exists( $plugin, 'add_cron_schedules' ) );
-		$this->assertTrue( method_exists( $plugin, 'i18n' ) );
 		$this->assertTrue( method_exists( $plugin, 'init' ) );
 	}
 
@@ -78,30 +77,4 @@ class PluginTest extends TestCase {
 		$this->assertSame( 999, $result['weekly']['interval'], 'Existing weekly schedule should not be overwritten' );
 	}
 
-	/**
-	 * i18n() calls load_plugin_textdomain with the correct text domain.
-	 */
-	public function test_i18n_loads_text_domain(): void {
-		if ( ! defined( 'GITHUB_RELEASE_POSTS_PATH' ) ) {
-			define( 'GITHUB_RELEASE_POSTS_PATH', dirname( __DIR__, 3 ) . '/' );
-		}
-
-		// plugin_basename() returns a path relative to WP_PLUGIN_DIR; in tests
-		// we stub it to a deterministic value so the assertion below is stable.
-		\WP_Mock::userFunction( 'plugin_basename' )
-			->with( GITHUB_RELEASE_POSTS_PATH . 'github-release-posts.php' )
-			->andReturn( 'auto-release-posts-for-github/github-release-posts.php' );
-
-		\WP_Mock::userFunction( 'load_plugin_textdomain' )
-			->once()
-			->with(
-				'auto-release-posts-for-github',
-				false,
-				'auto-release-posts-for-github/languages'
-			);
-
-		Plugin::get_instance()->i18n();
-
-		$this->assertConditionsMet();
-	}
 }

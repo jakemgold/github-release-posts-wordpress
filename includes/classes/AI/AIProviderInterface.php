@@ -7,6 +7,11 @@
 
 namespace GitHubReleasePosts\AI;
 
+// Prevent direct access.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 /**
  * All AI provider connectors must implement this interface.
  *

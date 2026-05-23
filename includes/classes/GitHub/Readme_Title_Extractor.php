@@ -7,6 +7,11 @@
 
 namespace GitHubReleasePosts\GitHub;
 
+// Prevent direct access.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 /**
  * Pure-function utility that picks the first H1 out of a README markdown
  * string and strips formatting / decorations so it's usable as a UI label.

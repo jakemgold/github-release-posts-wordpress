@@ -7,6 +7,11 @@
 
 namespace GitHubReleasePosts\Admin;
 
+// Prevent direct access.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 use GitHubReleasePosts\Cache_Keys;
 use GitHubReleasePosts\GitHub\API_Client;
 use GitHubReleasePosts\Post\Post_Creator;
@@ -590,10 +595,13 @@ class Admin_Page {
 	 * @return void
 	 */
 	public function handle_form_submission(): void {
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended, WordPress.Security.NonceVerification.Missing -- nonce is verified per-action in handle_repositories_save(); this is just the early-return guard.
-		if ( 'POST' !== $_SERVER['REQUEST_METHOD'] || empty( $_POST['ghrp_action'] ) || ( $_GET['page'] ?? '' ) !== 'github-release-posts' ) {
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended, WordPress.Security.NonceVerification.Missing -- nonce is verified per-action in handle_repositories_save(); these three lines are the early-return guard that decides whether we're handling this plugin's form submission at all.
+		$method = isset( $_SERVER['REQUEST_METHOD'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) : '';
+		$page   = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : '';
+		if ( 'POST' !== $method || empty( $_POST['ghrp_action'] ) || 'github-release-posts' !== $page ) {
 			return;
 		}
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended, WordPress.Security.NonceVerification.Missing
 
 		$action = sanitize_key( $_POST['ghrp_action'] ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
 

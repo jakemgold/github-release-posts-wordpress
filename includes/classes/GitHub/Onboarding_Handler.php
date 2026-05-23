@@ -7,6 +7,11 @@
 
 namespace GitHubReleasePosts\GitHub;
 
+// Prevent direct access.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 /**
  * Runs the server-side bookkeeping for a newly added repository.
  *

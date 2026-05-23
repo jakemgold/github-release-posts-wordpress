@@ -7,6 +7,11 @@
 
 namespace GitHubReleasePosts;
 
+// Prevent direct access.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 /**
  * Returns the full key string for every transient / cache entry the plugin
  * reads or writes. Callers go through this class instead of composing keys

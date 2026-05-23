@@ -7,6 +7,11 @@
 
 namespace GitHubReleasePosts\GitHub;
 
+// Prevent direct access.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 /**
  * Determines whether a candidate release is newer than the last-seen release.
  *

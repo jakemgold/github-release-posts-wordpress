@@ -7,6 +7,11 @@
 
 namespace GitHubReleasePosts\AI;
 
+// Prevent direct access.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 /**
  * Immutable data bag carrying everything an AI provider needs to generate a blog post.
  */

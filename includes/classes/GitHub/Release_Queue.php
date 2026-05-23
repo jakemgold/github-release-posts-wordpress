@@ -7,6 +7,11 @@
 
 namespace GitHubReleasePosts\GitHub;
 
+// Prevent direct access.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 use GitHubReleasePosts\Plugin_Constants;
 
 /**

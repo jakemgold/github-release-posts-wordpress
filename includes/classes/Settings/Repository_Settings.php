@@ -7,6 +7,11 @@
 
 namespace GitHubReleasePosts\Settings;
 
+// Prevent direct access.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 use GitHubReleasePosts\GitHub\API_Client;
 use GitHubReleasePosts\GitHub\Readme_Title_Extractor;
 use GitHubReleasePosts\Plugin_Constants;

@@ -7,6 +7,11 @@
 
 namespace GitHubReleasePosts\AI;
 
+// Prevent direct access.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 /**
  * Immutable output of a successful AI generation call.
  */

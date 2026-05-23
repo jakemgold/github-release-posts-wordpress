@@ -7,6 +7,11 @@
 
 namespace GitHubReleasePosts\AI;
 
+// Prevent direct access.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 /**
  * Determines whether a release is a patch, minor, major, or security update.
  *

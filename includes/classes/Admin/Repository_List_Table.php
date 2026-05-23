@@ -10,6 +10,11 @@
 
 namespace GitHubReleasePosts\Admin;
 
+// Prevent direct access.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 use GitHubReleasePosts\Plugin_Constants;
 use GitHubReleasePosts\Post\Post_Status;
 use GitHubReleasePosts\Settings\Repository_Settings;

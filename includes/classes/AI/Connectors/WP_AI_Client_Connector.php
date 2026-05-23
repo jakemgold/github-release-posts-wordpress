@@ -7,6 +7,11 @@
 
 namespace GitHubReleasePosts\AI\Connectors;
 
+// Prevent direct access.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 use GitHubReleasePosts\AI\AIProviderInterface;
 use GitHubReleasePosts\AI\GeneratedPost;
 use GitHubReleasePosts\AI\ReleaseData;

@@ -7,6 +7,11 @@
 
 namespace GitHubReleasePosts\Notification;
 
+// Prevent direct access.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 /**
  * Typed container for the data each notification row needs: which post, what
  * status, which release. Built by Email_Notifier::collect and consumed by the

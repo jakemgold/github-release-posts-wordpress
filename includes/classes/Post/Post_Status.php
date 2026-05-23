@@ -7,6 +7,11 @@
 
 namespace GitHubReleasePosts\Post;
 
+// Prevent direct access.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 /**
  * Replaces hardcoded `'publish' === $status` comparisons with semantic
  * queries that delegate to WordPress's own status registry. Custom statuses

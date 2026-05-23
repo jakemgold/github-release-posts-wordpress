@@ -7,6 +7,11 @@
 
 namespace GitHubReleasePosts\Post;
 
+// Prevent direct access.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 use GitHubReleasePosts\AI\GeneratedPost;
 use GitHubReleasePosts\AI\ReleaseData;
 use GitHubReleasePosts\GitHub\Release_Monitor;

@@ -7,6 +7,11 @@
 
 namespace GitHubReleasePosts\Notification;
 
+// Prevent direct access.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 use GitHubReleasePosts\AI\ReleaseData;
 use GitHubReleasePosts\Plugin_Constants;
 use GitHubReleasePosts\Post\Post_Status;

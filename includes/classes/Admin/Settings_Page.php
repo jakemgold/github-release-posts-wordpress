@@ -11,6 +11,11 @@
 
 namespace GitHubReleasePosts\Admin;
 
+// Prevent direct access.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 use GitHubReleasePosts\Cache_Keys;
 use GitHubReleasePosts\GitHub\API_Client;
 use GitHubReleasePosts\Plugin_Constants;

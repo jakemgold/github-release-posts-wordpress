@@ -7,6 +7,11 @@
 
 namespace GitHubReleasePosts\AI;
 
+// Prevent direct access.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 use GitHubReleasePosts\Settings\Global_Settings;
 use GitHubReleasePosts\Settings\Repository_Settings;
 
@@ -163,36 +168,30 @@ class Prompt_Builder {
 		$lead = 'Lead with whatever is most compelling and newsworthy in the release. If there are new user-facing features, highlight those. If the release is purely bug fixes or a security patch with nothing else notable, say so plainly.';
 
 		if ( 'none' === $title_format ) {
-			return <<<EOT
-Write a complete, standalone post title — no automatic prefix will be added.
-
-This blog is focused on this single project ("{$display_name}"), so readers already know which project they're reading about. Across an archive of release posts, leading every title with the project name and version reads as repetitive. Consider working the project name "{$display_name}" and the version "{$tag}" into the title in varied ways instead of always opening with them — for example:
-  - Lead with the headline change: "New bot-blocking and voice-tool integrations"
-  - Mention the project mid-title: "Faster transcripts and security fixes arrive in {$display_name} {$tag}"
-  - Lead with the version when the version itself is the story: "{$tag} update adds image generation and breaking API changes"
-
-Use whichever shape best fits this release's content. {$lead} Keep it under 14 words. Be specific — avoid generic titles like "Latest update released".
-EOT;
+			return "Write a complete, standalone post title — no automatic prefix will be added.\n"
+				. "\n"
+				. "This blog is focused on this single project (\"{$display_name}\"), so readers already know which project they're reading about. Across an archive of release posts, leading every title with the project name and version reads as repetitive. Consider working the project name \"{$display_name}\" and the version \"{$tag}\" into the title in varied ways instead of always opening with them — for example:\n"
+				. "  - Lead with the headline change: \"New bot-blocking and voice-tool integrations\"\n"
+				. "  - Mention the project mid-title: \"Faster transcripts and security fixes arrive in {$display_name} {$tag}\"\n"
+				. "  - Lead with the version when the version itself is the story: \"{$tag} update adds image generation and breaking API changes\"\n"
+				. "\n"
+				. "Use whichever shape best fits this release's content. {$lead} Keep it under 14 words. Be specific — avoid generic titles like \"Latest update released\".";
 		}
 
 		if ( 'version' === $title_format ) {
 			$display_tag = ltrim( $tag, 'vV' );
 			$prefix      = "Version {$display_tag} — ";
 
-			return <<<EOT
-The post title will be automatically formatted as: "{$prefix}[your subtitle here]"
-Write ONLY the subtitle — do NOT include the version number. The project name is "{$display_name}"; you may mention it in the subtitle only if it improves clarity. Vary your subtitle openings across releases — leading every post with the same kind of phrase (e.g. always a feature name) reads as repetitive in an archive.
-{$lead} Keep it under 12 words. Be specific — avoid generic subtitles like "various improvements and fixes".
-EOT;
+			return "The post title will be automatically formatted as: \"{$prefix}[your subtitle here]\"\n"
+				. "Write ONLY the subtitle — do NOT include the version number. The project name is \"{$display_name}\"; you may mention it in the subtitle only if it improves clarity. Vary your subtitle openings across releases — leading every post with the same kind of phrase (e.g. always a feature name) reads as repetitive in an archive.\n"
+				. "{$lead} Keep it under 12 words. Be specific — avoid generic subtitles like \"various improvements and fixes\".";
 		}
 
 		$prefix = "{$display_name} {$tag} — ";
 
-		return <<<EOT
-The post title will be automatically formatted as: "{$prefix}[your subtitle here]"
-Write ONLY the subtitle — do NOT include the project name or version number.
-{$lead} Keep it under 12 words. Be specific — avoid generic subtitles like "various improvements and fixes".
-EOT;
+		return "The post title will be automatically formatted as: \"{$prefix}[your subtitle here]\"\n"
+			. "Write ONLY the subtitle — do NOT include the project name or version number.\n"
+			. "{$lead} Keep it under 12 words. Be specific — avoid generic subtitles like \"various improvements and fixes\".";
 	}
 
 	// -------------------------------------------------------------------------
@@ -220,38 +219,32 @@ EOT;
 		$link_instructions .= "- The first mention of the project name (\"{$display_name}\") in the body should be linked to: {$download_link}\n";
 
 		if ( $download_link !== $changelog_url ) {
-			$link_instructions .= <<<EOT
-- End with TWO closing calls to action:
-  1. A CTA to see the full release notes, linking to: {$changelog_url}
-     e.g. "See the full release notes on GitHub."
-  2. A CTA to learn more or download, linking to: {$download_link}
-     e.g. "Learn more and download {$display_name}."
-EOT;
+			$link_instructions .= "- End with TWO closing calls to action:\n"
+				. "  1. A CTA to see the full release notes, linking to: {$changelog_url}\n"
+				. "     e.g. \"See the full release notes on GitHub.\"\n"
+				. "  2. A CTA to learn more or download, linking to: {$download_link}\n"
+				. "     e.g. \"Learn more and download {$display_name}.\"";
 		} else {
-			$link_instructions .= <<<EOT
-- End with a closing call to action linking to the release notes: {$changelog_url}
-  e.g. "See the full release notes and download {$display_name} on GitHub."
-EOT;
+			$link_instructions .= "- End with a closing call to action linking to the release notes: {$changelog_url}\n"
+				. "  e.g. \"See the full release notes and download {$display_name} on GitHub.\"";
 		}
 
-		$structure = <<<EOT
-EDITORIAL PRIORITIES (most important first):
-1. New end-user features and capabilities — these are the headline story when present. What can people DO now that they couldn't before?
-2. Significant technical improvements, performance gains, or developer-facing changes — the second most important story.
-3. Bug fixes and security patches — note them clearly but don't lead with them unless the release contains nothing else. A release with new features AND a security fix should lead with the features and mention the security fix in context.
-
-{$audience_instructions}
-
-{$link_instructions}
-
-FORMATTING RULES FOR LISTS:
-- Keep bullet points to ONE sentence each. If a bullet needs more detail, use a <strong>bold label</strong> followed by a single explanatory sentence.
-- Example: <li><strong>Usage monitoring</strong> — Track AI feature usage across your site with a new dashboard widget.</li>
-- Do NOT use multi-sentence or multi-line bullet items. Do NOT nest bullets inside bullets.
-- Prefer short, scannable lists over long, dense ones.
-
-LENGTH: Scale content to match the release substance. A single-fix release may be one or two paragraphs. A feature-rich release may use up to approximately 7 paragraphs. Do not pad thin releases to reach a minimum length, and do not truncate rich ones.
-EOT;
+		$structure = "EDITORIAL PRIORITIES (most important first):\n"
+			. "1. New end-user features and capabilities — these are the headline story when present. What can people DO now that they couldn't before?\n"
+			. "2. Significant technical improvements, performance gains, or developer-facing changes — the second most important story.\n"
+			. "3. Bug fixes and security patches — note them clearly but don't lead with them unless the release contains nothing else. A release with new features AND a security fix should lead with the features and mention the security fix in context.\n"
+			. "\n"
+			. "{$audience_instructions}\n"
+			. "\n"
+			. "{$link_instructions}\n"
+			. "\n"
+			. "FORMATTING RULES FOR LISTS:\n"
+			. "- Keep bullet points to ONE sentence each. If a bullet needs more detail, use a <strong>bold label</strong> followed by a single explanatory sentence.\n"
+			. "- Example: <li><strong>Usage monitoring</strong> — Track AI feature usage across your site with a new dashboard widget.</li>\n"
+			. "- Do NOT use multi-sentence or multi-line bullet items. Do NOT nest bullets inside bullets.\n"
+			. "- Prefer short, scannable lists over long, dense ones.\n"
+			. "\n"
+			. "LENGTH: Scale content to match the release substance. A single-fix release may be one or two paragraphs. A feature-rich release may use up to approximately 7 paragraphs. Do not pad thin releases to reach a minimum length, and do not truncate rich ones.";
 
 		$structure .= "\n\n" . $this->build_image_instructions( $images );
 
@@ -380,37 +373,35 @@ EOT
 			? 'Your full post title (no automatic prefix will be added).'
 			: 'Your subtitle ONLY (not the full title — just the subtitle portion).';
 
-		$prompt = <<<EOT
-You are writing a blog post about a WordPress plugin update for the plugin's users.
-
-RELEASE INFORMATION:
-Plugin: {$display_name}
-Version: {$tag}
-Version hint: {$significance_label}
-
-Release body (raw changelog — may contain Markdown, developer jargon, or GitHub references):
----
-{$body}
----
-
-IMPORTANT: The "version hint" above is a rough classification based on version numbering. Do NOT rely on it as the sole indicator of what the release contains. Read the full changelog carefully and make your own editorial judgment about what is most newsworthy. A release flagged as "security" may also introduce major features; a "patch" release may contain important improvements. Let the actual content drive your coverage.
-
-TITLE INSTRUCTIONS:
-{$title_guidance}
-
-{$content_guidance}
-
-RESPONSE FORMAT:
-- Line 1: {$line_one_label}
-- Line 2: Slug keywords — 3 to 5 lowercase hyphenated words capturing the most important topics in this release. These will be appended to the project name and version in the URL. Example: "ai-usage-tracking-security" or "block-editor-performance". Do NOT include the project name or version number.
-- Line 3: Post excerpt — a compelling 150–160 character summary suitable as a meta description. Write it as a standalone sentence that makes sense out of context and encourages clicks from search results.
-- Line 4: Blank line.
-- Line 5 onwards: The post body formatted as HTML.
-
-Use HTML tags for formatting: <p>, <ul>, <li>, <ol>, <strong>, <em>, <h2>, <h3>.
-Do NOT use Markdown. Do NOT include an <h1> or full post title in the body.
-Do NOT mention that this post was AI-generated.
-EOT;
+		$prompt = "You are writing a blog post about a WordPress plugin update for the plugin's users.\n"
+			. "\n"
+			. "RELEASE INFORMATION:\n"
+			. "Plugin: {$display_name}\n"
+			. "Version: {$tag}\n"
+			. "Version hint: {$significance_label}\n"
+			. "\n"
+			. "Release body (raw changelog — may contain Markdown, developer jargon, or GitHub references):\n"
+			. "---\n"
+			. "{$body}\n"
+			. "---\n"
+			. "\n"
+			. "IMPORTANT: The \"version hint\" above is a rough classification based on version numbering. Do NOT rely on it as the sole indicator of what the release contains. Read the full changelog carefully and make your own editorial judgment about what is most newsworthy. A release flagged as \"security\" may also introduce major features; a \"patch\" release may contain important improvements. Let the actual content drive your coverage.\n"
+			. "\n"
+			. "TITLE INSTRUCTIONS:\n"
+			. "{$title_guidance}\n"
+			. "\n"
+			. "{$content_guidance}\n"
+			. "\n"
+			. "RESPONSE FORMAT:\n"
+			. "- Line 1: {$line_one_label}\n"
+			. "- Line 2: Slug keywords — 3 to 5 lowercase hyphenated words capturing the most important topics in this release. These will be appended to the project name and version in the URL. Example: \"ai-usage-tracking-security\" or \"block-editor-performance\". Do NOT include the project name or version number.\n"
+			. "- Line 3: Post excerpt — a compelling 150–160 character summary suitable as a meta description. Write it as a standalone sentence that makes sense out of context and encourages clicks from search results.\n"
+			. "- Line 4: Blank line.\n"
+			. "- Line 5 onwards: The post body formatted as HTML.\n"
+			. "\n"
+			. "Use HTML tags for formatting: <p>, <ul>, <li>, <ol>, <strong>, <em>, <h2>, <h3>.\n"
+			. "Do NOT use Markdown. Do NOT include an <h1> or full post title in the body.\n"
+			. "Do NOT mention that this post was AI-generated.";
 
 		if ( '' !== $custom_instructions ) {
 			$prompt .= "\n\nADDITIONAL INSTRUCTIONS FROM THE SITE OWNER:\n{$custom_instructions}";

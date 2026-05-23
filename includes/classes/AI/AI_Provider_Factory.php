@@ -7,6 +7,11 @@
 
 namespace GitHubReleasePosts\AI;
 
+// Prevent direct access.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 use GitHubReleasePosts\AI\Connectors\WP_AI_Client_Connector;
 use GitHubReleasePosts\Settings\Global_Settings;
 

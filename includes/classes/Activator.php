@@ -7,6 +7,11 @@
 
 namespace GitHubReleasePosts;
 
+// Prevent direct access.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 /**
  * Handles plugin activation and deactivation lifecycle events.
  */

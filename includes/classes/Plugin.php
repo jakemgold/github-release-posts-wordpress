@@ -7,6 +7,11 @@
 
 namespace GitHubReleasePosts;
 
+// Prevent direct access.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 use GitHubReleasePosts\AI\AI_Processor;
 use GitHubReleasePosts\AI\AI_Provider_Factory;
 use GitHubReleasePosts\AI\Prompt_Builder;
@@ -56,13 +61,14 @@ class Plugin {
 	/**
 	 * Registers core WordPress hooks.
 	 *
-	 * Called once by get_instance(). Hooks i18n to 'init' and defers
-	 * feature class instantiation to 'init' via init().
+	 * Called once by get_instance(). Defers feature class instantiation to
+	 * 'init' via init(). Translations are auto-loaded by WordPress for any
+	 * plugin hosted on WordPress.org since WP 4.6, so no explicit
+	 * load_plugin_textdomain() call is needed here.
 	 *
 	 * @return void
 	 */
 	protected function setup(): void {
-		add_action( 'init', [ $this, 'i18n' ] );
 		add_action( 'init', [ $this, 'init' ] );
 	}
 
@@ -90,23 +96,6 @@ class Plugin {
 		}
 
 		return $schedules;
-	}
-
-	/**
-	 * Loads the plugin text domain for internationalisation.
-	 *
-	 * @return void
-	 */
-	public function i18n(): void {
-		// Third argument is documented as plugin-relative (WP concatenates it
-		// onto WP_PLUGIN_DIR). Passing an absolute path produces an invalid
-		// `/absolute/path/.../languages` lookup. Build the plugin-relative
-		// form so locally-bundled .mo files under `languages/` actually load.
-		load_plugin_textdomain(
-			'auto-release-posts-for-github',
-			false,
-			dirname( plugin_basename( GITHUB_RELEASE_POSTS_PATH . 'github-release-posts.php' ) ) . '/languages'
-		);
 	}
 
 	/**

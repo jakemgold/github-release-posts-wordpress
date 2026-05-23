@@ -7,6 +7,11 @@
 
 namespace GitHubReleasePosts\AI;
 
+// Prevent direct access.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 use GitHubReleasePosts\GitHub\API_Client;
 use GitHubReleasePosts\GitHub\Release_State;
 use GitHubReleasePosts\Settings\Global_Settings;

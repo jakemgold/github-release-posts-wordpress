@@ -10,6 +10,11 @@
 
 namespace GitHubReleasePosts;
 
+// Prevent direct access.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 /**
  * Centralises all option key strings and their default values.
  */
