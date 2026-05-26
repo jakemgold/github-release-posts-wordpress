@@ -178,6 +178,16 @@ class Publish_Workflow {
 			return;
 		}
 
+		// Scope the notice to this plugin's admin page only. Per WordPress.org
+		// Plugin Directory Guideline 11, plugins must not show notices on
+		// unrelated admin screens. Users still get the same information when
+		// they visit Tools → Release Posts, plus the email notification
+		// pipeline already covers the "didn't visit the admin yet" case.
+		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+		if ( ! $screen || 'tools_page_github-release-posts' !== $screen->id ) {
+			return;
+		}
+
 		$results = get_transient( Cache_Keys::cron_results() );
 		if ( ! is_array( $results ) ) {
 			return;

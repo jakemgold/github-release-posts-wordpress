@@ -135,6 +135,27 @@ A Release Attribution panel appears in the document sidebar, showing which GitHu
 5. Inline editing — per-repo settings including name, project link, post status, author, categories, tags, and featured image, following the familiar WordPress Quick Edit pattern.
 6. Generated post in the block editor — AI-written content with embedded images, plus the GitHub Release sidebar panel for source attribution and regeneration.
 
+== Source Code ==
+
+The complete, human-readable source code for this plugin is published at:
+https://github.com/jakemgold/github-release-posts-wordpress
+
+**Bundled JavaScript.** The minified files under `dist/js/` are built from the source files under `assets/js/` using the @10up/scripts toolkit (which wraps Webpack). To rebuild:
+
+`npm install && npm run build`
+
+Source-to-build mapping:
+
+* `dist/js/admin.js` is built from `assets/js/admin/index.js`
+* `dist/js/editor.js` is built from `assets/js/editor/index.js`
+* `dist/css/admin-style.css` is built from `assets/css/admin/style.css`
+
+Both source and build outputs ship with the plugin, so the source is available locally as well as in the public repository.
+
+**Third-party libraries.** The plugin has no third-party PHP dependencies. The `vendor/` directory only contains Composer's own PSR-4 autoloader scaffolding generated from the plugin's own classes — it does not include any external libraries. The `composer.json` `require` block requires only `php: >=8.2`. PAT encryption uses libsodium, which has been part of PHP core since 7.2.
+
+**Bundled npm packages used at build time** (development only — not shipped at runtime): `@10up/scripts` (which itself bundles Webpack, ESLint, Babel, and the build-time-only `wp-prettier` and `eslint-plugin-jsdoc` overrides). All declared in `package.json` and `package-lock.json`. None of these end up in the distributed plugin.
+
 == Changelog ==
 
 = 1.0.0 =
