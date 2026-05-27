@@ -3,7 +3,7 @@
  * Plugin Name:       Auto Release Posts for GitHub
  * Plugin URI:        https://github.com/jakemgold/github-release-posts-wordpress
  * Description:       Automatically generate blog posts from GitHub releases using AI.
- * Version:           1.0.0
+ * Version:           1.0.1
  * Requires at least: 7.0
  * Requires PHP:      8.2
  * Author:            Jake Goldman, Fueled (formerly 10up)
@@ -24,7 +24,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! defined( 'GITHUB_RELEASE_POSTS_VERSION' ) ) {
-	define( 'GITHUB_RELEASE_POSTS_VERSION', '1.0.0' );
+	define( 'GITHUB_RELEASE_POSTS_VERSION', '1.0.1' );
 }
 
 if ( ! defined( 'GITHUB_RELEASE_POSTS_URL' ) ) {

@@ -5,7 +5,7 @@ Tags:              github, releases, blog post, ai, automation
 Requires at least: 7.0
 Tested up to:      7.0
 Requires PHP:      8.2
-Stable tag:        1.0.0
+Stable tag:        1.0.1
 License:           GPL-2.0-or-later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -157,6 +157,30 @@ Both source and build outputs ship with the plugin, so the source is available l
 **Bundled npm packages used at build time** (development only — not shipped at runtime): `@10up/scripts` (which itself bundles Webpack, ESLint, Babel, and the build-time-only `wp-prettier` and `eslint-plugin-jsdoc` overrides). All declared in `package.json` and `package-lock.json`. None of these end up in the distributed plugin.
 
 == Changelog ==
+
+= 1.0.1 =
+
+Pre-publication fixes addressing automated and manual review feedback. Since 1.0.0 was withheld during the WordPress.org review process, this is the first version actually shipping to the directory; Composer-installed sites at 1.0.0 should update to pick up the bug fixes below.
+
+**Bug fixes**
+
+* Editor "Regenerate" now refreshes the post content in place. Previously, regeneration updated the post on the server but left the editor's local state holding the old content; a subsequent Save could clobber the regenerated content with stale blocks.
+* Adding a repository no longer leaves it stuck if the browser closes or AI generation fails between the page redirect and the inline generate call. The next scheduled cron run now correctly picks up unfinished first posts.
+* Manual "Generate post" for a release whose previous post was sent to Trash now creates a fresh draft (matching documented intent). Previously the existing trashed post short-circuited the insert and the user received a success response with no new draft.
+* Trashed generated posts are no longer auto-restored by unrelated workflow events.
+* The cron worker lock is now atomic at the database level, eliminating a small race window when two cron workers run simultaneously.
+* The 120-second AI request timeout is now applied correctly. Previously the filter was removed before the underlying HTTP request fired, so long-running generations silently hit the default 30-second timeout.
+* Post lookup is now deterministically ordered by post ID descending, so the most recently inserted post wins when both a trashed predecessor and an active post exist for the same release.
+
+**Compliance with WordPress.org Plugin Directory guidelines**
+
+* Direct-access guards (`if ( ! defined( 'ABSPATH' ) ) exit;`) added to every PHP class file.
+* Replaced heredoc syntax (disallowed by Plugin Check) with standard double-quoted string concatenation in the AI prompt builder.
+* The cron-results admin notice is now scoped to the plugin's own settings page (Guideline 11). It no longer appears on every wp-admin screen.
+* Removed `load_plugin_textdomain()`; WordPress auto-loads translations for plugins hosted on the directory since version 4.6.
+* New "Source Code" section in the readme documents the public GitHub repository, source-to-build mapping for the bundled JavaScript, and the build command (Guideline 4).
+* Form-handler reads of `$_SERVER['REQUEST_METHOD']` and `$_GET['page']` now apply `isset()`, `wp_unslash()`, and `sanitize_key()` per WordPress coding standards.
+* Removed stray `.DS_Store` / `.gitkeep` files from the distribution zip; included `composer.json` and `composer.lock` so reviewers can verify the (no-third-party-PHP-dependencies) manifest.
 
 = 1.0.0 =
 
