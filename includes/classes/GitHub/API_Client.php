@@ -167,7 +167,7 @@ class API_Client {
 		$headers = [
 			'Accept'               => 'application/vnd.github+json',
 			'X-GitHub-Api-Version' => '2022-11-28',
-			'User-Agent'           => 'github-release-posts/' . GITHUB_RELEASE_POSTS_VERSION,
+			'User-Agent'           => 'github-release-posts/' . GHRP_VERSION,
 		];
 
 		$pat = $this->settings->get_github_pat();

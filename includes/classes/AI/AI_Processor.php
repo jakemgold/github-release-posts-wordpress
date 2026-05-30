@@ -147,7 +147,7 @@ class AI_Processor {
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 			error_log(
 				sprintf(
-					'[CTBP] AI generation failed for %s@%s (%s): %s',
+					'[GHRP] AI generation failed for %s@%s (%s): %s',
 					$data->identifier,
 					$data->tag,
 					$error->get_error_code(),

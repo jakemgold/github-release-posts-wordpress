@@ -5,7 +5,7 @@ Tags:              github, releases, blog post, ai, automation
 Requires at least: 7.0
 Tested up to:      7.0
 Requires PHP:      8.2
-Stable tag:        1.0.1
+Stable tag:        1.0.2
 License:           GPL-2.0-or-later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -72,7 +72,7 @@ This plugin connects to external services to fetch release data and (via WordPre
 **GitHub REST API**
 
 * What it is: GitHub's REST API (`https://api.github.com`) is used to read release data and repository metadata, and — when a Personal Access Token is configured — to list repositories the token can access.
-* What is sent: HTTP requests to `api.github.com` containing the repository owner and name. If a GitHub Personal Access Token is configured (in the Settings tab, or via the `GITHUB_RELEASE_POSTS_PAT` constant or environment variable), the token is sent in the Authorization header.
+* What is sent: HTTP requests to `api.github.com` containing the repository owner and name. If a GitHub Personal Access Token is configured (in the Settings tab, or via the `GHRP_PAT` constant or environment variable), the token is sent in the Authorization header.
 * When it is sent: Daily via WP-Cron (configurable via the `ghrp_check_frequency` filter), and on demand when generating, regenerating, or refreshing posts from the plugin's admin screens.
 * Terms of Service: [https://docs.github.com/en/site-policy/github-terms/github-terms-of-service](https://docs.github.com/en/site-policy/github-terms/github-terms-of-service)
 * Privacy Policy: [https://docs.github.com/en/site-policy/privacy-policies/github-privacy-statement](https://docs.github.com/en/site-policy/privacy-policies/github-privacy-statement)
@@ -158,6 +158,14 @@ Both source and build outputs ship with the plugin, so the source is available l
 
 == Changelog ==
 
+= 1.0.2 =
+
+Addresses WordPress.org reviewer feedback on prefix consistency.
+
+* Renamed plugin constants `GITHUB_RELEASE_POSTS_VERSION`, `_URL`, `_PATH`, `_INC` to `GHRP_VERSION`, `GHRP_URL`, `GHRP_PATH`, `GHRP_INC` for prefix consistency.
+* Renamed the GitHub PAT environment variable / PHP constant from `GITHUB_RELEASE_POSTS_PAT` to `GHRP_PAT`. Sites that supplied the token via `wp-config.php` or an environment variable must update the constant/var name.
+* Renamed the admin JavaScript global from `ctbpAdmin` / `ctbpFetch` to `ghrpAdmin` / `ghrpFetch`, completing the v0.9.0 rebrand. Removed remaining `[CTBP]` debug-log prefixes and internal placeholder markers from the v0.9.0 era.
+
 = 1.0.1 =
 
 Pre-publication fixes addressing automated and manual review feedback. Since 1.0.0 was withheld during the WordPress.org review process, this is the first version actually shipping to the directory; Composer-installed sites at 1.0.0 should update to pick up the bug fixes below.
@@ -207,7 +215,7 @@ Pre-publication fixes addressing automated and manual review feedback. Since 1.0
 **New**
 
 * Repository picker on the Add Repository field. With a GitHub Personal Access Token configured, the field becomes a searchable list of repositories your token can access, grouped by owner. You can still type any public `owner/repo` to track a repository that isn't in the list.
-* The Personal Access Token can be supplied via a `GITHUB_RELEASE_POSTS_PAT` PHP constant in `wp-config.php` or an environment variable of the same name, for sites that prefer not to store secrets in the database.
+* The Personal Access Token can be supplied via a `GHRP_PAT` PHP constant in `wp-config.php` or an environment variable of the same name, for sites that prefer not to store secrets in the database.
 * PAT validation indicator on Settings — a green check or yellow warning confirms whether GitHub accepts the token.
 
 The repository picker and external PAT configuration are built on initial work contributed by [Ben Word](https://github.com/retlehs).

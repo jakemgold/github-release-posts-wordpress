@@ -3,7 +3,7 @@
  * Plugin Name:       Auto Release Posts for GitHub
  * Plugin URI:        https://github.com/jakemgold/github-release-posts-wordpress
  * Description:       Automatically generate blog posts from GitHub releases using AI.
- * Version:           1.0.1
+ * Version:           1.0.2
  * Requires at least: 7.0
  * Requires PHP:      8.2
  * Author:            Jake Goldman, Fueled (formerly 10up)
@@ -23,20 +23,20 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-if ( ! defined( 'GITHUB_RELEASE_POSTS_VERSION' ) ) {
-	define( 'GITHUB_RELEASE_POSTS_VERSION', '1.0.1' );
+if ( ! defined( 'GHRP_VERSION' ) ) {
+	define( 'GHRP_VERSION', '1.0.2' );
 }
 
-if ( ! defined( 'GITHUB_RELEASE_POSTS_URL' ) ) {
-	define( 'GITHUB_RELEASE_POSTS_URL', plugin_dir_url( __FILE__ ) );
+if ( ! defined( 'GHRP_URL' ) ) {
+	define( 'GHRP_URL', plugin_dir_url( __FILE__ ) );
 }
 
-if ( ! defined( 'GITHUB_RELEASE_POSTS_PATH' ) ) {
-	define( 'GITHUB_RELEASE_POSTS_PATH', plugin_dir_path( __FILE__ ) );
+if ( ! defined( 'GHRP_PATH' ) ) {
+	define( 'GHRP_PATH', plugin_dir_path( __FILE__ ) );
 }
 
-if ( ! defined( 'GITHUB_RELEASE_POSTS_INC' ) ) {
-	define( 'GITHUB_RELEASE_POSTS_INC', GITHUB_RELEASE_POSTS_PATH . 'includes/' );
+if ( ! defined( 'GHRP_INC' ) ) {
+	define( 'GHRP_INC', GHRP_PATH . 'includes/' );
 }
 
 // Bail early on incompatible environments, before loading the autoloader
@@ -70,7 +70,7 @@ if (
 // mapping. Detect that by checking whether our Plugin class is already
 // autoloadable and skip the local require.
 if ( ! class_exists( 'GitHubReleasePosts\\Plugin' ) ) {
-	if ( ! file_exists( GITHUB_RELEASE_POSTS_PATH . 'vendor/autoload.php' ) ) {
+	if ( ! file_exists( GHRP_PATH . 'vendor/autoload.php' ) ) {
 		add_action(
 			'admin_notices',
 			function () {
@@ -82,7 +82,7 @@ if ( ! class_exists( 'GitHubReleasePosts\\Plugin' ) ) {
 		return;
 	}
 
-	require_once GITHUB_RELEASE_POSTS_PATH . 'vendor/autoload.php';
+	require_once GHRP_PATH . 'vendor/autoload.php';
 }
 
 // Register custom WP-Cron schedules at file load time (NOT via plugins_loaded)

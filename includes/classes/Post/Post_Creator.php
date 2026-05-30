@@ -131,7 +131,7 @@ class Post_Creator {
 				// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 				error_log(
 					sprintf(
-						'[CTBP] Post creation failed for %s@%s: %s',
+						'[GHRP] Post creation failed for %s@%s: %s',
 						$data->identifier,
 						$data->tag,
 						$post_id->get_error_message()
@@ -396,7 +396,7 @@ class Post_Creator {
 		$html                = preg_replace_callback(
 			'%<figure[\s>].*?</figure>%si',
 			function ( $matches ) use ( &$figure_placeholders ) {
-				$key                         = '<!--CTBP_FIGURE_' . count( $figure_placeholders ) . '-->';
+				$key                         = '<!--GHRP_FIGURE_' . count( $figure_placeholders ) . '-->';
 				$figure_placeholders[ $key ] = $matches[0];
 				return $key;
 			},
@@ -422,9 +422,9 @@ class Post_Creator {
 			// Restore figure placeholders. A single part may contain multiple
 			// adjacent placeholders (e.g. two <figure> elements with no content
 			// between them), so split on each one individually.
-			if ( ! empty( $figure_placeholders ) && str_contains( $part, '<!--CTBP_FIGURE_' ) ) {
+			if ( ! empty( $figure_placeholders ) && str_contains( $part, '<!--GHRP_FIGURE_' ) ) {
 				$sub_parts = preg_split(
-					'/(<!--CTBP_FIGURE_\d+-->)/',
+					'/(<!--GHRP_FIGURE_\d+-->)/',
 					$part,
 					-1,
 					PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY
@@ -718,7 +718,7 @@ class Post_Creator {
 					// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 					error_log(
 						sprintf(
-							'[CTBP] Image sideload failed for %s: %s',
+							'[GHRP] Image sideload failed for %s: %s',
 							$remote_url,
 							$attachment_id->get_error_message()
 						)
@@ -787,7 +787,7 @@ class Post_Creator {
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 			error_log(
 				sprintf(
-					'[CTBP] Image sideload: %d of %d images failed for post %d%s.',
+					'[GHRP] Image sideload: %d of %d images failed for post %d%s.',
 					$failed,
 					$total,
 					$post_id,

@@ -23,17 +23,17 @@ if ( ! defined( 'DAY_IN_SECONDS' ) ) {
 if ( ! defined( 'WEEK_IN_SECONDS' ) ) {
 	define( 'WEEK_IN_SECONDS', 604800 );
 }
-if ( ! defined( 'GITHUB_RELEASE_POSTS_VERSION' ) ) {
-	define( 'GITHUB_RELEASE_POSTS_VERSION', '1.0.0-test' );
+if ( ! defined( 'GHRP_VERSION' ) ) {
+	define( 'GHRP_VERSION', '1.0.0-test' );
 }
-if ( ! defined( 'GITHUB_RELEASE_POSTS_URL' ) ) {
-	define( 'GITHUB_RELEASE_POSTS_URL', 'https://example.com/wp-content/plugins/github-release-posts/' );
+if ( ! defined( 'GHRP_URL' ) ) {
+	define( 'GHRP_URL', 'https://example.com/wp-content/plugins/github-release-posts/' );
 }
-if ( ! defined( 'GITHUB_RELEASE_POSTS_PATH' ) ) {
-	define( 'GITHUB_RELEASE_POSTS_PATH', dirname( __DIR__, 2 ) . '/' );
+if ( ! defined( 'GHRP_PATH' ) ) {
+	define( 'GHRP_PATH', dirname( __DIR__, 2 ) . '/' );
 }
-if ( ! defined( 'GITHUB_RELEASE_POSTS_INC' ) ) {
-	define( 'GITHUB_RELEASE_POSTS_INC', dirname( __DIR__, 2 ) . '/includes/' );
+if ( ! defined( 'GHRP_INC' ) ) {
+	define( 'GHRP_INC', dirname( __DIR__, 2 ) . '/includes/' );
 }
 
 // Stub WP_Error class if not already defined (WP_Mock doesn't provide it).

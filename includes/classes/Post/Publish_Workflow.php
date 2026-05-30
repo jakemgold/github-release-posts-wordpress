@@ -262,7 +262,7 @@ class Publish_Workflow {
 
 		printf(
 			'<div class="notice notice-info is-dismissible" id="ghrp-cron-results"><p><strong>%s</strong></p><p>%s</p></div>',
-			esc_html__( 'Changelog to Blog Post', 'auto-release-posts-for-github' ),
+			esc_html__( 'Auto Release Posts for GitHub', 'auto-release-posts-for-github' ),
 			wp_kses_post( implode( '<br>', $lines ) )
 		);
 

@@ -11,10 +11,10 @@
 // github-release-posts.php behind environment guards, so PHPStan's static
 // analysis pass doesn't see them. Declare them here so usages elsewhere
 // resolve cleanly.
-define( 'GITHUB_RELEASE_POSTS_VERSION', '1.0.0' );
-define( 'GITHUB_RELEASE_POSTS_URL', '' );
-define( 'GITHUB_RELEASE_POSTS_PATH', '' );
-define( 'GITHUB_RELEASE_POSTS_INC', '' );
+define( 'GHRP_VERSION', '1.0.0' );
+define( 'GHRP_URL', '' );
+define( 'GHRP_PATH', '' );
+define( 'GHRP_INC', '' );
 
 // WordPress 7.0 AI Client API. Not yet present in phpstan-wordpress stubs.
 if ( ! function_exists( 'wp_ai_client_prompt' ) ) {

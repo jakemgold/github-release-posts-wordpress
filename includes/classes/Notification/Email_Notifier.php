@@ -340,7 +340,7 @@ class Email_Notifier {
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 			error_log(
 				sprintf(
-					'[CTBP] Email_Notifier: wp_mail failed for recipient "%s".',
+					'[GHRP] Email_Notifier: wp_mail failed for recipient "%s".',
 					$recipient
 				)
 			);

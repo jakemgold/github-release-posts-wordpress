@@ -97,7 +97,7 @@ class Plugin_Constants {
 	 * Name of the env var / PHP constant that supplies the GitHub PAT
 	 * outside of the WordPress database.
 	 */
-	const PAT_ENV_NAME = 'GITHUB_RELEASE_POSTS_PAT';
+	const PAT_ENV_NAME = 'GHRP_PAT';
 
 	// -------------------------------------------------------------------------
 	// Cron hook names

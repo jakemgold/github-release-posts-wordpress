@@ -119,7 +119,7 @@ class AI_Provider_Factory {
 					// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 					error_log(
 						sprintf(
-							'[CTBP] ghrp_register_ai_providers: provider "%s" does not implement AIProviderInterface and was removed.',
+							'[GHRP] ghrp_register_ai_providers: provider "%s" does not implement AIProviderInterface and was removed.',
 							$slug
 						)
 					);

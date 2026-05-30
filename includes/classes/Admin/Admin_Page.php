@@ -88,7 +88,7 @@ class Admin_Page {
 		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_assets' ] );
 		add_action( 'enqueue_block_editor_assets', [ $this, 'enqueue_editor_assets' ] );
 		add_action( 'rest_api_init', [ $this, 'register_rest_routes' ] );
-		add_filter( 'plugin_action_links_' . plugin_basename( GITHUB_RELEASE_POSTS_PATH . 'github-release-posts.php' ), [ $this, 'add_action_links' ] );
+		add_filter( 'plugin_action_links_' . plugin_basename( GHRP_PATH . 'github-release-posts.php' ), [ $this, 'add_action_links' ] );
 
 		// Register meta immediately — setup() is called during 'init',
 		// so hooking 'init' again would be too late.
@@ -271,7 +271,7 @@ class Admin_Page {
 				. '<li>' . esc_html__( 'Paste the token into the GitHub Personal Access Token field in the Settings tab. A green Validated indicator appears once GitHub confirms the token.', 'auto-release-posts-for-github' ) . '</li>'
 				. '</ol>'
 				. '<h4>' . esc_html__( 'Supplying the Token Outside the Database', 'auto-release-posts-for-github' ) . '</h4>'
-				. '<p>' . esc_html__( 'For sites that prefer not to store secrets in wp_options, the token can be supplied via the GITHUB_RELEASE_POSTS_PAT PHP constant in wp-config.php, or via an environment variable of the same name. The plugin reads the constant first, then the env var, then the encrypted database value. When supplied externally, the Settings field becomes read-only.', 'auto-release-posts-for-github' ) . '</p>'
+				. '<p>' . esc_html__( 'For sites that prefer not to store secrets in wp_options, the token can be supplied via the GHRP_PAT PHP constant in wp-config.php, or via an environment variable of the same name. The plugin reads the constant first, then the env var, then the encrypted database value. When supplied externally, the Settings field becomes read-only.', 'auto-release-posts-for-github' ) . '</p>'
 				. '<p>' . esc_html__( 'When stored in the database, the token is encrypted at rest using libsodium and is never exposed in the admin UI after saving.', 'auto-release-posts-for-github' ) . '</p>'
 				. '<h4>' . esc_html__( 'Classic Tokens', 'auto-release-posts-for-github' ) . '</h4>'
 				. '<p>' . esc_html__( 'Classic tokens are still supported. Use the "public_repo" scope for public repos or the full "repo" scope for private repos.', 'auto-release-posts-for-github' ) . '</p>',
@@ -312,28 +312,28 @@ class Admin_Page {
 
 		wp_enqueue_style(
 			'github-release-posts-admin',
-			GITHUB_RELEASE_POSTS_URL . 'dist/css/admin-style.css',
+			GHRP_URL . 'dist/css/admin-style.css',
 			[],
-			GITHUB_RELEASE_POSTS_VERSION
+			GHRP_VERSION
 		);
 
-		$admin_asset_file = GITHUB_RELEASE_POSTS_PATH . 'dist/js/admin.asset.php';
+		$admin_asset_file = GHRP_PATH . 'dist/js/admin.asset.php';
 		$admin_asset      = file_exists( $admin_asset_file ) ? require $admin_asset_file : [
 			'dependencies' => [],
-			'version'      => GITHUB_RELEASE_POSTS_VERSION,
+			'version'      => GHRP_VERSION,
 		];
 
 		wp_enqueue_script(
 			'github-release-posts-admin-js',
-			GITHUB_RELEASE_POSTS_URL . 'dist/js/admin.js',
+			GHRP_URL . 'dist/js/admin.js',
 			$admin_asset['dependencies'],
-			$admin_asset['version'] ?? GITHUB_RELEASE_POSTS_VERSION,
+			$admin_asset['version'] ?? GHRP_VERSION,
 			true
 		);
 
 		wp_localize_script(
 			'github-release-posts-admin-js',
-			'ctbpAdmin',
+			'ghrpAdmin',
 			[
 				'restUrl'           => get_rest_url( null, 'ghrp/v1' ),
 				'restNonce'         => wp_create_nonce( 'wp_rest' ),
@@ -388,17 +388,17 @@ class Admin_Page {
 			return;
 		}
 
-		$asset_file = GITHUB_RELEASE_POSTS_PATH . 'dist/js/editor.asset.php';
+		$asset_file = GHRP_PATH . 'dist/js/editor.asset.php';
 		$asset      = file_exists( $asset_file ) ? require $asset_file : [
 			'dependencies' => [],
-			'version'      => GITHUB_RELEASE_POSTS_VERSION,
+			'version'      => GHRP_VERSION,
 		];
 
 		wp_enqueue_script(
 			'github-release-posts-editor',
-			GITHUB_RELEASE_POSTS_URL . 'dist/js/editor.js',
+			GHRP_URL . 'dist/js/editor.js',
 			$asset['dependencies'],
-			$asset['version'] ?? GITHUB_RELEASE_POSTS_VERSION,
+			$asset['version'] ?? GHRP_VERSION,
 			true
 		);
 	}
@@ -586,7 +586,7 @@ class Admin_Page {
 			wp_die( esc_html__( 'You do not have permission to access this page.', 'auto-release-posts-for-github' ) );
 		}
 
-		include GITHUB_RELEASE_POSTS_PATH . 'includes/templates/admin-page.php';
+		include GHRP_PATH . 'includes/templates/admin-page.php';
 	}
 
 	/**

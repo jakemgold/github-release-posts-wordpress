@@ -98,7 +98,7 @@ class Release_Significance {
 				// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 				error_log(
 					sprintf(
-						'[CTBP] Release_Significance: could not parse semver from tag "%s" — defaulting to "minor".',
+						'[GHRP] Release_Significance: could not parse semver from tag "%s" — defaulting to "minor".',
 						$data->tag
 					)
 				);

@@ -229,7 +229,7 @@ class Global_Settings {
 	 * Returns the decrypted GitHub Personal Access Token, or empty string if not set.
 	 *
 	 * Resolution order:
-	 *   1. PHP constant `GITHUB_RELEASE_POSTS_PAT` (Plugin_Constants::PAT_ENV_NAME).
+	 *   1. PHP constant `GHRP_PAT` (Plugin_Constants::PAT_ENV_NAME).
 	 *   2. Environment variable of the same name.
 	 *   3. Encrypted value from the WordPress database.
 	 *
@@ -257,7 +257,7 @@ class Global_Settings {
 	/**
 	 * Returns the source of the active PAT.
 	 *
-	 *  - 'constant' — supplied by the PHP constant `GITHUB_RELEASE_POSTS_PAT`.
+	 *  - 'constant' — supplied by the PHP constant `GHRP_PAT`.
 	 *  - 'env'      — supplied by an environment variable of the same name.
 	 *  - 'db'       — supplied by the encrypted wp_options value.
 	 *  - 'none'     — no PAT is configured.

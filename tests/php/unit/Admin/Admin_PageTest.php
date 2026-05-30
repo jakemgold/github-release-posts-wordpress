@@ -72,11 +72,11 @@ class Admin_PageTest extends TestCase {
 	 * enqueue_assets() enqueues CSS and JS when the hook suffix matches.
 	 */
 	public function test_enqueue_assets_enqueues_on_correct_hook(): void {
-		if ( ! defined( 'GITHUB_RELEASE_POSTS_URL' ) ) {
-			define( 'GITHUB_RELEASE_POSTS_URL', 'http://example.com/wp-content/plugins/github-release-posts/' );
+		if ( ! defined( 'GHRP_URL' ) ) {
+			define( 'GHRP_URL', 'http://example.com/wp-content/plugins/github-release-posts/' );
 		}
-		if ( ! defined( 'GITHUB_RELEASE_POSTS_VERSION' ) ) {
-			define( 'GITHUB_RELEASE_POSTS_VERSION', '1.0.0' );
+		if ( ! defined( 'GHRP_VERSION' ) ) {
+			define( 'GHRP_VERSION', '1.0.0' );
 		}
 
 		\WP_Mock::userFunction( 'wp_enqueue_style' )->once();

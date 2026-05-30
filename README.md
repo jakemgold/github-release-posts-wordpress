@@ -129,7 +129,7 @@ A fine-grained token can be scoped to a single user or organization and to speci
    - **Pull requests** — used during AI prompt enrichment.
 7. Click **Generate token** and copy the `github_pat_…` value immediately — GitHub won't show it again.
 8. Provide the token to the plugin in one of two ways:
-   - **Environment variable or constant (recommended)** — define `GITHUB_RELEASE_POSTS_PAT` as an environment variable or as a PHP constant in `wp-config.php`. The plugin reads the constant first, then the env var, then the database. When set this way, the value never lives in the WordPress database, and the Settings field becomes read-only.
+   - **Environment variable or constant (recommended)** — define `GHRP_PAT` as an environment variable or as a PHP constant in `wp-config.php`. The plugin reads the constant first, then the env var, then the database. When set this way, the value never lives in the WordPress database, and the Settings field becomes read-only.
    - **WordPress admin** — go to **Tools → Release Posts → Settings**, paste the token into the **Personal Access Token** field, and click **Save Settings**.
 
 </details>

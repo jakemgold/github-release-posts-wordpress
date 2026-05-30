@@ -1,8 +1,8 @@
 /**
- * Admin JavaScript for the Changelog to Blog Post settings page.
+ * Admin JavaScript for the Auto Release Posts for GitHub settings page.
  */
 
-/* global ctbpAdmin */
+/* global ghrpAdmin */
 
 document.addEventListener( 'DOMContentLoaded', function () {
 	// -------------------------------------------------------------------------
@@ -14,7 +14,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	tabs.forEach( function ( tab, idx ) {
 		tab.addEventListener( 'click', function ( e ) {
 			// eslint-disable-next-line no-alert -- intentional UX: warn before discarding unsaved changes.
-			if ( formDirty && ! window.confirm( ctbpAdmin.i18n.unsavedChanges ) ) {
+			if ( formDirty && ! window.confirm( ghrpAdmin.i18n.unsavedChanges ) ) {
 				e.preventDefault();
 			}
 			// Allow the browser to follow the href so the URL/tab updates
@@ -92,9 +92,9 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	 * @param {Function} onSuccess Called with the parsed response object on success.
 	 * @param {Function} onError   Called with an object containing a `message` key on failure.
 	 */
-	window.ctbpFetch = function ( method, path, data, onSuccess, onError ) {
+	window.ghrpFetch = function ( method, path, data, onSuccess, onError ) {
 		const isGet = method.toUpperCase() === 'GET';
-		let url = ctbpAdmin.restUrl.replace( /\/$/, '' ) + path;
+		let url = ghrpAdmin.restUrl.replace( /\/$/, '' ) + path;
 
 		if ( isGet && data && Object.keys( data ).length ) {
 			url += `?${ new URLSearchParams( data ).toString() }`;
@@ -103,7 +103,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 		const options = {
 			method: method.toUpperCase(),
 			headers: {
-				'X-WP-Nonce': ctbpAdmin.restNonce,
+				'X-WP-Nonce': ghrpAdmin.restNonce,
 			},
 		};
 
@@ -124,12 +124,12 @@ document.addEventListener( 'DOMContentLoaded', function () {
 						onSuccess( result.json );
 					}
 				} else if ( typeof onError === 'function' ) {
-					onError( { message: result.json.message || ctbpAdmin.i18n.notImplemented } );
+					onError( { message: result.json.message || ghrpAdmin.i18n.notImplemented } );
 				}
 			} )
 			.catch( function () {
 				if ( typeof onError === 'function' ) {
-					onError( { message: ctbpAdmin.i18n.notImplemented } );
+					onError( { message: ghrpAdmin.i18n.notImplemented } );
 				}
 			} );
 	};
@@ -153,7 +153,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 				resultEl.textContent = '';
 			}
 
-			window.ctbpFetch(
+			window.ghrpFetch(
 				'POST',
 				'/notifications/test',
 				{},
@@ -519,7 +519,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 			// Clear any lingering message so the user sees fresh state.
 			setRefreshResult( '' );
 
-			window.ctbpFetch(
+			window.ghrpFetch(
 				'POST',
 				'/repos/refresh',
 				{},
@@ -582,7 +582,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 			patStatus.innerHTML =
 				'<span class="spinner is-active" style="float:none;vertical-align:middle;margin:0 4px 0 0;"></span>';
 
-			window.ctbpFetch(
+			window.ghrpFetch(
 				'POST',
 				'/pat/validate',
 				{ pat: current },
@@ -660,7 +660,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 		// Populate the legend.
 		const legend = editRow.querySelector( '.inline-edit-legend' );
 		if ( legend ) {
-			legend.textContent = `${ ctbpAdmin.i18n.editLabel || 'Edit:' } ${ displayName }`;
+			legend.textContent = `${ ghrpAdmin.i18n.editLabel || 'Edit:' } ${ displayName }`;
 		}
 
 		// Populate text fields.
@@ -789,7 +789,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 				removeRepoInput.value = repo;
 				removeDialog.showModal();
 				// eslint-disable-next-line no-alert -- intentional fallback when <dialog> is unsupported.
-			} else if ( window.confirm( ctbpAdmin.i18n.confirmRemove ) ) {
+			} else if ( window.confirm( ghrpAdmin.i18n.confirmRemove ) ) {
 				// Fallback for browsers without <dialog> support.
 				const form = document.createElement( 'form' );
 				form.method = 'post';
@@ -856,8 +856,8 @@ document.addEventListener( 'DOMContentLoaded', function () {
 			e.preventDefault();
 
 			const frame = wp.media( {
-				title: ctbpAdmin.i18n.selectImage || 'Select Featured Image',
-				button: { text: ctbpAdmin.i18n.useImage || 'Use this image' },
+				title: ghrpAdmin.i18n.selectImage || 'Select Featured Image',
+				button: { text: ghrpAdmin.i18n.useImage || 'Use this image' },
 				multiple: false,
 				library: { type: 'image' },
 			} );
@@ -906,7 +906,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	 * @param {HTMLInputElement} input The plugin link input element.
 	 */
 	const warningTooltip =
-		ctbpAdmin.i18n.pluginLinkHint || 'Enter a valid URL or WordPress.org plugin slug';
+		ghrpAdmin.i18n.pluginLinkHint || 'Enter a valid URL or WordPress.org plugin slug';
 
 	/**
 	 * Returns a green check dashicon with screen reader text.
@@ -915,7 +915,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	 * @returns {string} HTML markup for the icon and screen-reader text.
 	 */
 	function validIcon( label ) {
-		const text = escapeHtml( label || ctbpAdmin.i18n.valid || 'Valid' );
+		const text = escapeHtml( label || ghrpAdmin.i18n.valid || 'Valid' );
 		return (
 			'<span class="dashicons dashicons-yes-alt" style="color: #00a32a;" aria-hidden="true"></span>' +
 			`<span class="screen-reader-text">${ text }</span>`
@@ -988,7 +988,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 			statusEl.innerHTML =
 				'<span class="spinner is-active" style="float:none;margin:0;"></span>';
 
-			window.ctbpFetch(
+			window.ghrpFetch(
 				'GET',
 				'/wporg/validate',
 				{ value },
@@ -1094,15 +1094,15 @@ document.addEventListener( 'DOMContentLoaded', function () {
 		}
 
 		if ( post ) {
-			const label = ctbpAdmin.i18n.editGeneratedPost || 'Edit the generated post';
+			const label = ghrpAdmin.i18n.editGeneratedPost || 'Edit the generated post';
 			statusEl.innerHTML = post.edit_url
 				? successLinkIcon( post.edit_url, label )
-				: validIcon( ctbpAdmin.i18n.draftCreated || 'Post created' );
+				: validIcon( ghrpAdmin.i18n.draftCreated || 'Post created' );
 			if ( isLatest !== false ) {
 				updateLastPostColumn( btn, post );
 			}
 		} else {
-			const msg = error || ctbpAdmin.i18n.notImplemented;
+			const msg = error || ghrpAdmin.i18n.notImplemented;
 			statusEl.innerHTML = warningIcon( msg );
 		}
 	}
@@ -1116,7 +1116,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 		const row = btn.closest( 'tr' );
 		if ( ! row ) return;
 		row.querySelectorAll( '.row-actions a' ).forEach( function ( link ) {
-			link.dataset.ctbpHref = link.getAttribute( 'href' );
+			link.dataset.ghrpHref = link.getAttribute( 'href' );
 			link.removeAttribute( 'href' );
 			link.style.pointerEvents = 'none';
 			link.style.opacity = '0.5';
@@ -1132,9 +1132,9 @@ document.addEventListener( 'DOMContentLoaded', function () {
 		const row = btn.closest( 'tr' );
 		if ( ! row ) return;
 		row.querySelectorAll( '.row-actions a' ).forEach( function ( link ) {
-			if ( link.dataset.ctbpHref ) {
-				link.setAttribute( 'href', link.dataset.ctbpHref );
-				delete link.dataset.ctbpHref;
+			if ( link.dataset.ghrpHref ) {
+				link.setAttribute( 'href', link.dataset.ghrpHref );
+				delete link.dataset.ghrpHref;
 			}
 			link.style.pointerEvents = '';
 			link.style.opacity = '';
@@ -1171,7 +1171,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 			spinner.classList.add( 'is-active' );
 		}
 
-		window.ctbpFetch(
+		window.ghrpFetch(
 			'POST',
 			'/releases/regenerate',
 			{ post_id: postId },
@@ -1235,10 +1235,10 @@ document.addEventListener( 'DOMContentLoaded', function () {
 
 		const statusEl = btn.closest( 'td' ).querySelector( '.ghrp-generate-status' );
 		if ( statusEl ) {
-			statusEl.innerHTML = `<span class="screen-reader-text">${ ctbpAdmin.i18n.generating }</span>`;
+			statusEl.innerHTML = `<span class="screen-reader-text">${ ghrpAdmin.i18n.generating }</span>`;
 		}
 
-		window.ctbpFetch(
+		window.ghrpFetch(
 			'POST',
 			'/releases/generate-draft',
 			{ repo: btn.dataset.repo, tag: tag || '' },
@@ -1311,7 +1311,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 					} else if (
 						// eslint-disable-next-line no-alert -- intentional fallback when <dialog> is unsupported.
 						window.confirm(
-							ctbpAdmin.i18n.regenerateConfirm ||
+							ghrpAdmin.i18n.regenerateConfirm ||
 								'A post already exists. Regenerate it?',
 						)
 					) {
@@ -1352,7 +1352,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 			opt.textContent =
 				r.tag +
 				( dateLabel ? `  —  ${ dateLabel }` : '' ) +
-				( r.has_post ? `  (${ ctbpAdmin.i18n.postExists || 'post exists' })` : '' );
+				( r.has_post ? `  (${ ghrpAdmin.i18n.postExists || 'post exists' })` : '' );
 			opt.dataset.hasPost = r.has_post ? '1' : '';
 			opt.dataset.postTitle = ( r.post_status && r.post_status ) || '';
 			opt.dataset.postEditUrl = r.post_edit_url || '';
@@ -1378,16 +1378,16 @@ document.addEventListener( 'DOMContentLoaded', function () {
 			if ( versionConflictRow && versionConflictText ) {
 				if ( hasPost ) {
 					versionConflictText.textContent =
-						ctbpAdmin.i18n.versionPickerConflict ||
+						ghrpAdmin.i18n.versionPickerConflict ||
 						'A post already exists for this release. Generating will create a new revision and keep the existing post date.';
 					versionConflictRow.hidden = false;
 					if ( versionConfirm ) {
-						versionConfirm.textContent = ctbpAdmin.i18n.regenerate || 'Regenerate';
+						versionConfirm.textContent = ghrpAdmin.i18n.regenerate || 'Regenerate';
 					}
 				} else {
 					versionConflictRow.hidden = true;
 					if ( versionConfirm ) {
-						versionConfirm.textContent = ctbpAdmin.i18n.generatePost || 'Generate post';
+						versionConfirm.textContent = ghrpAdmin.i18n.generatePost || 'Generate post';
 					}
 				}
 			}
@@ -1457,7 +1457,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 			}
 
 			// Step 1: list releases. If 0/1, skip the picker.
-			window.ctbpFetch(
+			window.ghrpFetch(
 				'GET',
 				'/releases/list',
 				{ repo: btn.dataset.repo },
