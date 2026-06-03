@@ -1,0 +1,77 @@
+name: Deploy to WordPress.org
+
+# Deliberate, human-gated deploys:
+#   • Publishing a GitHub Release (with a bare version tag, e.g. 1.0.3) builds
+#     the plugin and deploys trunk + that tag to the WordPress.org SVN repo,
+#     then attaches a built .zip to the Release.
+#   • The "Run workflow" button (workflow_dispatch) runs the SAME build and SVN
+#     checkout but, by default, performs a DRY RUN — it stops before committing
+#     to SVN so you can inspect the file diff in the logs before a real release.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (build + SVN checkout, no commit)"
+        type: boolean
+        default: true
+      tag:
+        description: "Version to deploy (only used for a non-dry-run manual deploy)"
+        type: string
+        required: false
+
+permissions:
+  contents: write # needed to upload the .zip asset back to the Release
+
+jobs:
+  deploy:
+    name: Build and deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          tools: composer
+
+      - name: Build JS/CSS assets
+        run: |
+          npm ci
+          npm run build
+
+      - name: Generate production autoloader
+        # No third-party runtime deps — this just dumps the optimized PSR-4
+        # autoloader the plugin requires at runtime (vendor/autoload.php).
+        run: composer install --no-dev --optimize-autoloader --no-interaction
+
+      - name: Deploy to WordPress.org
+        id: deploy
+        uses: 10up/action-wordpress-plugin-deploy@stable
+        with:
+          generate-zip: true
+          # Real deploy on Release publish; manual runs honor the dry_run input.
+          dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+        env:
+          SVN_USERNAME: ${{ secrets.SVN_USERNAME }}
+          SVN_PASSWORD: ${{ secrets.SVN_PASSWORD }}
+          # Repo name (github-release-posts-wordpress) differs from the .org slug,
+          # so SLUG must be set explicitly.
+          SLUG: auto-release-posts-for-github
+          # Release tag on publish; the manual `tag` input otherwise.
+          VERSION: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.tag }}
+
+      - name: Attach built .zip to the Release
+        if: ${{ github.event_name == 'release' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.deploy.outputs.zip-path }}
