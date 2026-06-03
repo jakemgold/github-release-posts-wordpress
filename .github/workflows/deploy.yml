@@ -54,6 +54,22 @@ jobs:
         # autoloader the plugin requires at runtime (vendor/autoload.php).
         run: composer install --no-dev --optimize-autoloader --no-interaction
 
+      - name: Determine version
+        id: ver
+        # Always resolve a clean version (no slashes) so the SVN tag path is valid.
+        # Release: the published tag. Manual: the `tag` input, else the readme
+        # Stable tag (handy default for dry runs).
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            version="${{ github.event.release.tag_name }}"
+          elif [ -n "${{ inputs.tag }}" ]; then
+            version="${{ inputs.tag }}"
+          else
+            version="$(grep -i '^Stable tag:' readme.txt | sed -E 's/.*:[[:space:]]*//' | tr -d '[:space:]')"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Resolved version: $version"
+
       - name: Deploy to WordPress.org
         id: deploy
         uses: 10up/action-wordpress-plugin-deploy@stable
@@ -67,8 +83,7 @@ jobs:
           # Repo name (github-release-posts-wordpress) differs from the .org slug,
           # so SLUG must be set explicitly.
           SLUG: auto-release-posts-for-github
-          # Release tag on publish; the manual `tag` input otherwise.
-          VERSION: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.tag }}
+          VERSION: ${{ steps.ver.outputs.version }}
 
       - name: Attach built .zip to the Release
         if: ${{ github.event_name == 'release' }}
