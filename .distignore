@@ -1,0 +1,52 @@
+# .distignore — files EXCLUDED from the WordPress.org deploy (trunk/tag).
+#
+# The 10up deploy action rsyncs the *built* working tree to SVN and filters it
+# through this file (NOT .gitignore). Anything present on disk after the CI
+# build step ships unless it is listed here. This denylist mirrors the rsync
+# allowlist documented in CLAUDE.md: what ships is github-release-posts.php,
+# uninstall.php, readme.txt, composer.json/lock, includes/, dist/, assets/css,
+# assets/js, languages/, and the generated vendor/ autoloader.
+
+# Version control / CI / editor
+.git
+.github
+.gitignore
+.gitattributes
+.distignore
+.idea
+.vscode
+.DS_Store
+
+# Node / build tooling (build output in dist/ ships; tooling does not)
+node_modules
+package.json
+package-lock.json
+webpack.config.js
+.eslintrc.js
+.nvmrc
+
+# PHP dev / static-analysis config
+phpcs.xml.dist
+phpstan.neon.dist
+phpunit.xml.dist
+.phpunit.result.cache
+
+# Tests
+tests
+
+# Planning / private dev docs (source lives on GitHub per readme Source Code section)
+.spark
+requirements
+.conductor
+.claude
+AGENTS.md
+CLAUDE.md
+CODE_REVIEW_FINDINGS.md
+README.md
+
+# WordPress.org marketing assets — the action moves these to SVN /assets itself,
+# so they must not also ship inside the plugin trunk.
+.wordpress-org
+
+# Stray archives
+*.zip
