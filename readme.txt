@@ -162,6 +162,7 @@ Both source and build outputs ship with the plugin, so the source is available l
 
 * Fixed an issue where inline editing of repository settings failed to open when one or more categories were assigned.
 * Fixed an issue where adding tags to a repository failed to save. New tags are now created automatically if they don't already exist.
+* Fixed the link in the post-generation admin notice not opening the newly created draft or post.
 * Uninstalling the plugin now preserves your repository configuration and keeps previously generated posts linked to their releases, so reinstalling no longer requires re-entering your repositories or risks creating duplicate posts. All other plugin settings, caches, and scheduled tasks are still removed.
 
 = 1.0.2 =
