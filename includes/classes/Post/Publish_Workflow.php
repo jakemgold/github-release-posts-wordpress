@@ -149,11 +149,14 @@ class Publish_Workflow {
 			];
 		}
 
+		// Note: the edit URL is intentionally NOT stored here. record_result()
+		// runs during cron with no logged-in user, where get_edit_post_link()
+		// returns null. The admin notice resolves the link from post_id at
+		// display time instead, when the viewing user actually has edit caps.
 		$entry = [
 			'post_id'    => $post_id,
 			'identifier' => $data->identifier,
 			'tag'        => $data->tag,
-			'edit_url'   => get_edit_post_link( $post_id, 'raw' ),
 		];
 
 		if ( Post_Status::is_public( $status ) ) {
@@ -204,19 +207,22 @@ class Publish_Workflow {
 
 		$lines = [];
 
+		// Resolve each post's edit URL here, at display time. The cron run that
+		// recorded these results had no logged-in user, so get_edit_post_link()
+		// returned null then and the stored edit_url was unusable (it linked to
+		// "#"). The admin viewing this notice has edit caps, so it resolves now.
+		$render_link = static function ( $entry ) {
+			$label = trim( esc_html( $entry['identifier'] ?? '' ) . ' ' . esc_html( $entry['tag'] ?? '' ) );
+			$url   = empty( $entry['post_id'] ) ? '' : (string) get_edit_post_link( (int) $entry['post_id'], 'raw' );
+			if ( '' === $url ) {
+				return $label; // No usable link — plain text beats a dead "#" anchor.
+			}
+			return sprintf( '<a href="%s">%s</a>', esc_url( $url ), $label );
+		};
+
 		if ( ! empty( $drafted ) ) {
 			$count   = count( $drafted );
-			$links   = array_map(
-				function ( $entry ) {
-					return sprintf(
-						'<a href="%s">%s %s</a>',
-						esc_url( $entry['edit_url'] ?? '#' ),
-						esc_html( $entry['identifier'] ),
-						esc_html( $entry['tag'] )
-					);
-				},
-				$drafted
-			);
+			$links   = array_map( $render_link, $drafted );
 			$lines[] = sprintf(
 				/* translators: 1: count, 2: comma-separated edit links */
 				_n( '%1$d draft created: %2$s', '%1$d drafts created: %2$s', $count, 'auto-release-posts-for-github' ),
@@ -227,17 +233,7 @@ class Publish_Workflow {
 
 		if ( ! empty( $published ) ) {
 			$count   = count( $published );
-			$links   = array_map(
-				function ( $entry ) {
-					return sprintf(
-						'<a href="%s">%s %s</a>',
-						esc_url( $entry['edit_url'] ?? '#' ),
-						esc_html( $entry['identifier'] ),
-						esc_html( $entry['tag'] )
-					);
-				},
-				$published
-			);
+			$links   = array_map( $render_link, $published );
 			$lines[] = sprintf(
 				/* translators: 1: count, 2: comma-separated edit links */
 				_n( '%1$d post published: %2$s', '%1$d posts published: %2$s', $count, 'auto-release-posts-for-github' ),

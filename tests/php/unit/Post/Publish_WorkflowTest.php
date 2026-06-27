@@ -198,6 +198,82 @@ class Publish_WorkflowTest extends TestCase {
 	// Helpers
 	// -------------------------------------------------------------------------
 
+	// -------------------------------------------------------------------------
+	// display_admin_notice()
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Regression: the "draft created" notice link must resolve the post edit URL
+	 * at display time (from post_id), not from a value recorded during cron —
+	 * where get_edit_post_link() returns null and the link fell back to "#".
+	 */
+	public function test_display_admin_notice_resolves_edit_link_at_display_time(): void {
+		$this->stub_notice_environment(
+			[
+				'drafted'   => [ [ 'post_id' => 42, 'identifier' => 'owner/repo', 'tag' => 'v1.0.0' ] ],
+				'published' => [],
+				'errors'    => [],
+			]
+		);
+
+		// Display-time resolution succeeds because the admin has edit caps.
+		\WP_Mock::userFunction( 'get_edit_post_link' )
+			->with( 42, 'raw' )
+			->andReturn( 'https://example.com/wp-admin/post.php?post=42&action=edit' );
+
+		ob_start();
+		$this->workflow->display_admin_notice();
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'post.php?post=42', $output, 'Link should use the display-time edit URL.' );
+		$this->assertStringContainsString( 'owner/repo v1.0.0', $output );
+		$this->assertStringNotContainsString( 'href="#"', $output, 'Link must not fall back to a dead "#".' );
+	}
+
+	/**
+	 * If the edit URL can't be resolved even at display time (e.g. the post was
+	 * deleted), the entry renders as plain text rather than a dead "#" link.
+	 */
+	public function test_display_admin_notice_falls_back_to_plain_text_without_url(): void {
+		$this->stub_notice_environment(
+			[
+				'drafted'   => [ [ 'post_id' => 99, 'identifier' => 'owner/repo', 'tag' => 'v2.0.0' ] ],
+				'published' => [],
+				'errors'    => [],
+			]
+		);
+
+		\WP_Mock::userFunction( 'get_edit_post_link' )->with( 99, 'raw' )->andReturn( null );
+
+		ob_start();
+		$this->workflow->display_admin_notice();
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'owner/repo v2.0.0', $output );
+		$this->assertStringNotContainsString( '<a ', $output, 'No anchor should be rendered without a URL.' );
+	}
+
+	/**
+	 * Stubs the WordPress functions display_admin_notice() needs, primed with a
+	 * given cron-results transient on this plugin's admin screen.
+	 *
+	 * @param array $results The cron-results transient payload.
+	 */
+	private function stub_notice_environment( array $results ): void {
+		\WP_Mock::userFunction( 'current_user_can' )->with( 'manage_options' )->andReturn( true );
+		\WP_Mock::userFunction( 'get_current_screen' )
+			->andReturn( (object) [ 'id' => 'tools_page_github-release-posts' ] );
+		\WP_Mock::userFunction( 'get_transient' )
+			->with( Cache_Keys::cron_results() )
+			->andReturn( $results );
+		\WP_Mock::userFunction( 'esc_url' )->andReturnUsing( fn( $v ) => $v );
+		\WP_Mock::userFunction( 'esc_html' )->andReturnUsing( fn( $v ) => $v );
+		\WP_Mock::userFunction( 'esc_html__' )->andReturnArg( 0 );
+		\WP_Mock::userFunction( 'wp_kses_post' )->andReturnUsing( fn( $v ) => $v );
+		\WP_Mock::userFunction( '_n' )->andReturnUsing( fn( $s, $p, $n ) => 1 === $n ? $s : $p );
+		\WP_Mock::userFunction( 'delete_transient' )->andReturn( true );
+	}
+
 	private function make_post(): GeneratedPost {
 		return new GeneratedPost(
 			title:         'Test subtitle',
