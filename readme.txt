@@ -5,7 +5,7 @@ Tags:              github, releases, blog post, ai, automation
 Requires at least: 7.0
 Tested up to:      7.0
 Requires PHP:      8.2
-Stable tag:        1.0.2
+Stable tag:        1.0.3
 License:           GPL-2.0-or-later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -157,6 +157,13 @@ Both source and build outputs ship with the plugin, so the source is available l
 **Bundled npm packages used at build time** (development only — not shipped at runtime): `@10up/scripts` (which itself bundles Webpack, ESLint, Babel, and the build-time-only `wp-prettier` and `eslint-plugin-jsdoc` overrides). All declared in `package.json` and `package-lock.json`. None of these end up in the distributed plugin.
 
 == Changelog ==
+
+= 1.0.3 =
+
+* Fixed an issue where inline editing of repository settings failed to open when one or more categories were assigned.
+* Fixed an issue where adding tags to a repository failed to save. New tags are now created automatically if they don't already exist.
+* Fixed the link in the post-generation admin notice not opening the newly created draft or post.
+* Uninstalling the plugin now preserves your repository configuration and keeps previously generated posts linked to their releases, so reinstalling no longer requires re-entering your repositories or risks creating duplicate posts. All other plugin settings, caches, and scheduled tasks are still removed.
 
 = 1.0.2 =
 

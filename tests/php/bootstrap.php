@@ -80,6 +80,21 @@ if ( ! class_exists( 'WP_Post' ) ) {
 	}
 }
 
+// Stub WP_Term class if not already defined.
+if ( ! class_exists( 'WP_Term' ) ) {
+	// phpcs:ignore Generic.Files.OneObjectStructurePerFile.MultipleFound
+	class WP_Term {
+		public int $term_id = 0;
+		public string $name = '';
+
+		public function __construct( $props = [] ) {
+			foreach ( $props as $key => $value ) {
+				$this->$key = $value;
+			}
+		}
+	}
+}
+
 // Stub WP_Query class if not already defined.
 if ( ! class_exists( 'WP_Query' ) ) {
 	// phpcs:ignore Generic.Files.OneObjectStructurePerFile.MultipleFound

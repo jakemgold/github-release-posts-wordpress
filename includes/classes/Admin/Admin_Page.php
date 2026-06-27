@@ -182,7 +182,7 @@ class Admin_Page {
 					. '<li><strong>' . esc_html__( 'Author', 'auto-release-posts-for-github' ) . '</strong> — ' . esc_html__( 'The WordPress user assigned as the author of generated posts for this repository.', 'auto-release-posts-for-github' ) . '</li>'
 					. '<li><strong>' . esc_html__( 'Post Status', 'auto-release-posts-for-github' ) . '</strong> — ' . esc_html__( 'Whether new posts are created as drafts, pending review, or published immediately. Defaults to draft.', 'auto-release-posts-for-github' ) . '</li>'
 					. '<li><strong>' . esc_html__( 'Categories', 'auto-release-posts-for-github' ) . '</strong> — ' . esc_html__( 'Categories applied to every post generated for this repository.', 'auto-release-posts-for-github' ) . '</li>'
-					. '<li><strong>' . esc_html__( 'Tags', 'auto-release-posts-for-github' ) . '</strong> — ' . esc_html__( 'Tags applied to every post generated for this repository. Tags must already exist in WordPress; new ones are not created automatically.', 'auto-release-posts-for-github' ) . '</li>'
+					. '<li><strong>' . esc_html__( 'Tags', 'auto-release-posts-for-github' ) . '</strong> — ' . esc_html__( 'Tags applied to every post generated for this repository. Tags that don\'t exist yet are created automatically.', 'auto-release-posts-for-github' ) . '</li>'
 					. '<li><strong>' . esc_html__( 'Featured Image', 'auto-release-posts-for-github' ) . '</strong> — ' . esc_html__( 'A featured image used as a fallback when the release notes do not contain any images suitable for promotion.', 'auto-release-posts-for-github' ) . '</li>'
 					. '<li><strong>' . esc_html__( 'Paused', 'auto-release-posts-for-github' ) . '</strong> — ' . esc_html__( 'Temporarily skip this repository during scheduled checks. The repo and its history are preserved; uncheck to resume monitoring.', 'auto-release-posts-for-github' ) . '</li>'
 					. '<li><strong>' . esc_html__( 'Include pre-releases', 'auto-release-posts-for-github' ) . '</strong> — ' . esc_html__( 'Generate posts for releases marked as pre-release on GitHub (betas, release candidates, etc.). Off by default; most sites only highlight stable releases.', 'auto-release-posts-for-github' ) . '</li>'
@@ -715,25 +715,8 @@ class Admin_Page {
 
 		$update_failures = 0;
 		foreach ( $posted_repos as $identifier => $config ) {
-			$identifier      = sanitize_text_field( wp_unslash( (string) $identifier ) );
-			$raw_repo_tags   = sanitize_text_field( wp_unslash( $config['tags'] ?? '' ) );
-			$raw_plugin_link = sanitize_text_field( wp_unslash( $config['plugin_link'] ?? '' ) );
-			// If it looks like a URL, apply URL sanitization.
-			if ( Repository_Settings::is_url( $raw_plugin_link ) ) {
-				$raw_plugin_link = esc_url_raw( $raw_plugin_link );
-			}
-
-			$sanitized = [
-				'display_name'        => sanitize_text_field( wp_unslash( $config['display_name'] ?? '' ) ),
-				'plugin_link'         => $raw_plugin_link,
-				'author'              => absint( $config['author'] ?? 0 ),
-				'post_status'         => sanitize_key( $config['post_status'] ?? '' ),
-				'categories'          => array_map( 'absint', array_filter( (array) ( $config['categories'] ?? [] ) ) ),
-				'tags'                => $this->resolve_tag_names_to_ids( $raw_repo_tags ),
-				'paused'              => ! empty( $config['paused'] ),
-				'featured_image'      => absint( $config['featured_image'] ?? 0 ),
-				'include_prereleases' => ! empty( $config['include_prereleases'] ),
-			];
+			$identifier = sanitize_text_field( wp_unslash( (string) $identifier ) );
+			$sanitized  = $this->sanitize_repo_config( (array) $config );
 			if ( ! $this->repo_settings->update_repository( $identifier, $sanitized ) ) {
 				++$update_failures;
 			}
@@ -763,6 +746,41 @@ class Admin_Page {
 			)
 		);
 		exit;
+	}
+
+	/**
+	 * Sanitizes one posted repository configuration into its stored shape.
+	 *
+	 * Extracted from handle_repositories_save() so the transform — in
+	 * particular the categories normalization that guards the inline-edit
+	 * crash — is unit-testable without the surrounding nonce/redirect/exit flow.
+	 *
+	 * @param array $config Raw posted config for a single repository.
+	 * @return array Sanitized config ready for Repository_Settings::update_repository().
+	 */
+	private function sanitize_repo_config( array $config ): array {
+		$raw_repo_tags   = sanitize_text_field( wp_unslash( $config['tags'] ?? '' ) );
+		$raw_plugin_link = sanitize_text_field( wp_unslash( $config['plugin_link'] ?? '' ) );
+		// If it looks like a URL, apply URL sanitization.
+		if ( Repository_Settings::is_url( $raw_plugin_link ) ) {
+			$raw_plugin_link = esc_url_raw( $raw_plugin_link );
+		}
+
+		return [
+			'display_name'        => sanitize_text_field( wp_unslash( $config['display_name'] ?? '' ) ),
+			'plugin_link'         => $raw_plugin_link,
+			'author'              => absint( $config['author'] ?? 0 ),
+			'post_status'         => sanitize_key( $config['post_status'] ?? '' ),
+			// array_values() re-indexes after array_filter() drops the hidden "0"
+			// fallback element, so categories store as a sequential list. Without
+			// this, the kept 1-based keys serialize to a JSON object in the row's
+			// data-categories attribute and crash the inline editor's category loop.
+			'categories'          => array_values( array_map( 'absint', array_filter( (array) ( $config['categories'] ?? [] ) ) ) ),
+			'tags'                => $this->resolve_tag_names_to_ids( $raw_repo_tags ),
+			'paused'              => ! empty( $config['paused'] ),
+			'featured_image'      => absint( $config['featured_image'] ?? 0 ),
+			'include_prereleases' => ! empty( $config['include_prereleases'] ),
+		];
 	}
 
 	/**
@@ -1430,8 +1448,10 @@ class Admin_Page {
 	/**
 	 * Converts a comma-separated string of tag names into an array of term IDs.
 	 *
-	 * Tags that don't exist are silently skipped — the site owner must create
-	 * them first via the standard WordPress tag management UI.
+	 * Tags that don't exist yet are created on the fly, mirroring the post
+	 * editor's tag box, so a site owner can add new tags inline. A name that
+	 * fails to create (e.g. an invalid name) is skipped rather than aborting
+	 * the whole save.
 	 *
 	 * @param string $raw Comma-separated tag names.
 	 * @return int[] Array of tag term IDs.
@@ -1452,6 +1472,15 @@ class Admin_Page {
 			$term = get_term_by( 'name', $name, 'post_tag' );
 			if ( $term instanceof \WP_Term ) {
 				$ids[] = (int) $term->term_id;
+				continue;
+			}
+
+			// The tag doesn't exist yet — create it so typing a new tag name
+			// just works, the way the core post editor does it. On success
+			// wp_insert_term() returns an array with the new term_id.
+			$created = wp_insert_term( $name, 'post_tag' );
+			if ( ! is_wp_error( $created ) ) {
+				$ids[] = (int) $created['term_id'];
 			}
 		}
 

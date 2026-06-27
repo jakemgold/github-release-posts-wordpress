@@ -22,9 +22,20 @@ if ( file_exists( plugin_dir_path( __FILE__ ) . 'vendor/autoload.php' ) ) {
 use GitHubReleasePosts\Plugin_Constants;
 
 // -------------------------------------------------------------------------
-// 1. Delete all plugin options from wp_options.
+// 1. Delete plugin options from wp_options.
+//
+// The repository configuration (OPTION_REPOSITORIES) is intentionally
+// retained: generated posts are kept on uninstall, and the per-repo settings
+// (author, status, categories, tags, featured image, project link) live only
+// in this option. Preserving it means a reinstall restores the repository
+// list and lets "Regenerate" reproduce posts with their original settings,
+// instead of silently falling back to defaults. The option is stored
+// non-autoloaded, so it imposes no per-request cost while the plugin is gone.
 // -------------------------------------------------------------------------
 foreach ( array_keys( Plugin_Constants::get_defaults() ) as $ghrp_option_key ) {
+	if ( Plugin_Constants::OPTION_REPOSITORIES === $ghrp_option_key ) {
+		continue;
+	}
 	delete_option( $ghrp_option_key );
 }
 
@@ -38,19 +49,16 @@ $wpdb->query( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 );
 
 // -------------------------------------------------------------------------
-// 2. Delete all plugin post meta from every post.
-// Posts themselves are retained — only meta is removed.
+// 2. Plugin post meta is intentionally retained.
+//
+// Generated posts are kept on uninstall, and their _ghrp_* meta keys
+// (source repo, release tag, release URL, generated-by) are what let the
+// plugin recognize those posts again after a reinstall: the source-repo +
+// release-tag pair is the deduplication key used by Release_Monitor::find_post(),
+// which prevents duplicate posts, and the source-repo key powers the
+// "Last post" column. Deleting the meta while keeping the posts would orphan
+// them and cause duplicate generation on reinstall, so we leave it in place.
 // -------------------------------------------------------------------------
-$ghrp_meta_keys = [
-	Plugin_Constants::META_SOURCE_REPO,
-	Plugin_Constants::META_RELEASE_TAG,
-	Plugin_Constants::META_RELEASE_URL,
-	Plugin_Constants::META_GENERATED_BY,
-];
-
-foreach ( $ghrp_meta_keys as $ghrp_meta_key ) {
-	delete_post_meta_by_key( $ghrp_meta_key );
-}
 
 // -------------------------------------------------------------------------
 // 3. Clear all plugin-registered cron events.
