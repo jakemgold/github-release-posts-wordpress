@@ -24,7 +24,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! defined( 'GHRP_VERSION' ) ) {
-	define( 'GHRP_VERSION', '1.0.2' );
+	define( 'GHRP_VERSION', '1.0.3' );
 }
 
 if ( ! defined( 'GHRP_URL' ) ) {
