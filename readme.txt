@@ -163,6 +163,7 @@ Both source and build outputs ship with the plugin, so the source is available l
 **Bug fixes**
 
 * Fixed the per-repository inline "Edit" form failing to open after a repository had been saved with one or more categories. Saved categories could be stored with non-sequential array keys, which serialized to a JSON object and caused a JavaScript error when reopening the editor. Categories are now stored and rendered as a plain list, and the editor tolerates the older shape, so existing repositories are repaired without any migration.
+* Fixed adding tags to a repository failing with an "update failed" message and not saving. Tag names that did not already exist were silently dropped, and the resulting unchanged save was incorrectly reported as a failure. New tags are now created automatically (like the post editor's tag box), and an unchanged save is correctly treated as a no-op success.
 
 **Behavior changes**
 
