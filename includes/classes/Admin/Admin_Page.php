@@ -715,29 +715,8 @@ class Admin_Page {
 
 		$update_failures = 0;
 		foreach ( $posted_repos as $identifier => $config ) {
-			$identifier      = sanitize_text_field( wp_unslash( (string) $identifier ) );
-			$raw_repo_tags   = sanitize_text_field( wp_unslash( $config['tags'] ?? '' ) );
-			$raw_plugin_link = sanitize_text_field( wp_unslash( $config['plugin_link'] ?? '' ) );
-			// If it looks like a URL, apply URL sanitization.
-			if ( Repository_Settings::is_url( $raw_plugin_link ) ) {
-				$raw_plugin_link = esc_url_raw( $raw_plugin_link );
-			}
-
-			$sanitized = [
-				'display_name'        => sanitize_text_field( wp_unslash( $config['display_name'] ?? '' ) ),
-				'plugin_link'         => $raw_plugin_link,
-				'author'              => absint( $config['author'] ?? 0 ),
-				'post_status'         => sanitize_key( $config['post_status'] ?? '' ),
-				// array_values() re-indexes after array_filter() drops the hidden "0"
-				// fallback element, so categories store as a sequential list. Without
-				// this, the kept 1-based keys serialize to a JSON object in the row's
-				// data-categories attribute and crash the inline editor's category loop.
-				'categories'          => array_values( array_map( 'absint', array_filter( (array) ( $config['categories'] ?? [] ) ) ) ),
-				'tags'                => $this->resolve_tag_names_to_ids( $raw_repo_tags ),
-				'paused'              => ! empty( $config['paused'] ),
-				'featured_image'      => absint( $config['featured_image'] ?? 0 ),
-				'include_prereleases' => ! empty( $config['include_prereleases'] ),
-			];
+			$identifier = sanitize_text_field( wp_unslash( (string) $identifier ) );
+			$sanitized  = $this->sanitize_repo_config( (array) $config );
 			if ( ! $this->repo_settings->update_repository( $identifier, $sanitized ) ) {
 				++$update_failures;
 			}
@@ -767,6 +746,41 @@ class Admin_Page {
 			)
 		);
 		exit;
+	}
+
+	/**
+	 * Sanitizes one posted repository configuration into its stored shape.
+	 *
+	 * Extracted from handle_repositories_save() so the transform — in
+	 * particular the categories normalization that guards the inline-edit
+	 * crash — is unit-testable without the surrounding nonce/redirect/exit flow.
+	 *
+	 * @param array $config Raw posted config for a single repository.
+	 * @return array Sanitized config ready for Repository_Settings::update_repository().
+	 */
+	private function sanitize_repo_config( array $config ): array {
+		$raw_repo_tags   = sanitize_text_field( wp_unslash( $config['tags'] ?? '' ) );
+		$raw_plugin_link = sanitize_text_field( wp_unslash( $config['plugin_link'] ?? '' ) );
+		// If it looks like a URL, apply URL sanitization.
+		if ( Repository_Settings::is_url( $raw_plugin_link ) ) {
+			$raw_plugin_link = esc_url_raw( $raw_plugin_link );
+		}
+
+		return [
+			'display_name'        => sanitize_text_field( wp_unslash( $config['display_name'] ?? '' ) ),
+			'plugin_link'         => $raw_plugin_link,
+			'author'              => absint( $config['author'] ?? 0 ),
+			'post_status'         => sanitize_key( $config['post_status'] ?? '' ),
+			// array_values() re-indexes after array_filter() drops the hidden "0"
+			// fallback element, so categories store as a sequential list. Without
+			// this, the kept 1-based keys serialize to a JSON object in the row's
+			// data-categories attribute and crash the inline editor's category loop.
+			'categories'          => array_values( array_map( 'absint', array_filter( (array) ( $config['categories'] ?? [] ) ) ) ),
+			'tags'                => $this->resolve_tag_names_to_ids( $raw_repo_tags ),
+			'paused'              => ! empty( $config['paused'] ),
+			'featured_image'      => absint( $config['featured_image'] ?? 0 ),
+			'include_prereleases' => ! empty( $config['include_prereleases'] ),
+		];
 	}
 
 	/**

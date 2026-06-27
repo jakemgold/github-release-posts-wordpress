@@ -140,4 +140,146 @@ class Admin_PageTest extends TestCase {
 
 		$this->assertSame( 'http://example.com/wp-admin/tools.php?page=github-release-posts', $url );
 	}
+
+	/**
+	 * Registers passthrough stubs for the WordPress sanitization helpers that
+	 * sanitize_repo_config() relies on, so each test can focus on the transform.
+	 */
+	private function stub_sanitizers(): void {
+		\WP_Mock::userFunction( 'wp_unslash' )->andReturnUsing( fn( $v ) => $v )->byDefault();
+		\WP_Mock::userFunction( 'sanitize_text_field' )->andReturnUsing( fn( $v ) => is_string( $v ) ? trim( $v ) : $v )->byDefault();
+		\WP_Mock::userFunction( 'sanitize_key' )->andReturnUsing( fn( $v ) => strtolower( (string) $v ) )->byDefault();
+		\WP_Mock::userFunction( 'absint' )->andReturnUsing( fn( $v ) => abs( (int) $v ) )->byDefault();
+	}
+
+	/**
+	 * Invokes the private sanitize_repo_config() on a fresh Admin_Page.
+	 *
+	 * @param array $config Raw posted repo config.
+	 * @return array Sanitized config.
+	 */
+	private function invoke_sanitize( array $config ): array {
+		$method = new \ReflectionMethod( Admin_Page::class, 'sanitize_repo_config' );
+		return $method->invoke( new Admin_Page(), $config );
+	}
+
+	/**
+	 * Regression for the inline-edit crash: the edit form posts a hidden "0"
+	 * fallback as the first categories element. array_filter() drops it but keeps
+	 * the original keys, so without array_values() the stored categories become a
+	 * non-sequential array ([1=>5, 2=>8]) that wp_json_encode() renders as a JSON
+	 * object ({"1":5,"2":8}) — which the inline editor's indexOf() loop chokes on.
+	 * sanitize_repo_config() must always return a sequential list.
+	 */
+	public function test_sanitize_repo_config_normalizes_categories_to_list(): void {
+		$this->stub_sanitizers();
+
+		// Mirrors the posted payload: hidden "0" fallback + two checked boxes.
+		$result = $this->invoke_sanitize( [ 'categories' => [ '0', '5', '8' ] ] );
+
+		$this->assertSame( [ 5, 8 ], $result['categories'] );
+		$this->assertTrue(
+			array_is_list( $result['categories'] ),
+			'Categories must be a sequential list so they serialize as a JSON array.'
+		);
+		// The precise property the render side depends on: a JSON array, not an
+		// object. Before the fix this was the crash-inducing '{"1":5,"2":8}'.
+		// (wp_json_encode delegates to json_encode, identical for an int list.)
+		$this->assertSame( '[5,8]', json_encode( $result['categories'] ) );
+	}
+
+	/**
+	 * Categories sanitize to an empty array when nothing is selected (just the
+	 * hidden "0" fallback) or when the key is absent entirely.
+	 */
+	public function test_sanitize_repo_config_empty_categories(): void {
+		$this->stub_sanitizers();
+
+		$only_fallback = $this->invoke_sanitize( [ 'categories' => [ '0' ] ] );
+		$this->assertSame( [], $only_fallback['categories'] );
+
+		$missing = $this->invoke_sanitize( [] );
+		$this->assertSame( [], $missing['categories'] );
+	}
+
+	/**
+	 * Extraction guard: the non-category fields keep their sanitized values and
+	 * types so the refactor stays behavior-identical to the original save loop.
+	 */
+	public function test_sanitize_repo_config_preserves_scalar_fields(): void {
+		$this->stub_sanitizers();
+
+		$result = $this->invoke_sanitize(
+			[
+				'display_name'        => '  Cool Plugin  ',
+				'author'              => '12',
+				'post_status'         => 'Publish',
+				'featured_image'      => '34',
+				'paused'              => '1',
+				'include_prereleases' => '1',
+			]
+		);
+
+		$this->assertSame( 'Cool Plugin', $result['display_name'] );
+		$this->assertSame( 12, $result['author'] );
+		$this->assertSame( 'publish', $result['post_status'] );
+		$this->assertSame( 34, $result['featured_image'] );
+		$this->assertTrue( $result['paused'] );
+		$this->assertTrue( $result['include_prereleases'] );
+
+		// Unset booleans default to false.
+		$bare = $this->invoke_sanitize( [] );
+		$this->assertFalse( $bare['paused'] );
+		$this->assertFalse( $bare['include_prereleases'] );
+	}
+
+	/**
+	 * plugin_link gets URL sanitization only when it looks like a URL; a WP.org
+	 * slug passes through untouched (esc_url_raw is never applied to it).
+	 */
+	public function test_sanitize_repo_config_url_sanitization_branches(): void {
+		$this->stub_sanitizers();
+
+		\WP_Mock::userFunction( 'esc_url_raw' )
+			->with( 'https://example.com/plugin/' )
+			->once()
+			->andReturn( 'https://example.com/plugin/[esc]' );
+
+		$url = $this->invoke_sanitize( [ 'plugin_link' => 'https://example.com/plugin/' ] );
+		$this->assertSame( 'https://example.com/plugin/[esc]', $url['plugin_link'] );
+
+		// A bare slug is not a URL, so esc_url_raw must not run on it.
+		$slug = $this->invoke_sanitize( [ 'plugin_link' => 'my-plugin-slug' ] );
+		$this->assertSame( 'my-plugin-slug', $slug['plugin_link'] );
+	}
+
+	/**
+	 * Tags resolve comma-separated names to term IDs, silently skip unknown
+	 * names, and come back as a sequential list of integers.
+	 */
+	public function test_sanitize_repo_config_resolves_tags_and_skips_unknown(): void {
+		$this->stub_sanitizers();
+
+		\WP_Mock::userFunction( 'get_term_by' )->andReturnUsing(
+			function ( $field, $name ) {
+				$map = [
+					'Alpha' => 3,
+					'Beta'  => 7,
+				];
+				return isset( $map[ $name ] )
+					? new \WP_Term(
+						[
+							'term_id' => $map[ $name ],
+							'name'    => $name,
+						]
+					)
+					: false;
+			}
+		);
+
+		$result = $this->invoke_sanitize( [ 'tags' => 'Alpha, Ghost, Beta' ] );
+
+		$this->assertSame( [ 3, 7 ], $result['tags'] );
+		$this->assertTrue( array_is_list( $result['tags'] ) );
+	}
 }
