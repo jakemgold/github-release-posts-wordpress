@@ -728,7 +728,11 @@ class Admin_Page {
 				'plugin_link'         => $raw_plugin_link,
 				'author'              => absint( $config['author'] ?? 0 ),
 				'post_status'         => sanitize_key( $config['post_status'] ?? '' ),
-				'categories'          => array_map( 'absint', array_filter( (array) ( $config['categories'] ?? [] ) ) ),
+				// array_values() re-indexes after array_filter() drops the hidden "0"
+				// fallback element, so categories store as a sequential list. Without
+				// this, the kept 1-based keys serialize to a JSON object in the row's
+				// data-categories attribute and crash the inline editor's category loop.
+				'categories'          => array_values( array_map( 'absint', array_filter( (array) ( $config['categories'] ?? [] ) ) ) ),
 				'tags'                => $this->resolve_tag_names_to_ids( $raw_repo_tags ),
 				'paused'              => ! empty( $config['paused'] ),
 				'featured_image'      => absint( $config['featured_image'] ?? 0 ),

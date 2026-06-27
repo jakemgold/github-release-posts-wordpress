@@ -696,6 +696,12 @@ document.addEventListener( 'DOMContentLoaded', function () {
 		} catch ( e ) {
 			savedCats = [];
 		}
+		// Older saves could serialize categories as a JSON object (e.g.
+		// {"1":5,"2":8}) rather than an array. Coerce back to an array so the
+		// indexOf() lookup below never throws and the edit row still opens.
+		if ( ! Array.isArray( savedCats ) ) {
+			savedCats = Object.values( savedCats || {} );
+		}
 		editRow
 			.querySelectorAll( '.ghrp-tpl-categories input[type="checkbox"]' )
 			.forEach( function ( cb ) {

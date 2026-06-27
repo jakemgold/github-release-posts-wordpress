@@ -5,7 +5,7 @@ Tags:              github, releases, blog post, ai, automation
 Requires at least: 7.0
 Tested up to:      7.0
 Requires PHP:      8.2
-Stable tag:        1.0.2
+Stable tag:        1.0.3
 License:           GPL-2.0-or-later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -157,6 +157,16 @@ Both source and build outputs ship with the plugin, so the source is available l
 **Bundled npm packages used at build time** (development only — not shipped at runtime): `@10up/scripts` (which itself bundles Webpack, ESLint, Babel, and the build-time-only `wp-prettier` and `eslint-plugin-jsdoc` overrides). All declared in `package.json` and `package-lock.json`. None of these end up in the distributed plugin.
 
 == Changelog ==
+
+= 1.0.3 =
+
+**Bug fixes**
+
+* Fixed the per-repository inline "Edit" form failing to open after a repository had been saved with one or more categories. Saved categories could be stored with non-sequential array keys, which serialized to a JSON object and caused a JavaScript error when reopening the editor. Categories are now stored and rendered as a plain list, and the editor tolerates the older shape, so existing repositories are repaired without any migration.
+
+**Behavior changes**
+
+* Uninstalling the plugin now preserves your repository configuration and the plugin's post meta. Previously a delete-and-reinstall required re-entering every repository and its settings, and stripped the meta that links generated posts to their release — which could lead to duplicate posts on reinstall. Generated posts are still kept (unchanged); all caches, scheduled events, and per-repository runtime state are still removed. The retained repository option is stored non-autoloaded, so it adds no overhead while the plugin is inactive.
 
 = 1.0.2 =
 

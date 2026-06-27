@@ -39,9 +39,11 @@ class UninstallTest extends TestCase {
 	}
 
 	/**
-	 * Uninstall deletes all plugin options.
+	 * Uninstall deletes every plugin option except the repository
+	 * configuration, which is intentionally retained so a reinstall restores
+	 * the repository list and its per-repo settings.
 	 */
-	public function test_uninstall_deletes_all_plugin_options(): void {
+	public function test_uninstall_deletes_options_except_repositories(): void {
 		if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 			define( 'WP_UNINSTALL_PLUGIN', true );
 		}
@@ -49,12 +51,19 @@ class UninstallTest extends TestCase {
 		$defaults = Plugin_Constants::get_defaults();
 
 		foreach ( array_keys( $defaults ) as $key ) {
+			if ( Plugin_Constants::OPTION_REPOSITORIES === $key ) {
+				// The repository config must survive uninstall.
+				\WP_Mock::userFunction( 'delete_option' )
+					->with( $key )
+					->never();
+				continue;
+			}
+
 			\WP_Mock::userFunction( 'delete_option' )
 				->with( $key )
 				->once();
 		}
 
-		\WP_Mock::userFunction( 'delete_post_meta_by_key' )->andReturn( true );
 		\WP_Mock::userFunction( 'wp_clear_scheduled_hook' )->andReturn( null );
 
 		// Mock wpdb.
@@ -72,9 +81,11 @@ class UninstallTest extends TestCase {
 	}
 
 	/**
-	 * Uninstall deletes all plugin post meta keys.
+	 * Uninstall retains the plugin's post meta. Generated posts are kept, and
+	 * their _ghrp_* meta is the dedup/recognition key that prevents duplicate
+	 * posts on reinstall — so it must never be deleted.
 	 */
-	public function test_uninstall_deletes_all_post_meta(): void {
+	public function test_uninstall_retains_post_meta(): void {
 		if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 			define( 'WP_UNINSTALL_PLUGIN', true );
 		}
@@ -82,18 +93,8 @@ class UninstallTest extends TestCase {
 		\WP_Mock::userFunction( 'delete_option' )->andReturn( true );
 		\WP_Mock::userFunction( 'wp_clear_scheduled_hook' )->andReturn( null );
 
-		$expected_meta_keys = [
-			Plugin_Constants::META_SOURCE_REPO,
-			Plugin_Constants::META_RELEASE_TAG,
-			Plugin_Constants::META_RELEASE_URL,
-			Plugin_Constants::META_GENERATED_BY,
-		];
-
-		foreach ( $expected_meta_keys as $key ) {
-			\WP_Mock::userFunction( 'delete_post_meta_by_key' )
-				->with( $key )
-				->once();
-		}
+		// Post meta must be preserved — delete_post_meta_by_key is never called.
+		\WP_Mock::userFunction( 'delete_post_meta_by_key' )->never();
 
 		global $wpdb;
 		$wpdb         = $this->getMockBuilder( \stdClass::class )
@@ -117,7 +118,6 @@ class UninstallTest extends TestCase {
 		}
 
 		\WP_Mock::userFunction( 'delete_option' )->andReturn( true );
-		\WP_Mock::userFunction( 'delete_post_meta_by_key' )->andReturn( true );
 
 		\WP_Mock::userFunction( 'wp_clear_scheduled_hook' )
 			->with( Plugin_Constants::CRON_HOOK_RELEASE_CHECK )
