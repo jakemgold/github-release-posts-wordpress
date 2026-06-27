@@ -226,4 +226,66 @@ class Repository_SettingsTest extends TestCase {
 
 		$this->assertTrue( $result );
 	}
+
+	// -------------------------------------------------------------------------
+	// update_repository() / save_repositories() no-op handling
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Re-saving a repository with no changes is a successful no-op, not a
+	 * failure. WordPress update_option() returns false when the stored value is
+	 * unchanged; save_repositories() must not surface that as an error — this is
+	 * the source of the spurious "repository update failed" message.
+	 */
+	public function test_update_repository_treats_unchanged_save_as_success(): void {
+		$existing = [
+			[ 'identifier' => 'owner/repo-a', 'display_name' => 'Repo A', 'paused' => false, 'plugin_link' => '', 'author' => 1, 'post_status' => 'draft', 'categories' => [], 'tags' => [], 'featured_image' => 0 ],
+		];
+
+		// get_repositories() reads this, and so does the no-op fallback check.
+		\WP_Mock::userFunction( 'get_option' )
+			->with( Plugin_Constants::OPTION_REPOSITORIES, [] )
+			->andReturn( $existing );
+
+		// WordPress signals "value unchanged" by returning false.
+		\WP_Mock::userFunction( 'update_option' )
+			->with( Plugin_Constants::OPTION_REPOSITORIES, \Mockery::type( 'array' ), false )
+			->andReturn( false );
+
+		// Same values back in — nothing actually changes.
+		$result = ( new Repository_Settings() )->update_repository(
+			'owner/repo-a',
+			[ 'display_name' => 'Repo A', 'paused' => false, 'plugin_link' => '', 'author' => 1, 'post_status' => 'draft', 'categories' => [], 'tags' => [], 'featured_image' => 0 ]
+		);
+
+		$this->assertTrue( $result, 'An unchanged save is a no-op success, not a failure.' );
+	}
+
+	/**
+	 * A genuine save failure — update_option() returns false and the stored
+	 * value still differs from what we tried to write — is reported as a
+	 * failure, so real errors are not masked by the no-op handling.
+	 */
+	public function test_update_repository_reports_genuine_save_failure(): void {
+		$existing = [
+			[ 'identifier' => 'owner/repo-a', 'display_name' => 'Repo A', 'paused' => false, 'plugin_link' => '', 'author' => 1, 'post_status' => 'draft', 'categories' => [], 'tags' => [], 'featured_image' => 0 ],
+		];
+
+		// The write never takes effect: get_option keeps returning the old value.
+		\WP_Mock::userFunction( 'get_option' )
+			->with( Plugin_Constants::OPTION_REPOSITORIES, [] )
+			->andReturn( $existing );
+
+		\WP_Mock::userFunction( 'update_option' )
+			->with( Plugin_Constants::OPTION_REPOSITORIES, \Mockery::type( 'array' ), false )
+			->andReturn( false );
+
+		// Rename the repo so the desired value differs from what is stored.
+		$result = ( new Repository_Settings() )->update_repository(
+			'owner/repo-a',
+			[ 'display_name' => 'Renamed Repo' ]
+		);
+
+		$this->assertFalse( $result, 'A write that did not persist must report failure.' );
+	}
 }

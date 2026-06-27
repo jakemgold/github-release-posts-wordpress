@@ -1448,8 +1448,10 @@ class Admin_Page {
 	/**
 	 * Converts a comma-separated string of tag names into an array of term IDs.
 	 *
-	 * Tags that don't exist are silently skipped — the site owner must create
-	 * them first via the standard WordPress tag management UI.
+	 * Tags that don't exist yet are created on the fly, mirroring the post
+	 * editor's tag box, so a site owner can add new tags inline. A name that
+	 * fails to create (e.g. an invalid name) is skipped rather than aborting
+	 * the whole save.
 	 *
 	 * @param string $raw Comma-separated tag names.
 	 * @return int[] Array of tag term IDs.
@@ -1470,6 +1472,15 @@ class Admin_Page {
 			$term = get_term_by( 'name', $name, 'post_tag' );
 			if ( $term instanceof \WP_Term ) {
 				$ids[] = (int) $term->term_id;
+				continue;
+			}
+
+			// The tag doesn't exist yet — create it so typing a new tag name
+			// just works, the way the core post editor does it. On success
+			// wp_insert_term() returns an array with the new term_id.
+			$created = wp_insert_term( $name, 'post_tag' );
+			if ( ! is_wp_error( $created ) ) {
+				$ids[] = (int) $created['term_id'];
 			}
 		}
 

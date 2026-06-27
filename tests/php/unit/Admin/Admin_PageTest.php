@@ -254,12 +254,14 @@ class Admin_PageTest extends TestCase {
 	}
 
 	/**
-	 * Tags resolve comma-separated names to term IDs, silently skip unknown
-	 * names, and come back as a sequential list of integers.
+	 * Tags resolve comma-separated names to term IDs; a name that doesn't exist
+	 * yet is created on the fly (like the core post-editor tag box), and the
+	 * result is a sequential list of integers in the order typed.
 	 */
-	public function test_sanitize_repo_config_resolves_tags_and_skips_unknown(): void {
+	public function test_sanitize_repo_config_resolves_and_creates_tags(): void {
 		$this->stub_sanitizers();
 
+		// Alpha and Beta already exist; Ghost does not.
 		\WP_Mock::userFunction( 'get_term_by' )->andReturnUsing(
 			function ( $field, $name ) {
 				$map = [
@@ -277,9 +279,35 @@ class Admin_PageTest extends TestCase {
 			}
 		);
 
+		// The unknown tag is created rather than silently dropped.
+		\WP_Mock::userFunction( 'wp_insert_term' )
+			->with( 'Ghost', 'post_tag' )
+			->once()
+			->andReturn(
+				[
+					'term_id'          => 9,
+					'term_taxonomy_id' => 9,
+				]
+			);
+
 		$result = $this->invoke_sanitize( [ 'tags' => 'Alpha, Ghost, Beta' ] );
 
-		$this->assertSame( [ 3, 7 ], $result['tags'] );
+		$this->assertSame( [ 3, 9, 7 ], $result['tags'] );
 		$this->assertTrue( array_is_list( $result['tags'] ) );
+	}
+
+	/**
+	 * A tag whose creation fails (wp_insert_term returns a WP_Error) is skipped
+	 * rather than aborting the whole save.
+	 */
+	public function test_sanitize_repo_config_skips_uncreatable_tags(): void {
+		$this->stub_sanitizers();
+
+		\WP_Mock::userFunction( 'get_term_by' )->andReturn( false );
+		\WP_Mock::userFunction( 'wp_insert_term' )->andReturn( new \WP_Error( 'invalid_term', 'nope' ) );
+
+		$result = $this->invoke_sanitize( [ 'tags' => 'Bad Tag' ] );
+
+		$this->assertSame( [], $result['tags'] );
 	}
 }

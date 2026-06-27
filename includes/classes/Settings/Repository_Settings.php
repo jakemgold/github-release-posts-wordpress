@@ -81,7 +81,17 @@ class Repository_Settings {
 	 */
 	public function save_repositories( array $repos ): bool {
 		$this->cache = null;
-		return (bool) update_option( Plugin_Constants::OPTION_REPOSITORIES, array_values( $repos ), false );
+		$value       = array_values( $repos );
+
+		if ( update_option( Plugin_Constants::OPTION_REPOSITORIES, $value, false ) ) {
+			return true;
+		}
+
+		// update_option() returns false when the stored value is unchanged.
+		// That's a successful no-op (e.g. re-saving a repo without edits), not
+		// a failure — so confirm by reading the value back rather than
+		// surfacing a spurious "repository update failed" error.
+		return get_option( Plugin_Constants::OPTION_REPOSITORIES, [] ) === $value;
 	}
 
 	/**
