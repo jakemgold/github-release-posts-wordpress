@@ -160,14 +160,9 @@ Both source and build outputs ship with the plugin, so the source is available l
 
 = 1.0.3 =
 
-**Bug fixes**
-
-* Fixed the per-repository inline "Edit" form failing to open after a repository had been saved with one or more categories. Saved categories could be stored with non-sequential array keys, which serialized to a JSON object and caused a JavaScript error when reopening the editor. Categories are now stored and rendered as a plain list, and the editor tolerates the older shape, so existing repositories are repaired without any migration.
-* Fixed adding tags to a repository failing with an "update failed" message and not saving. Tag names that did not already exist were silently dropped, and the resulting unchanged save was incorrectly reported as a failure. New tags are now created automatically (like the post editor's tag box), and an unchanged save is correctly treated as a no-op success.
-
-**Behavior changes**
-
-* Uninstalling the plugin now preserves your repository configuration and the plugin's post meta. Previously a delete-and-reinstall required re-entering every repository and its settings, and stripped the meta that links generated posts to their release — which could lead to duplicate posts on reinstall. Generated posts are still kept (unchanged); all caches, scheduled events, and per-repository runtime state are still removed. The retained repository option is stored non-autoloaded, so it adds no overhead while the plugin is inactive.
+* Fixed an issue where inline editing of repository settings failed to open when one or more categories were assigned.
+* Fixed an issue where adding tags to a repository failed to save. New tags are now created automatically if they don't already exist.
+* Uninstalling the plugin now preserves your repository configuration and keeps previously generated posts linked to their releases, so reinstalling no longer requires re-entering your settings or risks creating duplicate posts.
 
 = 1.0.2 =
 
