@@ -185,8 +185,11 @@ class Release_Enricher {
 		$refs = [];
 		$seen = [];
 
-		// Full GitHub PR/issue URLs.
-		if ( preg_match_all( '#https?://github\.com/([A-Za-z0-9_./-]+)/(?:pull|issues)/(\d+)#', $body, $matches, PREG_SET_ORDER ) ) {
+		// Full GitHub PR/issue URLs. Capture owner/repo as two distinct segments
+		// (no embedded slashes) so a crafted link cannot smuggle extra path
+		// segments (e.g. `../../gists/x`) into the identifier that is later
+		// requested with the site's PAT.
+		if ( preg_match_all( '#https?://github\.com/([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)/(?:pull|issues)/(\d+)#', $body, $matches, PREG_SET_ORDER ) ) {
 			foreach ( $matches as $match ) {
 				$repo   = $match[1];
 				$number = (int) $match[2];

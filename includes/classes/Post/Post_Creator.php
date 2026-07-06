@@ -103,8 +103,13 @@ class Post_Creator {
 			'post_content' => wp_kses_post( $block_content ),
 			'post_status'  => 'draft',
 			'post_type'    => 'post',
-			'post_author'  => $author_id,
 		];
+
+		// Only set an explicit author when we resolved a real user; never write
+		// post_author = 0 (an invalid user) on a site with no eligible admin.
+		if ( $author_id > 0 ) {
+			$insert_args['post_author'] = $author_id;
+		}
 
 		if ( '' !== $post->excerpt ) {
 			$insert_args['post_excerpt'] = wp_kses_post( $post->excerpt );
@@ -287,7 +292,9 @@ class Post_Creator {
 		 */
 		$attachment_id = (int) apply_filters( 'ghrp_post_featured_image', $attachment_id, $post_id, $identifier );
 
-		if ( $attachment_id > 0 ) {
+		// Only set the thumbnail when the attachment still exists and is an image —
+		// a stale/deleted ID would otherwise point _thumbnail_id at nothing.
+		if ( $attachment_id > 0 && wp_attachment_is_image( $attachment_id ) ) {
 			set_post_thumbnail( $post_id, $attachment_id );
 		}
 	}
@@ -388,7 +395,10 @@ class Post_Creator {
 
 		// Strip any <p> wrappers around <figure> elements — AI models sometimes
 		// nest block-level elements inside <p> tags, which breaks splitting.
-		$html = preg_replace( '%<p>\s*(<figure[\s>].*?</figure>)\s*</p>%si', '$1', $html );
+		// Fall back to the prior value on a null return (PCRE backtrack/recursion
+		// limit on very large input) so a big release can't silently collapse the
+		// whole post body to nothing.
+		$html = preg_replace( '%<p>\s*(<figure[\s>].*?</figure>)\s*</p>%si', '$1', $html ) ?? $html;
 
 		// Extract <figure> blocks first (they can contain nested elements
 		// like <figcaption> that confuse the simpler tag-based splitter).
@@ -401,7 +411,7 @@ class Post_Creator {
 				return $key;
 			},
 			$html
-		);
+		) ?? $html;
 
 		// Split remaining HTML into top-level elements.
 		$pattern = '%(<(?:p|ul|ol|h[1-6]|blockquote|img|hr|pre|table)[\s>].*?(?:</(?:p|ul|ol|h[1-6]|blockquote|pre|table)>|/>))%si';
@@ -564,7 +574,10 @@ class Post_Creator {
 			. '<img src="' . esc_url( $src ) . '" alt="' . esc_attr( $alt ) . '" />';
 
 		if ( '' !== $caption ) {
-			$figure .= '<figcaption class="wp-element-caption">' . $caption . '</figcaption>';
+			// Sanitize to the post allow-list so a caption from AI/release notes
+			// can't inject markup, and so the saved markup matches what KSES leaves
+			// at insert time (otherwise the block trips Gutenberg's validation).
+			$figure .= '<figcaption class="wp-element-caption">' . wp_kses_post( $caption ) . '</figcaption>';
 		}
 
 		$figure .= '</figure>';
@@ -680,6 +693,10 @@ class Post_Creator {
 		// download_url() timeout is 300s, which is too long for a synchronous loop.
 		$timeout_filter = function ( $args ) use ( $request_timeout ) {
 			$args['timeout'] = $request_timeout;
+			// The final URL is pre-resolved and host-validated per hop (see
+			// resolve_allowed_image_url), so the download itself must not follow
+			// any further redirect off the allow-list.
+			$args['redirection'] = 0;
 			return $args;
 		};
 		add_filter( 'http_request_args', $timeout_filter );
@@ -692,7 +709,7 @@ class Post_Creator {
 
 			// Only sideload from allowed domains to prevent SSRF.
 			$host = wp_parse_url( $remote_url, PHP_URL_HOST );
-			if ( ! is_string( $host ) || ! self::is_host_allowed( $host, $allowed_domains ) ) {
+			if ( ! is_string( $host ) || ! self::is_host_allowed( strtolower( $host ), $allowed_domains ) ) {
 				continue;
 			}
 
@@ -709,7 +726,35 @@ class Post_Creator {
 			}
 
 			++$total;
-			$attachment_id = media_sideload_image( $remote_url, $post_id, '', 'id' );
+
+			// Resolve redirects up front, requiring every hop to stay on the
+			// allow-list. media_sideload_image()/download_url() otherwise follow
+			// redirects with only WordPress's generic private-IP blocking, which
+			// leaves the link-local metadata range reachable via a redirect from
+			// an allowed *.github.io Pages site. A rejected image simply stays a
+			// remote link, like any other image we can't sideload.
+			$safe_url = self::resolve_allowed_image_url( $remote_url, $allowed_domains, $request_timeout );
+			if ( is_wp_error( $safe_url ) ) {
+				++$failed;
+				++$consec_failures;
+				if ( defined( 'WP_DEBUG' ) && WP_DEBUG && defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
+					// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+					error_log(
+						sprintf(
+							'[GHRP] Image skipped (redirect/host not allowed) for %s: %s',
+							$remote_url,
+							$safe_url->get_error_message()
+						)
+					);
+				}
+				if ( $consec_failures >= $max_consec_failures ) {
+					$bail_reason = sprintf( '%d consecutive failures', $consec_failures );
+					break;
+				}
+				continue;
+			}
+
+			$attachment_id = media_sideload_image( $safe_url, $post_id, '', 'id' );
 
 			if ( is_wp_error( $attachment_id ) ) {
 				++$failed;
@@ -795,6 +840,104 @@ class Post_Creator {
 				)
 			);
 		}
+	}
+
+	/**
+	 * Resolves an image URL through its redirects, requiring every hop to stay
+	 * on the allowed-host list.
+	 *
+	 * WordPress's download_url()/media_sideload_image() follow redirects but
+	 * apply only generic private-IP blocking per hop — which does not cover the
+	 * link-local metadata range and would still fetch an off-list host reached
+	 * via a redirect from an allowed *.github.io page. This walks the chain with
+	 * HEAD requests, rejecting the first hop whose host is not allowed, and
+	 * returns the final URL to download (with redirects then disabled by the
+	 * http_request_args filter) — or a WP_Error so the caller skips the image and
+	 * it stays a remote link.
+	 *
+	 * @param string $url             Initial image URL.
+	 * @param array  $allowed_domains Allowed bare domains.
+	 * @param int    $timeout         Per-request timeout in seconds.
+	 * @return string|\WP_Error Final allow-listed URL, or WP_Error to skip.
+	 */
+	private static function resolve_allowed_image_url( string $url, array $allowed_domains, int $timeout ): string|\WP_Error {
+		$max_hops = 5;
+
+		for ( $hop = 0; $hop <= $max_hops; $hop++ ) {
+			$host = wp_parse_url( $url, PHP_URL_HOST );
+			if ( ! is_string( $host ) || ! self::is_host_allowed( strtolower( $host ), $allowed_domains ) ) {
+				return new \WP_Error(
+					'ghrp_sideload_host_not_allowed',
+					sprintf( 'Image host not on the allow-list: %s', is_string( $host ) ? $host : '(none)' )
+				);
+			}
+
+			$response = wp_safe_remote_head(
+				$url,
+				[
+					'timeout'     => $timeout,
+					'redirection' => 0,
+				]
+			);
+			if ( is_wp_error( $response ) ) {
+				return $response;
+			}
+
+			$code = (int) wp_remote_retrieve_response_code( $response );
+			if ( $code < 300 || $code >= 400 ) {
+				// Not a redirect — the current (allow-listed) URL is the target.
+				return $url;
+			}
+
+			$location = wp_remote_retrieve_header( $response, 'location' );
+			if ( ! is_string( $location ) || '' === $location ) {
+				return new \WP_Error( 'ghrp_sideload_bad_redirect', 'Redirect response had no Location header.' );
+			}
+
+			$url = self::resolve_redirect_url( $location, $url );
+		}
+
+		return new \WP_Error( 'ghrp_sideload_too_many_redirects', 'Image exceeded the redirect limit.' );
+	}
+
+	/**
+	 * Resolves a (possibly relative) redirect Location against the URL it came from.
+	 *
+	 * @param string $location Location header value.
+	 * @param string $base     URL the redirect was returned from.
+	 * @return string Absolute URL.
+	 */
+	private static function resolve_redirect_url( string $location, string $base ): string {
+		// Already absolute.
+		if ( (bool) preg_match( '#^https?://#i', $location ) ) {
+			return $location;
+		}
+
+		$parts = wp_parse_url( $base );
+		if ( ! is_array( $parts ) || empty( $parts['scheme'] ) || empty( $parts['host'] ) ) {
+			return $location;
+		}
+
+		// Scheme-relative URL (begins with a double slash).
+		if ( str_starts_with( $location, '//' ) ) {
+			return $parts['scheme'] . ':' . $location;
+		}
+
+		$origin = $parts['scheme'] . '://' . $parts['host'];
+		if ( isset( $parts['port'] ) ) {
+			$origin .= ':' . $parts['port'];
+		}
+
+		// Root-relative path.
+		if ( str_starts_with( $location, '/' ) ) {
+			return $origin . $location;
+		}
+
+		// Path-relative — resolve against the base directory.
+		$path  = isset( $parts['path'] ) ? (string) $parts['path'] : '/';
+		$slash = strrpos( $path, '/' );
+		$dir   = false === $slash ? '/' : substr( $path, 0, $slash + 1 );
+		return $origin . $dir . $location;
 	}
 
 	/**

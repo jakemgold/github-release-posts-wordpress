@@ -113,27 +113,30 @@ class Repository_List_Table extends \WP_List_Table {
 			return;
 		}
 
-		$posts = get_posts(
-			[
-				'post_type'   => 'post',
-				'post_status' => [ 'publish', 'draft', 'pending', 'private' ],
-				'meta_key'    => Plugin_Constants::META_SOURCE_REPO,
-				'meta_value'  => $identifiers, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
-			'meta_compare'    => 'IN',
-			'posts_per_page'  => 100,
-			'orderby'         => 'date',
-			'order'           => 'DESC',
-			]
-		);
+		// One bounded query per repo (the repository count is small): fetch that
+		// repo's single newest post. A single global query with a row cap would
+		// drop repos whose newest post falls outside the capped window when
+		// another repo has many posts, leaving them wrongly showing no post.
+		foreach ( $identifiers as $identifier ) {
+			$posts = get_posts(
+				[
+					'post_type'      => 'post',
+					'post_status'    => [ 'publish', 'draft', 'pending', 'private' ],
+					'meta_key'       => Plugin_Constants::META_SOURCE_REPO, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+					'meta_value'     => $identifier, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+					'posts_per_page' => 1,
+					'orderby'        => 'date',
+					'order'          => 'DESC',
+				]
+			);
 
-		// Keep only the most recent post per identifier.
-		foreach ( $posts as $post ) {
-			$repo = get_post_meta( $post->ID, Plugin_Constants::META_SOURCE_REPO, true );
-			if ( '' === $repo || isset( $this->last_posts[ $repo ] ) ) {
-				continue; // Already have a newer one.
+			if ( empty( $posts ) ) {
+				continue;
 			}
 
-			$this->last_posts[ $repo ] = [
+			$post = $posts[0];
+
+			$this->last_posts[ $identifier ] = [
 				'post_id'  => $post->ID,
 				'tag'      => get_post_meta( $post->ID, Plugin_Constants::META_RELEASE_TAG, true ),
 				'date'     => get_the_date( 'Y/m/d', $post->ID ),

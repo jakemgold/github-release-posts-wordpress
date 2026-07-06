@@ -85,8 +85,10 @@ class Prompt_Builder {
 		// Truncate very large release bodies to avoid exceeding AI token limits.
 		// 50,000 chars ≈ 12,500 tokens, leaving room for prompt instructions.
 		$max_body_length = (int) apply_filters( 'ghrp_max_release_body_length', 50000 );
-		if ( strlen( $body ) > $max_body_length ) {
-			$body = substr( $body, 0, $max_body_length ) . "\n\n[Release notes truncated due to length.]";
+		if ( $max_body_length > 0 && mb_strlen( $body ) > $max_body_length ) {
+			// Multibyte-safe so truncation never splits a UTF-8 sequence; the
+			// > 0 guard stops a misconfigured filter from discarding the body.
+			$body = mb_substr( $body, 0, $max_body_length ) . "\n\n[Release notes truncated due to length.]";
 		}
 
 		$images = $this->extract_images( $body );

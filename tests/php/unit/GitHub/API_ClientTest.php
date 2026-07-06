@@ -347,7 +347,10 @@ class API_ClientTest extends TestCase {
 	// -------------------------------------------------------------------------
 
 	/**
-	 * When X-RateLimit-Remaining is 0, a one-time retry cron event is scheduled.
+	 * When X-RateLimit-Remaining is 0 on a successful (200) response, a one-time
+	 * retry is still scheduled — but the response is used, not discarded. GitHub
+	 * reports the remaining count *after* serving the request, so the call that
+	 * consumes the last token still carries the release we asked for.
 	 *
 	 * @covers API_Client::fetch_latest_release
 	 */
@@ -358,6 +361,7 @@ class API_ClientTest extends TestCase {
 		\WP_Mock::userFunction( 'wp_remote_get' )->andReturn( $this->mock_response( 200, $body ) );
 		\WP_Mock::userFunction( 'is_wp_error' )->andReturn( false );
 		\WP_Mock::userFunction( 'wp_remote_retrieve_response_code' )->andReturn( 200 );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_body' )->andReturn( $body );
 		\WP_Mock::userFunction( 'wp_remote_retrieve_header' )
 			->with( \WP_Mock\Functions::type( 'array' ), 'x-ratelimit-remaining' )
 			->andReturn( '0' );
@@ -376,8 +380,10 @@ class API_ClientTest extends TestCase {
 		$client = new API_Client( $this->settings_mock() );
 		$result = $client->fetch_latest_release( '10up/plugin' );
 
-		$this->assertInstanceOf( \WP_Error::class, $result );
-		$this->assertSame( 'github_rate_limit_exhausted', $result->get_error_code() );
+		// The retry is scheduled (asserted via ->once() above), yet the successful
+		// response is returned rather than thrown away.
+		$this->assertInstanceOf( Release::class, $result );
+		$this->assertSame( 'v1.2.3', $result->tag );
 	}
 
 	// -------------------------------------------------------------------------
@@ -385,15 +391,16 @@ class API_ClientTest extends TestCase {
 	// -------------------------------------------------------------------------
 
 	/**
-	 * Rate limit exhaustion returns WP_Error — it never throws an exception.
+	 * A genuine rate-limit rejection (a 403 with zero remaining) returns a
+	 * WP_Error — and never throws an exception.
 	 *
 	 * @covers API_Client::fetch_latest_release
 	 */
 	public function test_rate_limit_exhaustion_returns_wp_error_not_exception(): void {
 		\WP_Mock::userFunction( 'get_transient' )->andReturn( false );
-		\WP_Mock::userFunction( 'wp_remote_get' )->andReturn( $this->mock_response( 200, '{}' ) );
+		\WP_Mock::userFunction( 'wp_remote_get' )->andReturn( $this->mock_response( 403, '{}' ) );
 		\WP_Mock::userFunction( 'is_wp_error' )->andReturn( false );
-		\WP_Mock::userFunction( 'wp_remote_retrieve_response_code' )->andReturn( 200 );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_response_code' )->andReturn( 403 );
 		\WP_Mock::userFunction( 'wp_remote_retrieve_header' )->andReturn( '0' );
 		\WP_Mock::userFunction( 'set_transient' )->andReturn( true );
 		\WP_Mock::userFunction( 'wp_next_scheduled' )->andReturn( false );
@@ -404,6 +411,7 @@ class API_ClientTest extends TestCase {
 			$client = new API_Client( $this->settings_mock() );
 			$result = $client->fetch_latest_release( '10up/plugin' );
 			$this->assertInstanceOf( \WP_Error::class, $result );
+			$this->assertSame( 'github_rate_limit_exhausted', $result->get_error_code() );
 		} catch ( \Throwable $e ) {
 			$this->fail( 'Rate limit exhaustion should never throw. Got: ' . $e->getMessage() );
 		}
@@ -520,6 +528,112 @@ class API_ClientTest extends TestCase {
 		$result = $client->fetch_releases( '10up/plugin' );
 
 		$this->assertSame( [], $result );
+	}
+
+	/**
+	 * With pre-releases included, the eligible "latest" is the highest *version*,
+	 * not GitHub's most-recently-published entry — so a backport published after a
+	 * newer release does not win.
+	 *
+	 * @covers API_Client::fetch_latest_eligible_release
+	 */
+	public function test_fetch_latest_eligible_release_picks_highest_version_not_newest_by_date(): void {
+		// GitHub returns /releases in created_at-descending order: the backport
+		// v1.9.6 was published most recently, but v2.0.0 is the higher version.
+		$payload = [
+			[
+				'tag_name'     => 'v1.9.6',
+				'name'         => 'v1.9.6',
+				'published_at' => '2026-04-01T00:00:00Z',
+				'html_url'     => 'https://github.com/10up/plugin/releases/tag/v1.9.6',
+				'body'         => '',
+				'assets'       => [],
+				'draft'        => false,
+				'prerelease'   => false,
+			],
+			[
+				'tag_name'     => 'v2.0.0',
+				'name'         => 'v2.0.0',
+				'published_at' => '2026-03-01T00:00:00Z',
+				'html_url'     => 'https://github.com/10up/plugin/releases/tag/v2.0.0',
+				'body'         => '',
+				'assets'       => [],
+				'draft'        => false,
+				'prerelease'   => false,
+			],
+		];
+		$body = json_encode( $payload );
+
+		\WP_Mock::userFunction( 'wp_remote_get' )->andReturn( $this->mock_response( 200, $body ) );
+		\WP_Mock::userFunction( 'is_wp_error' )->andReturn( false );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_response_code' )->andReturn( 200 );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_body' )->andReturn( $body );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_header' )->andReturn( '100' );
+		\WP_Mock::userFunction( 'set_transient' )->andReturn( true );
+
+		$client = new API_Client( $this->settings_mock() );
+		$result = $client->fetch_latest_eligible_release( '10up/plugin', true );
+
+		$this->assertInstanceOf( Release::class, $result );
+		$this->assertSame( 'v2.0.0', $result->tag );
+	}
+
+	// -------------------------------------------------------------------------
+	// fetch_issue() — validates the (untrusted) identifier before requesting
+	// -------------------------------------------------------------------------
+
+	/**
+	 * A multi-segment / traversing identifier (from a crafted release-note link)
+	 * is rejected before any authenticated request is made with the PAT.
+	 *
+	 * @covers API_Client::fetch_issue
+	 */
+	public function test_fetch_issue_rejects_path_traversal_identifier(): void {
+		\WP_Mock::userFunction( '__' )->andReturnArg( 0 );
+		\WP_Mock::userFunction( 'wp_remote_get' )->never();
+
+		$client = new API_Client( $this->settings_mock() );
+		$result = $client->fetch_issue( 'x/y/../../../../gists/SECRET', 1 );
+
+		$this->assertInstanceOf( \WP_Error::class, $result );
+		$this->assertSame( 'github_invalid_identifier', $result->get_error_code() );
+	}
+
+	/**
+	 * A single-segment dot identifier ("owner/..") passes the format check but is
+	 * still a path traversal, so fetch_issue() must reject it without requesting.
+	 *
+	 * @covers API_Client::fetch_issue
+	 */
+	public function test_fetch_issue_rejects_dot_segment_identifier(): void {
+		\WP_Mock::userFunction( '__' )->andReturnArg( 0 );
+		\WP_Mock::userFunction( 'wp_remote_get' )->never();
+
+		$client = new API_Client( $this->settings_mock() );
+		$result = $client->fetch_issue( 'owner/..', 5 );
+
+		$this->assertInstanceOf( \WP_Error::class, $result );
+		$this->assertSame( 'github_invalid_identifier', $result->get_error_code() );
+	}
+
+	// -------------------------------------------------------------------------
+	// build_request_args() — token transmission
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Authenticated requests must not follow redirects: WordPress replays the
+	 * Authorization header (the PAT) to the redirect target.
+	 *
+	 * @covers API_Client::build_request_args
+	 */
+	public function test_build_request_args_disables_redirects(): void {
+		$client = new API_Client( $this->settings_mock( 'ghp_secret' ) );
+
+		$method = new \ReflectionMethod( API_Client::class, 'build_request_args' );
+		$args   = $method->invoke( $client );
+
+		$this->assertSame( 0, $args['redirection'] );
+		$this->assertSame( 'Bearer ghp_secret', $args['headers']['Authorization'] );
 	}
 
 	// -------------------------------------------------------------------------

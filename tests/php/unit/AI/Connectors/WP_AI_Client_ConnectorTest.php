@@ -10,6 +10,7 @@ namespace GitHubReleasePosts\Tests\AI\Connectors;
 use GitHubReleasePosts\AI\Connectors\WP_AI_Client_Connector;
 use GitHubReleasePosts\AI\GeneratedPost;
 use GitHubReleasePosts\AI\ReleaseData;
+use GitHubReleasePosts\Cache_Keys;
 use WP_Mock\Tools\TestCase;
 
 class WP_AI_Client_ConnectorTest extends TestCase {
@@ -63,5 +64,93 @@ class WP_AI_Client_ConnectorTest extends TestCase {
 
 		$this->assertInstanceOf( \WP_Error::class, $result );
 		$this->assertSame( 'ghrp_wp_ai_client_unavailable', $result->get_error_code() );
+	}
+
+	// -------------------------------------------------------------------------
+	// Model preferences — auto-resolved Claude default with pinned fallback
+	// -------------------------------------------------------------------------
+
+	/**
+	 * With the AI Client library absent (as in the test env), resolution can't
+	 * run, so both provider entries lead with their pinned fallback.
+	 */
+	public function test_model_preferences_fall_back_to_pinned_models_when_unresolvable(): void {
+		\WP_Mock::userFunction( 'get_transient' )->andReturn( false );
+		\WP_Mock::userFunction( 'set_transient' )->andReturn( true );
+		\WP_Mock::userFunction( 'apply_filters' )->andReturnUsing(
+			function ( $hook, $value ) {
+				return $value;
+			}
+		);
+
+		$prefs = $this->invoke_get_model_preferences();
+
+		$this->assertSame( 'claude-opus-4-8', $prefs[0] );
+		$this->assertSame( 'gpt-5.5', $prefs[1] );
+		$this->assertSame( 'gemini-2.5-pro', $prefs[2] );
+	}
+
+	/**
+	 * Previously resolved models cached in the per-provider transients are used
+	 * directly, without re-running resolution — keeping it off the hot path.
+	 */
+	public function test_model_preferences_use_cached_resolved_models(): void {
+		\WP_Mock::userFunction( 'get_transient' )->andReturnUsing(
+			function ( $key ) {
+				if ( Cache_Keys::resolved_model( 'anthropic' ) === $key ) {
+					return 'claude-opus-5-0';
+				}
+				if ( Cache_Keys::resolved_model( 'openai' ) === $key ) {
+					return 'gpt-9.9';
+				}
+				if ( Cache_Keys::resolved_model( 'google' ) === $key ) {
+					return 'gemini-9.9-pro';
+				}
+				return false;
+			}
+		);
+		\WP_Mock::userFunction( 'apply_filters' )->andReturnUsing(
+			function ( $hook, $value ) {
+				return $value;
+			}
+		);
+
+		$prefs = $this->invoke_get_model_preferences();
+
+		$this->assertSame( 'claude-opus-5-0', $prefs[0] );
+		$this->assertSame( 'gpt-9.9', $prefs[1] );
+		$this->assertSame( 'gemini-9.9-pro', $prefs[2] );
+	}
+
+	/**
+	 * get_active_selection() returns null when the AI Client library is absent
+	 * (as in the unit-test env), so callers fall back gracefully.
+	 */
+	public function test_get_active_selection_returns_null_without_library(): void {
+		$this->assertNull( $this->connector->get_active_selection() );
+	}
+
+	/**
+	 * The reasoning effort surfaced to both the applied config and the settings
+	 * status defaults to 'high' (filterable via ghrp_openai_reasoning_effort).
+	 */
+	public function test_openai_reasoning_effort_defaults_to_high(): void {
+		\WP_Mock::userFunction( 'apply_filters' )->andReturnUsing(
+			function ( $hook, $value ) {
+				return $value;
+			}
+		);
+		$method = new \ReflectionMethod( WP_AI_Client_Connector::class, 'openai_reasoning_effort' );
+		$this->assertSame( 'high', $method->invoke( $this->connector ) );
+	}
+
+	/**
+	 * Invokes the private get_model_preferences() and returns the resolved list.
+	 *
+	 * @return array<int, string>
+	 */
+	private function invoke_get_model_preferences(): array {
+		$method = new \ReflectionMethod( WP_AI_Client_Connector::class, 'get_model_preferences' );
+		return (array) $method->invoke( $this->connector );
 	}
 }

@@ -55,7 +55,14 @@ readonly class GeneratedPost {
 		$raw   = trim( $raw );
 		$lines = explode( "\n", $raw );
 
-		$title         = trim( $lines[0] ?? '' );
+		// Line 1 is the title by contract; strip any tags and cap the length so a
+		// model that emits HTML or body content here can't produce a markup title
+		// or a runaway one. An all-markup line collapses to '' and hits the
+		// fallback title below.
+		$title = trim( wp_strip_all_tags( trim( $lines[0] ?? '' ) ) );
+		if ( mb_strlen( $title ) > 200 ) {
+			$title = trim( mb_substr( $title, 0, 200 ) );
+		}
 		$slug_keywords = trim( $lines[1] ?? '' );
 		$excerpt       = trim( $lines[2] ?? '' );
 

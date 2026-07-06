@@ -71,6 +71,17 @@ class Repository_SettingsTest extends TestCase {
 		( new Repository_Settings() )->normalize_identifier( 'not-valid' );
 	}
 
+	/**
+	 * normalize_identifier() rejects a dot-only segment ("owner/.."), which
+	 * passes the character-class check but is a path traversal once used in a URL.
+	 */
+	public function test_normalize_identifier_rejects_dot_segment(): void {
+		$this->expectException( \InvalidArgumentException::class );
+		\WP_Mock::userFunction( '__' )->andReturnArg( 0 );
+
+		( new Repository_Settings() )->normalize_identifier( 'owner/..' );
+	}
+
 	// -------------------------------------------------------------------------
 	// derive_display_name()
 	// -------------------------------------------------------------------------

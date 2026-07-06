@@ -77,8 +77,10 @@ class AI_Processor {
 	public function handle( array $entry, array $context ): void {
 		self::$last_error = null;
 
-		$data      = ReleaseData::from_entry( $entry );
-		$cache_key = Cache_Keys::ai_response( $data->identifier, $data->tag );
+		$data = ReleaseData::from_entry( $entry );
+		// Fingerprint the release body so re-published or edited release notes
+		// (same tag) regenerate instead of serving the stale cached post.
+		$cache_key = Cache_Keys::ai_response( $data->identifier, $data->tag, $data->body );
 
 		// Check response cache — skip API call if we already have a result.
 		// Bypass cache for manual requests (e.g. "Generate draft now", "Regenerate")

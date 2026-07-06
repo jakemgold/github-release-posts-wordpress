@@ -32,7 +32,7 @@ final class Cache_Keys {
 	private const AI_FAILURE_NOTICE         = 'ghrp_ai_failure_notice';
 	private const CRON_RESULTS              = 'ghrp_cron_run_results';
 	private const CRON_LOCK                 = 'ghrp_cron_lock';
-	private const CONNECTOR_STATUS          = 'ghrp_connector_status';
+	private const RESOLVED_MODEL_PREFIX     = 'ghrp_resolved_model_';
 	private const ADMIN_ERRORS_PREFIX       = 'ghrp_admin_errors_';
 	private const ADMIN_NOTICE_PREFIX       = 'ghrp_admin_notice_';
 
@@ -59,12 +59,18 @@ final class Cache_Keys {
 	/**
 	 * Per-release AI response cache (transient, 4 hr TTL).
 	 *
-	 * @param string $identifier Repository identifier.
-	 * @param string $tag        Release tag.
+	 * @param string $identifier  Repository identifier.
+	 * @param string $tag         Release tag.
+	 * @param string $fingerprint Optional fingerprint of the generation inputs
+	 *                            (e.g. release body) so edited notes bust the cache.
 	 * @return string
 	 */
-	public static function ai_response( string $identifier, string $tag ): string {
-		return self::AI_RESPONSE_PREFIX . md5( $identifier . $tag );
+	public static function ai_response( string $identifier, string $tag, string $fingerprint = '' ): string {
+		// Delimit the parts ('|' cannot appear in an owner/repo identifier) so
+		// distinct (identifier, tag) pairs can't collide via bare concatenation,
+		// and fold in a fingerprint of the generation inputs (e.g. the release
+		// body) so edited release notes don't return a stale cached post.
+		return self::AI_RESPONSE_PREFIX . md5( $identifier . '|' . $tag . '|' . $fingerprint );
 	}
 
 	/**
@@ -74,6 +80,20 @@ final class Cache_Keys {
 	 */
 	public static function rate_limit_remaining(): string {
 		return self::RATE_LIMIT_REMAINING;
+	}
+
+	/**
+	 * Resolved "latest flagship" model ID for a provider (transient).
+	 *
+	 * Cached per provider from the AI Client's model list so the lookup stays off
+	 * the generation hot path; refreshed at most weekly (the provider's own list
+	 * is fetched at most daily).
+	 *
+	 * @param string $provider Provider slug (e.g. 'anthropic', 'openai').
+	 * @return string
+	 */
+	public static function resolved_model( string $provider ): string {
+		return self::RESOLVED_MODEL_PREFIX . $provider;
 	}
 
 	/**
@@ -125,15 +145,6 @@ final class Cache_Keys {
 	 */
 	public static function cron_lock(): string {
 		return self::CRON_LOCK;
-	}
-
-	/**
-	 * Cached AI connector availability status (transient, 1 min TTL).
-	 *
-	 * @return string
-	 */
-	public static function connector_status(): string {
-		return self::CONNECTOR_STATUS;
 	}
 
 	/**
