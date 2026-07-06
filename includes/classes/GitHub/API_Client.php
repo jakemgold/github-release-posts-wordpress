@@ -175,9 +175,15 @@ class API_Client {
 			$headers['Authorization'] = 'Bearer ' . $pat;
 		}
 
+		// Never follow redirects on these authenticated calls: WordPress replays
+		// the Authorization header (the PAT) to the redirect target, and the
+		// api.github.com JSON endpoints do not legitimately redirect off-host. A
+		// renamed-repo 301 now surfaces as an error rather than being followed
+		// silently — the admin should update the stored identifier in that case.
 		return [
-			'headers' => $headers,
-			'timeout' => 15,
+			'headers'     => $headers,
+			'timeout'     => 15,
+			'redirection' => 0,
 		];
 	}
 
@@ -213,10 +219,19 @@ class API_Client {
 				);
 			}
 
-			return new \WP_Error(
-				'github_rate_limit_exhausted',
-				__( 'GitHub API rate limit exhausted. A retry has been scheduled for one hour from now.', 'auto-release-posts-for-github' )
-			);
+			// GitHub reports the remaining count *after* serving this request, so a
+			// successful (2xx) response that reports zero remaining still contains
+			// the release we asked for. Only abort when the response itself is
+			// unusable — a real rate-limit rejection is a 403. Returning an error
+			// on a 200 would discard a response we were actually handed and
+			// silently skip that release until the scheduled retry.
+			$code = (int) wp_remote_retrieve_response_code( $response );
+			if ( $code < 200 || $code >= 300 ) {
+				return new \WP_Error(
+					'github_rate_limit_exhausted',
+					__( 'GitHub API rate limit exhausted. A retry has been scheduled for one hour from now.', 'auto-release-posts-for-github' )
+				);
+			}
 		}
 
 		return true;
@@ -319,9 +334,30 @@ class API_Client {
 			return $releases;
 		}
 
-		// /releases returns entries in created_at descending order. The first
-		// non-draft entry (drafts are filtered above) is the eligible latest.
-		return $releases[0] ?? null;
+		if ( empty( $releases ) ) {
+			return null;
+		}
+
+		// /releases is ordered by created_at, which is NOT the same as "highest
+		// version": a backport (e.g. 1.9.6 published after 2.0.0) sorts first and
+		// would win. Pick the newest by version using the same semver-with-date
+		// fallback the monitor uses, so we don't post an older release or skip the
+		// genuine latest one.
+		$comparator = new Version_Comparator();
+		$latest     = $releases[0];
+
+		foreach ( array_slice( $releases, 1 ) as $candidate ) {
+			$state = [
+				'last_seen_tag'          => $latest->tag,
+				'last_seen_published_at' => $latest->published_at,
+				'last_checked_at'        => 0,
+			];
+			if ( $comparator->is_newer( $candidate, $state ) ) {
+				$latest = $candidate;
+			}
+		}
+
+		return $latest;
 	}
 
 	/**
@@ -449,9 +485,34 @@ class API_Client {
 	 * @return array{title: string, body: string}|\WP_Error Issue data or error.
 	 */
 	public function fetch_issue( string $identifier, int $number ): array|\WP_Error {
+		// This identifier comes from links in untrusted release notes (via
+		// Release_Enricher), so validate and URL-encode it before building the
+		// request path. Without this, a value like "owner/.." or one carrying
+		// extra path segments would reshape the URL and point the site's PAT at
+		// an unintended GitHub endpoint.
+		try {
+			$identifier = $this->normalize_identifier( $identifier );
+		} catch ( \InvalidArgumentException $e ) {
+			return new \WP_Error( 'github_invalid_identifier', $e->getMessage() );
+		}
+
 		[ $owner, $repo ] = explode( '/', $identifier, 2 );
-		$url              = sprintf( '%s/repos/%s/%s/issues/%d', self::API_BASE, $owner, $repo, $number );
-		$args             = $this->build_request_args();
+
+		if ( in_array( $owner, [ '.', '..' ], true ) || in_array( $repo, [ '.', '..' ], true ) ) {
+			return new \WP_Error(
+				'github_invalid_identifier',
+				__( 'Invalid repository identifier.', 'auto-release-posts-for-github' )
+			);
+		}
+
+		$url  = sprintf(
+			'%s/repos/%s/%s/issues/%d',
+			self::API_BASE,
+			rawurlencode( $owner ),
+			rawurlencode( $repo ),
+			$number
+		);
+		$args = $this->build_request_args();
 
 		$response = wp_remote_get( $url, $args );
 

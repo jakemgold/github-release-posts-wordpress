@@ -96,6 +96,13 @@ class Readme_Title_Extractor {
 	 * @return string Raw heading text, or empty string if none found.
 	 */
 	private static function find_first_heading( string $markdown ): string {
+		// Bound the input: a heading is always near the top, and an unbounded
+		// (repo-owner-authored) README could otherwise drive pathological regex
+		// backtracking on the DOTALL <h1> pattern below.
+		if ( strlen( $markdown ) > 16384 ) {
+			$markdown = substr( $markdown, 0, 16384 );
+		}
+
 		$candidates = [];
 
 		// ATX form: a line starting with `# ` (one hash, not two — H1 only).

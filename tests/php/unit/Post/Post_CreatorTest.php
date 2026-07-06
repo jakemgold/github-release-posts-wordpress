@@ -95,6 +95,70 @@ class Post_CreatorTest extends TestCase {
 	}
 
 	// -------------------------------------------------------------------------
+	// resolve_allowed_image_url() — SSRF: every redirect hop must stay on-list
+	// -------------------------------------------------------------------------
+
+	public function test_resolve_allowed_image_url_returns_url_when_not_redirected(): void {
+		\WP_Mock::userFunction( 'wp_parse_url' )->andReturnUsing( fn( $u, $c = -1 ) => parse_url( $u, $c ) );
+		\WP_Mock::userFunction( 'wp_safe_remote_head' )->andReturn( [ 'code' => 200 ] );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_response_code' )->andReturnUsing( fn( $r ) => $r['code'] );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_header' )->andReturnUsing( fn( $r, $h ) => $r['location'] ?? '' );
+
+		$url = 'https://raw.githubusercontent.com/owner/repo/main/a.png';
+
+		$this->assertSame( $url, $this->invoke_resolve_allowed_image_url( $url ) );
+	}
+
+	public function test_resolve_allowed_image_url_rejects_redirect_to_disallowed_host(): void {
+		\WP_Mock::userFunction( 'wp_parse_url' )->andReturnUsing( fn( $u, $c = -1 ) => parse_url( $u, $c ) );
+		\WP_Mock::userFunction( 'wp_safe_remote_head' )->andReturn(
+			[ 'code' => 302, 'location' => 'http://169.254.169.254/latest/meta-data/' ]
+		);
+		\WP_Mock::userFunction( 'wp_remote_retrieve_response_code' )->andReturnUsing( fn( $r ) => $r['code'] );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_header' )->andReturnUsing( fn( $r, $h ) => $r['location'] ?? '' );
+
+		// Allowed *.github.io origin that redirects to the cloud-metadata IP.
+		$result = $this->invoke_resolve_allowed_image_url( 'https://attacker.github.io/x.png' );
+
+		$this->assertInstanceOf( \WP_Error::class, $result );
+		$this->assertSame( 'ghrp_sideload_host_not_allowed', $result->get_error_code() );
+	}
+
+	public function test_resolve_allowed_image_url_follows_allowed_redirect(): void {
+		\WP_Mock::userFunction( 'wp_parse_url' )->andReturnUsing( fn( $u, $c = -1 ) => parse_url( $u, $c ) );
+
+		$responses = [
+			[ 'code' => 301, 'location' => 'https://raw.githubusercontent.com/owner/repo/main/a.png' ],
+			[ 'code' => 200 ],
+		];
+		$index = 0;
+		\WP_Mock::userFunction( 'wp_safe_remote_head' )->andReturnUsing(
+			function () use ( &$index, $responses ) {
+				return $responses[ $index++ ];
+			}
+		);
+		\WP_Mock::userFunction( 'wp_remote_retrieve_response_code' )->andReturnUsing( fn( $r ) => $r['code'] );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_header' )->andReturnUsing( fn( $r, $h ) => $r['location'] ?? '' );
+
+		// github.com/.../raw/... legitimately 302s to raw.githubusercontent.com —
+		// both on the allow-list, so it resolves rather than being rejected.
+		$result = $this->invoke_resolve_allowed_image_url( 'https://github.com/owner/repo/raw/main/a.png' );
+
+		$this->assertSame( 'https://raw.githubusercontent.com/owner/repo/main/a.png', $result );
+	}
+
+	/**
+	 * Invokes the private resolve_allowed_image_url() with the default allow-list.
+	 *
+	 * @param string $url Initial image URL.
+	 * @return string|\WP_Error
+	 */
+	private function invoke_resolve_allowed_image_url( string $url ) {
+		$method = new \ReflectionMethod( Post_Creator::class, 'resolve_allowed_image_url' );
+		return $method->invoke( $this->creator, $url, [ 'github.com', 'githubusercontent.com', 'github.io' ], 15 );
+	}
+
+	// -------------------------------------------------------------------------
 	// setup()
 	// -------------------------------------------------------------------------
 

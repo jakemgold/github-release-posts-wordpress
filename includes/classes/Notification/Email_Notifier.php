@@ -83,7 +83,10 @@ class Email_Notifier {
 			return;
 		}
 
-		$this->entries[] = new Notification_Entry(
+		// Key by post_id so a post whose status is set more than once in a run
+		// (e.g. an initial draft then the final status) is listed once — last
+		// write wins — rather than appearing twice in the summary email.
+		$this->entries[ $post_id ] = new Notification_Entry(
 			post_id:      $post_id,
 			status:       $status,
 			identifier:   $data->identifier,
@@ -112,7 +115,9 @@ class Email_Notifier {
 			return;
 		}
 
-		$eligible   = $this->entries;
+		// Entries are keyed by post_id (for dedup in collect()); flatten to a
+		// 0-indexed list for the subject/body builders.
+		$eligible   = array_values( $this->entries );
 		$recipients = $this->resolve_recipients();
 		if ( empty( $recipients ) ) {
 			return;
@@ -149,6 +154,17 @@ class Email_Notifier {
 			return; // Suppressed by filter.
 		}
 
+		// Attach the plain-text body as the multipart/alternative part so the mail
+		// isn't HTML-only — better deliverability and text-client support. wp_mail
+		// exposes no direct arg for this, so set AltBody on the PHPMailer instance.
+		$text_alt     = (string) ( $email_data['text'] ?? '' );
+		$set_alt_body = static function ( $phpmailer ) use ( $text_alt ) {
+			$phpmailer->AltBody = $text_alt; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase -- PHPMailer property.
+		};
+		if ( '' !== $text_alt ) {
+			add_action( 'phpmailer_init', $set_alt_body );
+		}
+
 		foreach ( $recipients as $recipient ) {
 			$sent = wp_mail(
 				$recipient,
@@ -160,6 +176,10 @@ class Email_Notifier {
 			if ( ! $sent ) {
 				$this->log_failure( $recipient );
 			}
+		}
+
+		if ( '' !== $text_alt ) {
+			remove_action( 'phpmailer_init', $set_alt_body );
 		}
 
 		// Clear collected entries.

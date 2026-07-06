@@ -33,6 +33,9 @@ class Email_NotifierTest extends TestCase {
 		\WP_Mock::userFunction( 'home_url' )->andReturn( 'https://example.com' )->byDefault();
 		\WP_Mock::userFunction( 'wp_parse_url' )->andReturn( 'example.com' )->byDefault();
 		\WP_Mock::userFunction( 'get_bloginfo' )->andReturn( 'Test Site' )->byDefault();
+		// send() registers/unregisters a phpmailer_init hook for the plain-text
+		// AltBody. Individual tests that assert on hook behavior override these.
+		\WP_Mock::userFunction( 'remove_action' )->byDefault();
 
 		$this->global_settings = \Mockery::mock( Global_Settings::class );
 

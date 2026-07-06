@@ -125,6 +125,21 @@ class Repository_Settings {
 			);
 		}
 
+		// Reject dot-only segments — the character class above permits them, but
+		// "owner/.." is a path traversal once interpolated into an api.github.com
+		// URL, and is never a real repository. This guards every caller that
+		// builds a request path from a normalized identifier.
+		[ $owner, $repo ] = explode( '/', $input, 2 );
+		if ( in_array( $owner, [ '.', '..' ], true ) || in_array( $repo, [ '.', '..' ], true ) ) {
+			throw new \InvalidArgumentException(
+				sprintf(
+					/* translators: %s: user-provided repository identifier */
+					__( '"%s" is not a valid GitHub repository. Use owner/repo format or a full GitHub URL.', 'auto-release-posts-for-github' ), // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+					$input // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+				)
+			);
+		}
+
 		return $input;
 	}
 

@@ -16,6 +16,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+use GitHubReleasePosts\AI\Connectors\WP_AI_Client_Connector;
 use GitHubReleasePosts\Cache_Keys;
 use GitHubReleasePosts\GitHub\API_Client;
 use GitHubReleasePosts\Plugin_Constants;
@@ -206,6 +207,17 @@ class Settings_Page {
 	public function sanitize_github_pat( $value ): string {
 		$value = wp_unslash( (string) $value );
 
+		// When the PAT is supplied by the GHRP_PAT constant or an environment
+		// variable, render_github_pat_field() disables the input, so the browser
+		// omits it from POST and this sanitizer receives an empty value. Leave the
+		// stored database ciphertext untouched instead of wiping it (mirrors the
+		// externally-managed no-op in Global_Settings::save_github_pat), so the DB
+		// copy survives as a fallback if the constant is later removed.
+		$source = $this->global_settings->get_github_pat_source();
+		if ( 'constant' === $source || 'env' === $source ) {
+			return get_option( Plugin_Constants::OPTION_GITHUB_PAT, '' );
+		}
+
 		if ( Global_Settings::MASKED_PLACEHOLDER === $value ) {
 			return get_option( Plugin_Constants::OPTION_GITHUB_PAT, '' );
 		}
@@ -214,7 +226,25 @@ class Settings_Page {
 			return '';
 		}
 
-		return $this->global_settings->encrypt( $value );
+		$encrypted = $this->global_settings->encrypt( $value );
+
+		if ( '' === $encrypted ) {
+			// encrypt() returns '' when key derivation or libsodium fails — most
+			// commonly a missing or placeholder AUTH_KEY. Surface the failure
+			// instead of silently storing an empty token (which would leave the
+			// admin looking at "Settings saved" while the plugin quietly falls back
+			// to unauthenticated GitHub access), and preserve any previously stored
+			// PAT rather than wiping a working token on a transient failure.
+			add_settings_error(
+				Plugin_Constants::OPTION_GITHUB_PAT,
+				'ghrp_pat_encrypt_failed',
+				__( 'The GitHub token could not be encrypted and was not saved. Define a unique AUTH_KEY in wp-config.php, then re-enter the token.', 'auto-release-posts-for-github' ),
+				'error'
+			);
+			return get_option( Plugin_Constants::OPTION_GITHUB_PAT, '' );
+		}
+
+		return $encrypted;
 	}
 
 	// -------------------------------------------------------------------------
@@ -350,7 +380,9 @@ class Settings_Page {
 	 * @return void
 	 */
 	public function render_connector_status(): void {
-		$status          = $this->get_connector_status();
+		// Computed fresh on every render (not cached) so it reflects connector
+		// changes immediately — matching is_any_connector_configured() below.
+		$status          = $this->detect_connector_status();
 		$connectors_url  = admin_url( 'options-connectors.php' );
 		$connectors_link = '<a href="' . esc_url( $connectors_url ) . '">' . esc_html__( 'WordPress Connectors', 'auto-release-posts-for-github' ) . '</a>';
 
@@ -366,67 +398,46 @@ class Settings_Page {
 			return;
 		}
 
-		// Connected — show provider and model.
+		// Connected — show the provider and model the next generation will use.
 		// Both labels are pre-escaped via esc_html() for safe use in printf().
 		$provider_label = esc_html( $status['provider_name'] );
 		$model_label    = esc_html( $status['model_id'] );
+		$symbol         = $status['is_preferred'] ? '&#10003;' : '&#9888;';
 
-		// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- $provider_label and $model_label are esc_html()'d above; $connectors_link is built from esc_url() + esc_html().
-		if ( $status['is_preferred_model'] ) {
-			printf(
-				'<p>&#10003; %s</p>',
-				sprintf(
-					/* translators: 1: link to WordPress Connectors settings, 2: provider name, 3: model ID */
-					esc_html__( 'Using %1$s for %2$s (%3$s)', 'auto-release-posts-for-github' ),
-					$connectors_link,
-					$provider_label,
-					'<code>' . $model_label . '</code>'
-				)
+		// Append the reasoning effort when one is actually applied (OpenAI only).
+		$model_html = '<code>' . $model_label . '</code>';
+		if ( '' !== $status['effort'] ) {
+			$model_html .= sprintf(
+				/* translators: %s: reasoning effort level, e.g. "high" */
+				esc_html__( ', %s reasoning effort', 'auto-release-posts-for-github' ),
+				esc_html( $status['effort'] )
 			);
-		} elseif ( $status['is_preferred_provider'] ) {
-			// Right provider, wrong model tier.
-			printf(
-				'<p>&#9888; %s</p>',
-				sprintf(
-					/* translators: 1: link to WordPress Connectors settings, 2: provider name, 3: model ID */
-					esc_html__( 'Using %1$s for %2$s (%3$s)', 'auto-release-posts-for-github' ),
-					$connectors_link,
-					$provider_label,
-					'<code>' . $model_label . '</code>'
-				)
-			);
-			printf(
-				'<p class="description">%s</p>',
-				sprintf(
-					/* translators: 1: provider name, 2: recommended model */
-					esc_html__( 'For best results, your %1$s account should support %2$s.', 'auto-release-posts-for-github' ),
-					$provider_label,
-					esc_html( $status['recommended_model'] )
-				)
-			);
-		} else {
-			// Unknown / untested provider.
-			printf(
-				'<p>&#9888; %s</p>',
-				sprintf(
-					/* translators: 1: link to WordPress Connectors settings, 2: provider name, 3: model ID */
-					esc_html__( 'Using %1$s for %2$s (%3$s)', 'auto-release-posts-for-github' ),
-					$connectors_link,
-					$provider_label,
-					'<code>' . $model_label . '</code>'
-				)
-			);
+		}
+
+		// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- $provider_label and $model_html are built from esc_html()/esc_html__() values; $connectors_link is built from esc_url() + esc_html(); $symbol is a literal HTML entity.
+		printf(
+			'<p>%1$s %2$s</p>',
+			$symbol,
+			sprintf(
+				/* translators: 1: link to WordPress Connectors settings, 2: provider name, 3: model ID (with optional reasoning effort) */
+				esc_html__( 'Using %1$s for %2$s (%3$s)', 'auto-release-posts-for-github' ),
+				$connectors_link,
+				$provider_label,
+				$model_html
+			)
+		);
+
+		if ( ! $status['is_preferred'] ) {
 			echo '<p class="description">' . esc_html__( 'We recommend the Anthropic, OpenAI, or Google connector.', 'auto-release-posts-for-github' ) . '</p>';
 		}
 		// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
 	}
 
 	/**
-	 * Fast, non-cached check for whether any AI connector is configured and ready.
+	 * Fast check for whether any AI connector is configured and ready.
 	 *
 	 * Used by the plugin admin page template to show a top-of-page warning
-	 * notice. Avoids the cached status payload so the notice updates as soon
-	 * as the user toggles connectors.
+	 * notice — a lightweight boolean that skips building the full status payload.
 	 *
 	 * @return bool True if at least one registered provider is configured.
 	 */
@@ -446,99 +457,63 @@ class Settings_Page {
 	}
 
 	/**
-	 * Returns the current connector status, cached for 1 minute.
+	 * Detects the provider and model the next generation will use.
 	 *
-	 * @return array{configured: bool, provider_name: string, provider_id: string, model_id: string, is_preferred_model: bool, is_preferred_provider: bool, recommended_model: string}
-	 */
-	private function get_connector_status(): array {
-		$cached = get_transient( Cache_Keys::connector_status() );
-		if ( is_array( $cached ) ) {
-			return $cached;
-		}
-
-		$status = $this->detect_connector_status();
-		set_transient( Cache_Keys::connector_status(), $status, MINUTE_IN_SECONDS );
-
-		return $status;
-	}
-
-	/**
-	 * Detects the active connector, provider name, and model from the AI Client registry.
+	 * Delegates to the connector's own preference-order resolution so this
+	 * status can't drift from what actually runs. Falls back to reporting any
+	 * other configured (but unsupported) connector, or "not configured".
 	 *
-	 * @return array{configured: bool, provider_name: string, provider_id: string, model_id: string, is_preferred_model: bool, is_preferred_provider: bool, recommended_model: string}
+	 * @return array{configured: bool, provider_name: string, provider_id: string, model_id: string, is_preferred: bool, effort: string}
 	 */
 	private function detect_connector_status(): array {
 		$default = [
-			'configured'            => false,
-			'provider_name'         => '',
-			'provider_id'           => '',
-			'model_id'              => '',
-			'is_preferred_model'    => false,
-			'is_preferred_provider' => false,
-			'recommended_model'     => '',
+			'configured'    => false,
+			'provider_name' => '',
+			'provider_id'   => '',
+			'model_id'      => '',
+			'is_preferred'  => false,
+			'effort'        => '',
 		];
 
 		if ( ! class_exists( 'WordPress\AiClient\AiClient' ) ) {
 			return $default;
 		}
 
-		$registry     = \WordPress\AiClient\AiClient::defaultRegistry();
-		$provider_ids = $registry->getRegisteredProviderIds();
+		// Ask the connector what the next generation will actually use — the
+		// same preference-order resolution the AI Client performs.
+		$selection = ( new WP_AI_Client_Connector() )->get_active_selection();
 
-		// Preferred providers and their recommended models.
-		$preferred_providers = [
-			'anthropic' => 'Claude Opus 4.7',
-			'openai'    => 'GPT-5.5',
-			'google'    => 'Gemini 2.5 Pro',
-		];
+		if ( null !== $selection ) {
+			return [
+				'configured'    => true,
+				'provider_name' => $selection['provider_name'],
+				'provider_id'   => $selection['provider_id'],
+				'model_id'      => $selection['model_id'],
+				'is_preferred'  => true,
+				'effort'        => $selection['effort'],
+			];
+		}
 
-		// Preferred model IDs (from the connector's preference list).
-		$preferred_models = [
-			'claude-opus-4-7',
-			'gpt-5.5',
-			'gemini-2.5-pro',
-		];
-
-		// Find the first configured provider.
-		foreach ( $provider_ids as $id ) {
+		// No preferred (Anthropic/OpenAI/Google) provider is configured. If some
+		// other connector is set up, surface it as unsupported; otherwise report
+		// nothing configured.
+		$registry = \WordPress\AiClient\AiClient::defaultRegistry();
+		foreach ( $registry->getRegisteredProviderIds() as $id ) {
 			if ( ! $registry->isProviderConfigured( $id ) ) {
 				continue;
 			}
 
-			$class_name    = $registry->getProviderClassName( $id );
-			$metadata      = $class_name::metadata();
-			$provider_name = $metadata->getName();
+			$class_name = $registry->getProviderClassName( $id );
+			$models     = $class_name::modelMetadataDirectory()->listModelMetadata();
 
-			// Get the first available model from this provider.
-			$model_dir = $class_name::modelMetadataDirectory();
-			$models    = $model_dir->listModelMetadata();
-			$model_id  = ! empty( $models ) ? $models[0]->getId() : '';
-
-			// Check if this is a preferred provider.
-			$is_preferred_provider = false;
-			$recommended_model     = '';
-			foreach ( $preferred_providers as $pref_id => $pref_model ) {
-				if ( str_contains( $id, $pref_id ) ) {
-					$is_preferred_provider = true;
-					$recommended_model     = $pref_model;
-					break;
-				}
-			}
-
-			// Check if the model is in our preferred list.
-			$is_preferred_model = in_array( $model_id, $preferred_models, true );
-
-			$status = [
-				'configured'            => true,
-				'provider_name'         => $provider_name,
-				'provider_id'           => $id,
-				'model_id'              => $model_id,
-				'is_preferred_model'    => $is_preferred_model,
-				'is_preferred_provider' => $is_preferred_provider,
-				'recommended_model'     => $recommended_model,
+			return [
+				'configured'    => true,
+				'provider_name' => (string) $class_name::metadata()->getName(),
+				'provider_id'   => $id,
+				'model_id'      => ! empty( $models ) ? (string) $models[0]->getId() : '',
+				'is_preferred'  => false,
+				'effort'        => '',
 			];
-
-			return $status;
 		}
 
 		return $default;

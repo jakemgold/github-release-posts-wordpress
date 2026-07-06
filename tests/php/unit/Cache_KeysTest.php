@@ -29,7 +29,7 @@ class Cache_KeysTest extends TestCase {
 
 	public function test_ai_response_combines_identifier_and_tag(): void {
 		$this->assertSame(
-			'ghrp_ai_resp_' . md5( 'owner/repo' . 'v1.0.0' ),
+			'ghrp_ai_resp_' . md5( 'owner/repo|v1.0.0|' ),
 			Cache_Keys::ai_response( 'owner/repo', 'v1.0.0' )
 		);
 
@@ -37,6 +37,28 @@ class Cache_KeysTest extends TestCase {
 		$this->assertNotSame(
 			Cache_Keys::ai_response( 'owner/repo', 'v1.0.0' ),
 			Cache_Keys::ai_response( 'owner/repo', 'v1.0.1' )
+		);
+
+		// The delimiter prevents concatenation collisions: 'a/b' + '1.0' and
+		// 'a/b1' + '.0' must not map to the same key.
+		$this->assertNotSame(
+			Cache_Keys::ai_response( 'a/b', '1.0' ),
+			Cache_Keys::ai_response( 'a/b1', '.0' )
+		);
+
+		// A different fingerprint (e.g. edited release body) busts the cache.
+		$this->assertNotSame(
+			Cache_Keys::ai_response( 'owner/repo', 'v1.0.0', 'body one' ),
+			Cache_Keys::ai_response( 'owner/repo', 'v1.0.0', 'body two' )
+		);
+	}
+
+	public function test_resolved_model_is_per_provider(): void {
+		$this->assertSame( 'ghrp_resolved_model_anthropic', Cache_Keys::resolved_model( 'anthropic' ) );
+		$this->assertSame( 'ghrp_resolved_model_openai', Cache_Keys::resolved_model( 'openai' ) );
+		$this->assertNotSame(
+			Cache_Keys::resolved_model( 'anthropic' ),
+			Cache_Keys::resolved_model( 'openai' )
 		);
 	}
 
@@ -54,7 +76,6 @@ class Cache_KeysTest extends TestCase {
 			Cache_Keys::ai_failure_notice(),
 			Cache_Keys::cron_results(),
 			Cache_Keys::cron_lock(),
-			Cache_Keys::connector_status(),
 		];
 
 		foreach ( $keys as $key ) {

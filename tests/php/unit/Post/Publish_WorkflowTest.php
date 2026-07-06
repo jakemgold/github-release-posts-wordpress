@@ -62,7 +62,7 @@ class Publish_WorkflowTest extends TestCase {
 
 		\WP_Mock::userFunction( 'wp_update_post' )->once()->with( \Mockery::on( function ( $args ) {
 			return $args['ID'] === 42 && $args['post_status'] === 'publish';
-		} ) );
+		} ) )->andReturn( 42 );
 
 		$this->stub_result_recording();
 
@@ -79,7 +79,7 @@ class Publish_WorkflowTest extends TestCase {
 
 		\WP_Mock::userFunction( 'wp_update_post' )->once()->with( \Mockery::on( function ( $args ) {
 			return $args['post_status'] === 'draft';
-		} ) );
+		} ) )->andReturn( 42 );
 
 		$this->stub_result_recording();
 
@@ -94,7 +94,7 @@ class Publish_WorkflowTest extends TestCase {
 
 		\WP_Mock::userFunction( 'wp_update_post' )->once()->with( \Mockery::on( function ( $args ) {
 			return $args['post_status'] === 'draft';
-		} ) );
+		} ) )->andReturn( 42 );
 
 		$this->stub_result_recording();
 
@@ -113,7 +113,7 @@ class Publish_WorkflowTest extends TestCase {
 
 		\WP_Mock::userFunction( 'wp_update_post' )->once()->with( \Mockery::on( function ( $args ) {
 			return $args['post_status'] === 'draft';
-		} ) );
+		} ) )->andReturn( 42 );
 
 		$this->stub_result_recording();
 
@@ -134,7 +134,7 @@ class Publish_WorkflowTest extends TestCase {
 
 		\WP_Mock::userFunction( 'wp_update_post' )->once()->with( \Mockery::on( function ( $args ) {
 			return isset( $args['post_date'] ) && isset( $args['post_date_gmt'] );
-		} ) );
+		} ) )->andReturn( 42 );
 
 		$this->stub_result_recording();
 
@@ -149,7 +149,7 @@ class Publish_WorkflowTest extends TestCase {
 
 		\WP_Mock::userFunction( 'wp_update_post' )->once()->with( \Mockery::on( function ( $args ) {
 			return ! isset( $args['post_date'] ) && ! isset( $args['post_date_gmt'] );
-		} ) );
+		} ) )->andReturn( 42 );
 
 		$this->stub_result_recording();
 
@@ -166,7 +166,7 @@ class Publish_WorkflowTest extends TestCase {
 			->with( 'owner/repo' )
 			->andReturn( [] );
 
-		\WP_Mock::userFunction( 'wp_update_post' );
+		\WP_Mock::userFunction( 'wp_update_post' )->andReturn( 42 );
 		$this->stub_result_recording();
 
 		$data = $this->make_data();
@@ -192,6 +192,37 @@ class Publish_WorkflowTest extends TestCase {
 		$this->workflow->handle( 42, $this->make_post(), $this->make_data(), [] );
 
 		$this->assertConditionsMet();
+	}
+
+	// -------------------------------------------------------------------------
+	// handle() — records an error when the status update fails
+	// -------------------------------------------------------------------------
+
+	public function test_handle_records_error_when_update_fails(): void {
+		$this->repo_settings->shouldReceive( 'get_repository' )
+			->with( 'owner/repo' )
+			->andReturn( [] );
+
+		// wp_update_post fails (returns 0) — the status was never applied.
+		\WP_Mock::userFunction( 'wp_update_post' )->once()->andReturn( 0 );
+		\WP_Mock::userFunction( '__' )->andReturnArg( 0 );
+		\WP_Mock::userFunction( 'get_transient' )
+			->with( Cache_Keys::cron_results() )
+			->andReturn( false );
+
+		$recorded_error = false;
+		\WP_Mock::userFunction( 'set_transient' )->andReturnUsing(
+			function ( $key, $value ) use ( &$recorded_error ) {
+				if ( Cache_Keys::cron_results() === $key && ! empty( $value['errors'] ) ) {
+					$recorded_error = true;
+				}
+				return true;
+			}
+		);
+
+		$this->workflow->handle( 42, $this->make_post(), $this->make_data(), [] );
+
+		$this->assertTrue( $recorded_error, 'A failed status update should record a cron error for the admin notice.' );
 	}
 
 	// -------------------------------------------------------------------------

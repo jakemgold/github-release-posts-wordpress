@@ -87,7 +87,27 @@ class Publish_Workflow {
 			$update_args['post_date_gmt'] = current_time( 'mysql', true );
 		}
 
-		wp_update_post( $update_args );
+		// wp_update_post() returns 0 on failure (and the post ID on success) when
+		// called without the $wp_error flag.
+		$updated = wp_update_post( $update_args );
+
+		if ( 0 === (int) $updated ) {
+			// The status was not applied. Record the failure and stop before
+			// firing ghrp_post_status_set — otherwise the notification pipeline
+			// would report a post as published/drafted that never actually changed.
+			if ( defined( 'WP_DEBUG' ) && WP_DEBUG && defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
+				// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+				error_log( sprintf( '[GHRP] Failed to set status for post %d (%s@%s).', $post_id, $data->identifier, $data->tag ) );
+			}
+			if ( empty( $context['manual'] ) ) {
+				self::record_error(
+					$data->identifier,
+					$data->tag,
+					__( 'The post was generated but its status could not be set.', 'auto-release-posts-for-github' )
+				);
+			}
+			return;
+		}
 
 		// Only record results for cron-generated posts — manual generation
 		// gives immediate feedback via the REST response / JS UI.
@@ -166,6 +186,41 @@ class Publish_Workflow {
 		}
 
 		// Store for 24 hours — overwritten on next cron run.
+		set_transient( Cache_Keys::cron_results(), $results, DAY_IN_SECONDS );
+	}
+
+	/**
+	 * Records a release that failed to produce a post, for the admin notice.
+	 *
+	 * Appends to the same cron-results transient that record_result() writes and
+	 * display_admin_notice() reads, so a failed GitHub fetch or a release that
+	 * fired but produced no post surfaces in wp-admin instead of only in the
+	 * debug log (the 'errors' bucket was previously never populated).
+	 *
+	 * @param string $identifier Repository identifier (owner/repo).
+	 * @param string $tag        Release tag, when known.
+	 * @param string $message    Human-readable error detail.
+	 * @return void
+	 */
+	public static function record_error( string $identifier, string $tag, string $message ): void {
+		$results = get_transient( Cache_Keys::cron_results() );
+		if ( ! is_array( $results ) ) {
+			$results = [
+				'drafted'   => [],
+				'published' => [],
+				'errors'    => [],
+			];
+		}
+		if ( ! isset( $results['errors'] ) || ! is_array( $results['errors'] ) ) {
+			$results['errors'] = [];
+		}
+
+		$results['errors'][] = [
+			'identifier' => $identifier,
+			'tag'        => $tag,
+			'message'    => $message,
+		];
+
 		set_transient( Cache_Keys::cron_results(), $results, DAY_IN_SECONDS );
 	}
 

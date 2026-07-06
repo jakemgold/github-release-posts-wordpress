@@ -14,6 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 use GitHubReleasePosts\Cache_Keys;
 use GitHubReleasePosts\Plugin_Constants;
+use GitHubReleasePosts\Post\Publish_Workflow;
 use GitHubReleasePosts\Settings\Repository_Settings;
 
 /**
@@ -60,24 +61,24 @@ class Release_Monitor {
 		}
 
 		// Prevent overlapping cron runs from processing the same releases.
-		// add_option() is atomic at the DB level (INSERT IGNORE semantics on
-		// the unique option_name index) — get_transient() + set_transient()
-		// is not, and a sufficiently fast second worker could pass the check
-		// before the first one wrote the lock. The value stored is the lock's
-		// acquisition timestamp so a crashed/abandoned lock can be detected
-		// and forcibly reclaimed after 10 minutes.
+		// The lock is taken with a bare INSERT on the unique option_name index
+		// (see acquire_lock()) so exactly one concurrent worker wins. add_option()
+		// cannot be used here: its existence check is cache-based and its write is
+		// an upsert, so two workers that both pass the check each believe they
+		// acquired it — the race that produced duplicate posts. The stored value
+		// is the acquisition timestamp, so a lock abandoned by a hard crash (which
+		// skips the finally below) is reclaimed after 10 minutes.
 		$lock_key     = Cache_Keys::cron_lock();
 		$now          = time();
 		$lock_max_age = 10 * MINUTE_IN_SECONDS;
-		$acquired     = add_option( $lock_key, $now, '', false );
-		if ( ! $acquired ) {
-			$existing = (int) get_option( $lock_key, 0 );
-			if ( $existing > 0 && ( $now - $existing ) > $lock_max_age ) {
-				delete_option( $lock_key );
-				$acquired = add_option( $lock_key, $now, '', false );
-			}
-			if ( ! $acquired ) {
-				return; // another worker holds the lock; bail.
+
+		if ( ! $this->acquire_lock( $lock_key, $now ) ) {
+			// A lock exists. Clear it only if it is older than the max age, then
+			// try once more. The reclaim is a conditional DELETE (atomic), so two
+			// workers racing to reclaim an abandoned lock cannot both revive it.
+			$this->reclaim_stale_lock( $lock_key, $now - $lock_max_age );
+			if ( ! $this->acquire_lock( $lock_key, $now ) ) {
+				return; // another worker holds a fresh lock; bail.
 			}
 		}
 
@@ -114,6 +115,7 @@ class Release_Monitor {
 					}
 
 					$this->log( $identifier, 'error: ' . $release->get_error_message() );
+					Publish_Workflow::record_error( $identifier, '', $release->get_error_message() );
 					$this->state->update_last_checked( $identifier );
 					continue;
 				}
@@ -140,6 +142,64 @@ class Release_Monitor {
 		} finally {
 			delete_option( $lock_key );
 		}
+	}
+
+	/**
+	 * Atomically acquires the cron lock.
+	 *
+	 * Uses a bare INSERT on the unique option_name index: it fails when the row
+	 * already exists, so exactly one concurrent worker gets a truthy result — a
+	 * real cross-process mutex. add_option() cannot be used here because its
+	 * existence check is cache-based and its write is an upsert, so two workers
+	 * can both "succeed" and both proceed.
+	 *
+	 * @param string $lock_key Option name used as the lock.
+	 * @param int    $now      Current timestamp, stored as the lock value.
+	 * @return bool True if this worker acquired the lock.
+	 */
+	private function acquire_lock( string $lock_key, int $now ): bool {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$inserted = $wpdb->query(
+			$wpdb->prepare(
+				"INSERT INTO {$wpdb->options} (option_name, option_value, autoload) VALUES (%s, %s, 'off')",
+				$lock_key,
+				(string) $now
+			)
+		);
+
+		// Keep the options cache consistent with the direct write.
+		wp_cache_delete( $lock_key, 'options' );
+		wp_cache_delete( 'notoptions', 'options' );
+
+		return (bool) $inserted;
+	}
+
+	/**
+	 * Deletes the cron lock only if it is older than the given cutoff.
+	 *
+	 * A conditional, atomic DELETE so two workers that both observe an abandoned
+	 * lock cannot both reclaim it and proceed.
+	 *
+	 * @param string $lock_key   Option name used as the lock.
+	 * @param int    $older_than Unix timestamp; a lock acquired before this is cleared.
+	 * @return void
+	 */
+	private function reclaim_stale_lock( string $lock_key, int $older_than ): void {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query(
+			$wpdb->prepare(
+				"DELETE FROM {$wpdb->options} WHERE option_name = %s AND CAST( option_value AS UNSIGNED ) < %d",
+				$lock_key,
+				$older_than
+			)
+		);
+
+		wp_cache_delete( $lock_key, 'options' );
+		wp_cache_delete( 'notoptions', 'options' );
 	}
 
 	/**
@@ -181,6 +241,11 @@ class Release_Monitor {
 				$this->log( $identifier, 'post created for tag ' . $tag . ' (ID ' . $post->ID . ')' );
 			} else {
 				$this->log( $identifier, 'action fired for tag ' . $tag . ' — no post created yet' );
+				Publish_Workflow::record_error(
+					$identifier,
+					$tag,
+					__( 'AI generation or post creation failed for this release.', 'auto-release-posts-for-github' )
+				);
 			}
 		}
 	}

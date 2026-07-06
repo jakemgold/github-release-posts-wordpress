@@ -5,7 +5,7 @@ Tags:              github, releases, blog post, ai, automation
 Requires at least: 7.0
 Tested up to:      7.0
 Requires PHP:      8.2
-Stable tag:        1.0.3
+Stable tag:        1.1.0
 License:           GPL-2.0-or-later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -157,6 +157,39 @@ Both source and build outputs ship with the plugin, so the source is available l
 **Bundled npm packages used at build time** (development only — not shipped at runtime): `@10up/scripts` (which itself bundles Webpack, ESLint, Babel, and the build-time-only `wp-prettier` and `eslint-plugin-jsdoc` overrides). All declared in `package.json` and `package-lock.json`. None of these end up in the distributed plugin.
 
 == Changelog ==
+
+= 1.1.0 =
+
+A reliability, security, and model-routing release. Your existing repositories and generated posts are unaffected, and no configuration changes are required.
+
+**New: automatic model selection**
+
+* The plugin now routes each AI provider to its newest flagship model automatically — the latest Claude Opus, the latest GPT, and the latest stable Gemini Pro — resolved from your connected provider and cached for a week. It stays current as providers release new models, without waiting for a plugin update. You can still pin specific models with the `ghrp_wp_ai_client_model_preferences` filter.
+
+**Reliability**
+
+* AI provider errors (timeouts, quota, or rate limits) are now recorded and reported instead of silently aborting the rest of a scheduled run and skipping the failure-notification email.
+* A GitHub response that succeeds while consuming your last API request of the hour is no longer discarded as "rate limited," so a just-published release is no longer skipped until the next run.
+* Overlapping scheduled runs can no longer produce duplicate posts or double-charge AI usage.
+* With pre-releases enabled, the newest release is now chosen by version number rather than publish date, so a back-ported patch to an older version can't hide the genuinely latest release.
+* Post generation now reports a real failure instead of a false "published" when the post status couldn't be applied, and the "releases skipped due to errors" admin notice now actually appears when relevant.
+* Editing a release's notes now regenerates the post instead of returning a stale cached version, and a rare caching collision that could mix two repositories' content has been fixed.
+* The Repositories screen's "Last Post" column now shows the correct latest post for every repository, even when one repository has many posts.
+* If your GitHub token can't be encrypted (for example, a missing WordPress `AUTH_KEY`), the settings page now shows an error instead of silently saving an empty token.
+* The Settings screen's "AI Connector" status now names the provider and model a post will actually be generated with (following the Claude → OpenAI → Google preference order) and updates immediately when you activate or deactivate a connector; previously it could show a different provider and model than the one used, or lag behind a connector change. Relatedly, OpenAI's reasoning-effort setting is now applied whenever OpenAI is the active provider, even when a Google connector is also configured, and that effort level is shown in the status line (e.g. "gpt-5.5, high reasoning effort").
+
+**Security hardening**
+
+* Image sideloading now re-checks the destination host on every redirect, closing a server-side request path where an allowed GitHub Pages URL could redirect a download to an internal address.
+* References to issues and pull requests in release notes can no longer steer the site's GitHub token to unintended API endpoints, and repository identifiers containing path-traversal segments are now rejected.
+* Captions and titles derived from AI or release content are sanitized before saving, README heading extraction is length-bounded, and release-note truncation is now multibyte-safe.
+* The stored GitHub token is no longer erased when the token is supplied via a `wp-config.php` constant and the settings page is saved, and the plugin's authenticated GitHub requests no longer follow redirects (so the token can't be replayed to another host).
+
+**Other fixes**
+
+* Email notifications now include a plain-text alternative for better deliverability and no longer list the same post twice.
+* Very large or malformed AI output can no longer result in a blank post body.
+* GitHub image URLs with mixed-case hosts are now sideloaded correctly, and a configured featured image is validated before it is applied.
 
 = 1.0.3 =
 

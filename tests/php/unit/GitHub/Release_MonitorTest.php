@@ -47,6 +47,20 @@ class Release_MonitorTest extends TestCase {
 			$this->queue,
 			$this->repo_settings,
 		);
+
+		// The cron lock now takes a direct $wpdb query on the options table's
+		// unique index. Provide a mock that reports the lock as acquired.
+		global $wpdb;
+		$wpdb          = \Mockery::mock( 'wpdb' );
+		$wpdb->options = 'wp_options';
+		$wpdb->shouldReceive( 'prepare' )->andReturnUsing(
+			function ( string $query ) {
+				return $query;
+			}
+		);
+		$wpdb->shouldReceive( 'query' )->andReturn( 1 );
+
+		\WP_Mock::userFunction( 'wp_cache_delete' )->andReturn( true );
 	}
 
 	public function tearDown(): void {
@@ -267,6 +281,12 @@ class Release_MonitorTest extends TestCase {
 
 		// find_post() uses get_posts() — return empty so no state update.
 		\WP_Mock::userFunction( 'get_posts' )->andReturn( [] );
+
+		// The no-post-created branch records an error for the admin notice
+		// (Publish_Workflow::record_error → transient read/write).
+		\WP_Mock::userFunction( '__' )->andReturnArg( 0 );
+		\WP_Mock::userFunction( 'get_transient' )->andReturn( false );
+		\WP_Mock::userFunction( 'set_transient' )->andReturn( true );
 
 		// Concurrency lock mocks.
 		\WP_Mock::userFunction( 'add_option' )->with( Cache_Keys::cron_lock(), \WP_Mock\Functions::type( 'int' ), '', false )->andReturn( true );
