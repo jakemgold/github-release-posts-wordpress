@@ -117,6 +117,17 @@ if ( ! class_exists( 'WP_Query' ) ) {
 	}
 }
 
+// Stub WP_List_Table so Admin\Repository_List_Table can load in unit tests.
+if ( ! class_exists( 'WP_List_Table' ) ) {
+	// phpcs:ignore Generic.Files.OneObjectStructurePerFile.MultipleFound
+	class WP_List_Table {
+		/** @var array Items shown in the table (set by subclasses). */
+		public array $items = [];
+
+		public function __construct( $args = [] ) {}
+	}
+}
+
 // Stub is_wp_error() if not already defined.
 if ( ! function_exists( 'is_wp_error' ) ) {
 	function is_wp_error( $thing ) {

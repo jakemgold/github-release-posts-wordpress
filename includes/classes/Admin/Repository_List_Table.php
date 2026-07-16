@@ -383,11 +383,11 @@ class Repository_List_Table extends \WP_List_Table {
 									<?php
 									wp_dropdown_users(
 										[
-											'name'  => '',
-											'id'    => '',
-											'class' => 'ghrp-tpl-author',
-											'who'   => 'authors',
-											'show'  => 'display_name',
+											'name'    => '',
+											'id'      => '',
+											'class'   => 'ghrp-tpl-author',
+											'show'    => 'display_name',
+											'include' => self::get_author_dropdown_user_ids(),
 										]
 									);
 									?>
@@ -464,6 +464,54 @@ class Repository_List_Table extends \WP_List_Table {
 			</tr>
 		</tbody></table>
 		<?php
+	}
+
+	/**
+	 * Returns the user IDs offered in the Quick Edit author dropdown.
+	 *
+	 * Users are matched by the `edit_posts` capability. On multisite,
+	 * capability queries only inspect each user's per-site role meta, which
+	 * never matches super admins — their access comes from the network's
+	 * `site_admins` option, applied at runtime in WP_User::has_cap(). Super
+	 * admins who are members of the current site are therefore merged in
+	 * explicitly; without this they could not be selected as a repository's
+	 * post author, and Quick Edit would silently reassign repositories
+	 * already owned by one.
+	 *
+	 * @return int[] User IDs.
+	 */
+	public static function get_author_dropdown_user_ids(): array {
+		$ids = array_map(
+			'intval',
+			get_users(
+				[
+					'capability' => 'edit_posts',
+					'fields'     => 'ID',
+				]
+			)
+		);
+
+		if ( is_multisite() ) {
+			foreach ( get_super_admins() as $login ) {
+				$user = get_user_by( 'login', $login );
+				if ( $user && ! in_array( (int) $user->ID, $ids, true ) && is_user_member_of_blog( (int) $user->ID ) ) {
+					$ids[] = (int) $user->ID;
+				}
+			}
+		}
+
+		/**
+		 * Filters the user IDs selectable as a repository's post author.
+		 *
+		 * @param int[] $ids User IDs offered in the author dropdown.
+		 */
+		$ids = apply_filters( 'ghrp_author_dropdown_user_ids', $ids );
+
+		// wp_dropdown_users() treats an empty include list as "no constraint"
+		// and would list every user; pin to a non-matching ID instead so the
+		// dropdown renders empty rather than unfiltered.
+		$ids = array_values( array_unique( array_map( 'intval', (array) $ids ) ) );
+		return empty( $ids ) ? [ 0 ] : $ids;
 	}
 
 	/**

@@ -158,6 +158,10 @@ Both source and build outputs ship with the plugin, so the source is available l
 
 == Changelog ==
 
+= 1.1.1 =
+
+* On multisite, network super admins who are members of a site can now be selected as a repository's post author. Previously they were missing from the author dropdown (WordPress capability queries can't see super admins), and editing such a repository could silently reassign its author. A new `ghrp_author_dropdown_user_ids` filter allows further customization of the selectable authors.
+
 = 1.1.0 =
 
 A reliability, security, and model-routing release. Your existing repositories and generated posts are unaffected, and no configuration changes are required.
