@@ -62,4 +62,35 @@ class Settings_PageTest extends TestCase {
 
 		$this->assertSame( 'ENCRYPTED', $result );
 	}
+
+	/**
+	 * When encryption fails, the error must be registered under the option
+	 * GROUP — the page template renders settings_errors( OPTION_GROUP ), which
+	 * filters by that first argument, so an error registered under the option
+	 * name is silently hidden (the admin saw "Settings saved." while the token
+	 * quietly vanished; observed in production).
+	 */
+	public function test_sanitize_encrypt_failure_registers_visible_error_and_preserves_value(): void {
+		$global = $this->createMock( Global_Settings::class );
+		$global->method( 'get_github_pat_source' )->willReturn( 'none' );
+		$global->method( 'encrypt' )->with( 'ghp_new_token' )->willReturn( '' );
+
+		\WP_Mock::userFunction( 'get_option' )
+			->with( Plugin_Constants::OPTION_GITHUB_PAT, '' )
+			->andReturn( 'EXISTING_CIPHERTEXT' );
+
+		\WP_Mock::userFunction( 'add_settings_error' )
+			->once()
+			->with(
+				Settings_Page::OPTION_GROUP,
+				'ghrp_pat_encrypt_failed',
+				\Mockery::type( 'string' ),
+				'error'
+			);
+
+		$page   = new Settings_Page( $global );
+		$result = $page->sanitize_github_pat( 'ghp_new_token' );
+
+		$this->assertSame( 'EXISTING_CIPHERTEXT', $result );
+	}
 }

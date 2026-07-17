@@ -148,6 +148,12 @@ class Settings_Page {
 				<span><?php echo esc_html( $validation['message'] ); ?></span>
 			<?php endif; ?>
 		</span>
+		<?php if ( ! $externally_set && ! $this->global_settings->can_encrypt() ) : ?>
+			<p class="ghrp-pat-encrypt-warning" style="color: #b32d2e;">
+				<span class="dashicons dashicons-warning" aria-hidden="true"></span>
+				<?php echo esc_html__( 'Tokens cannot be stored on this site: the WordPress AUTH_KEY security constant is missing or still set to its placeholder. Define a unique AUTH_KEY in wp-config.php, then enter the token.', 'auto-release-posts-for-github' ); ?>
+			</p>
+		<?php endif; ?>
 		<?php if ( ! $externally_set ) : ?>
 			<p class="description">
 				<?php echo esc_html__( 'Optional. Raises the GitHub API rate limit from 60 to 5,000 requests per hour and prepopulates the repository picker on the Repositories tab.', 'auto-release-posts-for-github' ); ?>
@@ -236,7 +242,11 @@ class Settings_Page {
 			// to unauthenticated GitHub access), and preserve any previously stored
 			// PAT rather than wiping a working token on a transient failure.
 			add_settings_error(
-				Plugin_Constants::OPTION_GITHUB_PAT,
+				// Registered under the option group — the page template renders
+				// settings_errors( OPTION_GROUP ), and settings_errors() filters
+				// by this first argument. Registering under the option name
+				// (as this call originally did) silently hid the notice.
+				self::OPTION_GROUP,
 				'ghrp_pat_encrypt_failed',
 				__( 'The GitHub token could not be encrypted and was not saved. Define a unique AUTH_KEY in wp-config.php, then re-enter the token.', 'auto-release-posts-for-github' ),
 				'error'
