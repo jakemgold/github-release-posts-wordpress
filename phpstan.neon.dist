@@ -1,5 +1,10 @@
 includes:
     - vendor/szepeviktor/phpstan-wordpress/extension.neon
+    # Flags calls to anything marked @deprecated — WordPress functions (via
+    # wordpress-stubs) and PHP-internal deprecations alike. PHPCompatibility
+    # would be the phpcs-native equivalent, but its PHP 8-aware branch
+    # requires PHP_CodeSniffer 4, which WPCS does not yet support.
+    - vendor/phpstan/phpstan-deprecation-rules/rules.neon
 
 parameters:
     level: 5

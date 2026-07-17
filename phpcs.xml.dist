@@ -17,8 +17,12 @@
 	<rule ref="WordPress-Docs"/>
 	<rule ref="WordPress-Extra"/>
 
-	<!-- Enforce minimum PHP version -->
+	<!-- Enforce minimum WP version (used by WPCS sniffs) -->
 	<config name="minimum_supported_wp_version" value="6.9"/>
+	<!-- testVersion is only read by PHPCompatibility, which is not installable
+	     alongside WPCS yet (its PHP 8-aware branch requires PHP_CodeSniffer 4).
+	     Deprecated-call detection is handled by phpstan-deprecation-rules via
+	     `composer phpstan` instead. Kept for when PHPCompatibility catches up. -->
 	<config name="testVersion" value="8.2-"/>
 
 	<!-- Set the correct text domain -->
