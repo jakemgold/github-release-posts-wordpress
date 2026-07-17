@@ -160,6 +160,7 @@ Both source and build outputs ship with the plugin, so the source is available l
 
 = 1.1.1 =
 
+* Fixed a parsing issue where an AI response with a blank line after the title could save the post's URL keywords as the visible excerpt, drop them from the post slug, and leak the intended excerpt into the top of the post body. Regenerating an affected post corrects it.
 * On multisite, network super admins who are members of a site can now be selected as a repository's post author. Previously they were missing from the author dropdown (WordPress capability queries can't see super admins), and editing such a repository could silently reassign its author. A new `ghrp_author_dropdown_user_ids` filter allows further customization of the selectable authors.
 
 = 1.1.0 =
