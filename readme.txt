@@ -5,7 +5,7 @@ Tags:              github, releases, blog post, ai, automation
 Requires at least: 7.0
 Tested up to:      7.0
 Requires PHP:      8.2
-Stable tag:        1.1.1
+Stable tag:        1.1.2
 License:           GPL-2.0-or-later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -157,6 +157,10 @@ Both source and build outputs ship with the plugin, so the source is available l
 **Bundled npm packages used at build time** (development only — not shipped at runtime): `@10up/scripts` (which itself bundles Webpack, ESLint, Babel, and the build-time-only `wp-prettier` and `eslint-plugin-jsdoc` overrides). All declared in `package.json` and `package-lock.json`. None of these end up in the distributed plugin.
 
 == Changelog ==
+
+= 1.1.2 =
+
+* The Settings page now warns clearly when GitHub tokens cannot be stored because the site's `AUTH_KEY` security constant is missing or still set to its placeholder — with an inline warning on the token field itself, and an error notice when a save fails. Previously the page reported "Settings saved." while the token was silently not stored.
 
 = 1.1.1 =
 
