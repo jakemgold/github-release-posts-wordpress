@@ -44,7 +44,12 @@ readonly class GeneratedPost {
 	 *   Line 4: blank
 	 *   Line 5+: HTML body
 	 *
-	 * Falls back gracefully if slug/excerpt lines are missing.
+	 * Models don't always honor the spacing contract, so the two metadata
+	 * lines are read as the next two non-blank lines after the title rather
+	 * than fixed positions. (Observed in production: a blank line after the
+	 * title shifted the keywords into the excerpt seat and leaked the real
+	 * excerpt into the post body.) Falls back gracefully if slug/excerpt
+	 * lines are missing.
 	 *
 	 * @param string      $raw           Raw text response from the AI provider.
 	 * @param ReleaseData $data          Source release data (for fallback title).
@@ -63,11 +68,23 @@ readonly class GeneratedPost {
 		if ( mb_strlen( $title ) > 200 ) {
 			$title = trim( mb_substr( $title, 0, 200 ) );
 		}
-		$slug_keywords = trim( $lines[1] ?? '' );
-		$excerpt       = trim( $lines[2] ?? '' );
+		// Consume the next two non-blank lines as slug keywords and excerpt,
+		// tolerating blank lines the model may insert between them.
+		$cursor = 1;
+		while ( isset( $lines[ $cursor ] ) && '' === trim( $lines[ $cursor ] ) ) {
+			++$cursor;
+		}
+		$keywords_index = $cursor;
+		$slug_keywords  = trim( $lines[ $cursor ] ?? '' );
+		++$cursor;
+		while ( isset( $lines[ $cursor ] ) && '' === trim( $lines[ $cursor ] ) ) {
+			++$cursor;
+		}
+		$excerpt = trim( $lines[ $cursor ] ?? '' );
+		++$cursor;
 
 		// Find the body — skip blank lines after the metadata lines.
-		$body_start = 3;
+		$body_start = $cursor;
 		while ( isset( $lines[ $body_start ] ) && '' === trim( $lines[ $body_start ] ) ) {
 			++$body_start;
 		}
@@ -76,8 +93,8 @@ readonly class GeneratedPost {
 		// Validate slug keywords — should be lowercase hyphenated words, no HTML.
 		if ( preg_match( '/</', $slug_keywords ) || strlen( $slug_keywords ) > 80 ) {
 			// AI returned HTML or something too long — likely body content shifted up.
-			// Fall back: treat lines 2+ as body.
-			$body          = trim( implode( "\n", array_slice( $lines, 1 ) ) );
+			// Fall back: treat everything after the title as body.
+			$body          = trim( implode( "\n", array_slice( $lines, $keywords_index ) ) );
 			$slug_keywords = '';
 			$excerpt       = '';
 		}
@@ -86,6 +103,15 @@ readonly class GeneratedPost {
 		if ( preg_match( '/^<[a-z]/', $excerpt ) ) {
 			// Excerpt looks like HTML body — shift down.
 			$body    = trim( $excerpt . "\n" . $body );
+			$excerpt = '';
+		}
+
+		// A slug-shaped excerpt is keywords in the wrong seat (e.g. the model
+		// swapped the metadata lines) — never save it as a visible excerpt.
+		if ( '' !== $excerpt && preg_match( '/^[a-z0-9]+(?:-[a-z0-9]+)+$/', $excerpt ) ) {
+			if ( '' === $slug_keywords ) {
+				$slug_keywords = $excerpt;
+			}
 			$excerpt = '';
 		}
 
