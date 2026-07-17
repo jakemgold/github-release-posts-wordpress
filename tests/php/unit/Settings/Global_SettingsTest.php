@@ -57,6 +57,21 @@ class Global_SettingsTest extends TestCase {
 	}
 
 	/**
+	 * can_encrypt() is true once a usable AUTH_KEY is defined.
+	 *
+	 * The false path (missing/placeholder AUTH_KEY) cannot be exercised in the
+	 * same process because PHP constants cannot be undefined; it is covered
+	 * indirectly by the derive_encryption_key() guard this method wraps.
+	 */
+	public function test_can_encrypt_true_with_auth_key(): void {
+		if ( ! defined( 'AUTH_KEY' ) ) {
+			define( 'AUTH_KEY', 'test-key-for-unit-tests' );
+		}
+
+		$this->assertTrue( ( new Global_Settings() )->can_encrypt() );
+	}
+
+	/**
 	 * decrypt() returns an empty string for an empty input.
 	 */
 	public function test_decrypt_returns_empty_for_empty_input(): void {

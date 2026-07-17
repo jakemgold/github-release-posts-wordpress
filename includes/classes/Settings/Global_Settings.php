@@ -402,4 +402,22 @@ class Global_Settings {
 			SODIUM_CRYPTO_SECRETBOX_KEYBYTES
 		);
 	}
+
+	/**
+	 * Whether token encryption is available on this site.
+	 *
+	 * False when AUTH_KEY is missing, empty, or still the wp-config-sample
+	 * placeholder — the same conditions under which encrypt() fails and a
+	 * submitted token cannot be stored.
+	 *
+	 * @return bool
+	 */
+	public function can_encrypt(): bool {
+		try {
+			$this->derive_encryption_key();
+			return true;
+		} catch ( \SodiumException $e ) {
+			return false;
+		}
+	}
 }
