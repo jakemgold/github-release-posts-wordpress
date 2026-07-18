@@ -247,6 +247,7 @@ class Repository_Settings {
 			'tags'                => (array) apply_filters( 'ghrp_default_tags', [] ),
 			'featured_image'      => 0,
 			'include_prereleases' => false,
+			'tag_patterns'        => '',
 		];
 
 		$this->save_repositories( $repos );
@@ -323,7 +324,7 @@ class Repository_Settings {
 		$repos = $this->get_repositories();
 		$found = false;
 
-		$allowed_fields = [ 'display_name', 'paused', 'plugin_link', 'author', 'post_status', 'categories', 'tags', 'featured_image', 'include_prereleases' ];
+		$allowed_fields = [ 'display_name', 'paused', 'plugin_link', 'author', 'post_status', 'categories', 'tags', 'featured_image', 'include_prereleases', 'tag_patterns' ];
 
 		foreach ( $repos as &$repo ) {
 			if ( ( $repo['identifier'] ?? '' ) === $identifier ) {

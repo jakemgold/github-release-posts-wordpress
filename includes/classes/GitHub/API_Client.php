@@ -247,9 +247,12 @@ class API_Client {
 	 *
 	 * @param string $identifier          Repository identifier (owner/repo or full URL).
 	 * @param bool   $include_prereleases When true, pre-release versions are included.
+	 * @param string $tag_patterns        Optional comma-separated glob patterns; when
+	 *                                    non-empty, only releases whose tag matches one
+	 *                                    are returned (monorepo package selection).
 	 * @return Release[]|\WP_Error Releases in newest-first order, or WP_Error on failure.
 	 */
-	public function fetch_releases( string $identifier, bool $include_prereleases = false ): array|\WP_Error {
+	public function fetch_releases( string $identifier, bool $include_prereleases = false, string $tag_patterns = '' ): array|\WP_Error {
 		try {
 			$identifier = $this->normalize_identifier( $identifier );
 		} catch ( \InvalidArgumentException $e ) {
@@ -303,6 +306,13 @@ class API_Client {
 			if ( ! $include_prereleases && ! empty( $entry['prerelease'] ) ) {
 				continue;
 			}
+			// Monorepo package selection: with patterns set, only matching tags
+			// are eligible. Lives here, beside the draft/prerelease checks, so
+			// every consumer (cron monitor, version picker, manual generation)
+			// inherits the same eligibility rules.
+			if ( ! Tag_Pattern_Matcher::matches( (string) ( $entry['tag_name'] ?? '' ), $tag_patterns ) ) {
+				continue;
+			}
 			$releases[] = Release::from_api_response( $entry );
 		}
 
@@ -321,15 +331,20 @@ class API_Client {
 	 *
 	 * @param string $identifier          Repository identifier (owner/repo or full URL).
 	 * @param bool   $include_prereleases When true, pre-releases are eligible.
+	 * @param string $tag_patterns        Optional comma-separated glob patterns for
+	 *                                    monorepo package selection.
 	 * @return Release|null|\WP_Error Release on success; null if no eligible release exists;
 	 *                                WP_Error on network or HTTP failure.
 	 */
-	public function fetch_latest_eligible_release( string $identifier, bool $include_prereleases ): Release|null|\WP_Error {
-		if ( ! $include_prereleases ) {
+	public function fetch_latest_eligible_release( string $identifier, bool $include_prereleases, string $tag_patterns = '' ): Release|null|\WP_Error {
+		// The fast, cached /releases/latest endpoint cannot honor tag patterns —
+		// it would happily return a non-matching package's release. Only repos
+		// without patterns (and without the prerelease opt-in) may use it.
+		if ( ! $include_prereleases && ! Tag_Pattern_Matcher::has_patterns( $tag_patterns ) ) {
 			return $this->fetch_latest_release( $identifier );
 		}
 
-		$releases = $this->fetch_releases( $identifier, true );
+		$releases = $this->fetch_releases( $identifier, $include_prereleases, $tag_patterns );
 		if ( is_wp_error( $releases ) ) {
 			return $releases;
 		}

@@ -160,6 +160,7 @@ class Repository_List_Table extends \WP_List_Table {
 		echo ' data-repo="' . esc_attr( $identifier ) . '"';
 		echo ' data-display-name="' . esc_attr( $item['display_name'] ?? $identifier ) . '"';
 		echo ' data-plugin-link="' . esc_attr( $item['plugin_link'] ?? '' ) . '"';
+		echo ' data-tag-patterns="' . esc_attr( $item['tag_patterns'] ?? '' ) . '"';
 		echo ' data-post-status="' . esc_attr( ! empty( $item['post_status'] ) ? $item['post_status'] : 'draft' ) . '"';
 		// array_values() forces a JSON array even if the stored categories have
 		// non-sequential keys (from older saves), so the inline editor always
@@ -356,6 +357,16 @@ class Repository_List_Table extends \WP_List_Table {
 									<span class="input-text-wrap">
 										<input type="text" data-field="plugin_link" class="ghrp-plugin-link-input" placeholder="URL or WordPress.org slug">
 										<span class="ghrp-plugin-link-status" aria-live="polite"></span>
+									</span>
+								</label>
+
+								<label>
+									<span class="title"><?php echo esc_html__( 'Tag patterns (optional)', 'auto-release-posts-for-github' ); ?></span>
+									<span class="input-text-wrap">
+										<input type="text" data-field="tag_patterns" placeholder="<?php echo esc_attr__( 'e.g. @headstartwp/core@*, @headstartwp/next@*', 'auto-release-posts-for-github' ); ?>">
+									</span>
+									<span class="description">
+										<?php echo esc_html__( 'Comma-separated patterns; only releases whose tag matches one will get posts. Wildcard * supported. Case-sensitive. Leave blank for all releases.', 'auto-release-posts-for-github' ); ?>
 									</span>
 								</label>
 

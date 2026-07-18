@@ -105,7 +105,8 @@ class Release_Monitor {
 				}
 
 				$include_prereleases = ! empty( $repo['include_prereleases'] );
-				$release             = $this->api_client->fetch_latest_eligible_release( $identifier, $include_prereleases );
+				$tag_patterns        = (string) ( $repo['tag_patterns'] ?? '' );
+				$release             = $this->api_client->fetch_latest_eligible_release( $identifier, $include_prereleases, $tag_patterns );
 
 				if ( is_wp_error( $release ) ) {
 					if ( 'github_rate_limit_exhausted' === $release->get_error_code() ) {

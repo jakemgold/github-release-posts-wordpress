@@ -780,6 +780,7 @@ class Admin_Page {
 			'paused'              => ! empty( $config['paused'] ),
 			'featured_image'      => absint( $config['featured_image'] ?? 0 ),
 			'include_prereleases' => ! empty( $config['include_prereleases'] ),
+			'tag_patterns'        => sanitize_text_field( wp_unslash( $config['tag_patterns'] ?? '' ) ),
 		];
 	}
 
@@ -818,8 +819,9 @@ class Admin_Page {
 		// where the field is missing (pre-1.0 entries).
 		$repo                = $this->repo_settings->get_repository( $identifier );
 		$include_prereleases = ! empty( $repo['include_prereleases'] );
+		$tag_patterns        = (string) ( $repo['tag_patterns'] ?? '' );
 
-		$releases = $api_client->fetch_releases( $identifier, $include_prereleases );
+		$releases = $api_client->fetch_releases( $identifier, $include_prereleases, $tag_patterns );
 
 		if ( is_wp_error( $releases ) ) {
 			return new \WP_Error( $releases->get_error_code(), $releases->get_error_message(), [ 'status' => 400 ] );
@@ -887,8 +889,14 @@ class Admin_Page {
 		$api_client   = new API_Client( $this->global_settings );
 
 		// Resolve the latest release first — used for the is_latest flag and as
-		// the default when no tag was specified.
-		$latest_release = $api_client->fetch_latest_release( $identifier );
+		// the default when no tag was specified. Must honor the repo's tag
+		// patterns: the plain /releases/latest lookup would return the newest
+		// release of ANY package in a monorepo, so "Generate post" could draft
+		// a package the site never publishes. Delegates to the fast cached
+		// endpoint when no patterns are set.
+		$repo_config    = $this->repo_settings->get_repository( (string) $identifier );
+		$tag_patterns   = (string) ( $repo_config['tag_patterns'] ?? '' );
+		$latest_release = $api_client->fetch_latest_eligible_release( (string) $identifier, false, $tag_patterns );
 
 		if ( is_wp_error( $latest_release ) ) {
 			return new \WP_Error( $latest_release->get_error_code(), $latest_release->get_error_message(), [ 'status' => 400 ] );

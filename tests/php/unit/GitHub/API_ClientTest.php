@@ -675,4 +675,137 @@ class API_ClientTest extends TestCase {
 
 		$this->assertNull( $result );
 	}
+
+	// -------------------------------------------------------------------------
+	// Tag patterns (monorepo package selection)
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Builds the 10up/headstartwp fixture release list from the feature brief:
+	 * a monorepo stream mixing core/next releases with utility packages and
+	 * correctly flagged prereleases. Newest-first, as GitHub returns it.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function headstartwp_fixture(): array {
+		$rows = [
+			[ '@headstartwp/core@1.6.1', '2026-04-08T00:00:00Z', false ],
+			[ '@headstartwp/next@1.5.1', '2025-09-22T00:00:00Z', false ],
+			[ '@headstartwp/core@1.6.0', '2025-07-29T00:00:00Z', false ],
+			[ '@headstartwp/next@1.5.0', '2025-07-04T00:00:00Z', false ],
+			[ '@headstartwp/epio-search@1.0.0', '2025-07-04T00:00:00Z', false ],
+			[ '@headstartwp/core@1.5.0', '2025-07-04T00:00:00Z', false ],
+			[ '@headstartwp/block-primitives@0.1.0', '2025-07-04T00:00:00Z', false ],
+			[ '@10up/next-redis-cache-provider@2.0.0', '2025-07-04T00:00:00Z', false ],
+			[ '@headstartwp/next@1.5.0-next.16', '2025-07-03T00:00:00Z', true ],
+			[ '@headstartwp/core@1.5.0-next.12', '2025-07-03T00:00:00Z', true ],
+		];
+
+		return array_map(
+			static fn( array $row ): array => [
+				'tag_name'     => $row[0],
+				'name'         => $row[0],
+				'published_at' => $row[1],
+				'html_url'     => 'https://github.com/10up/headstartwp/releases/tag/' . rawurlencode( $row[0] ),
+				'body'         => '',
+				'assets'       => [],
+				'draft'        => false,
+				'prerelease'   => $row[2],
+			],
+			$rows
+		);
+	}
+
+	/**
+	 * fetch_releases() with tag patterns returns only matching stable tags:
+	 * utility packages are excluded by pattern, prereleases by the existing
+	 * flag check (the two filters compose).
+	 *
+	 * @covers API_Client::fetch_releases
+	 */
+	public function test_fetch_releases_filters_by_tag_patterns(): void {
+		$body = json_encode( $this->headstartwp_fixture() );
+
+		\WP_Mock::userFunction( 'wp_remote_get' )->andReturn( $this->mock_response( 200, $body ) );
+		\WP_Mock::userFunction( 'is_wp_error' )->andReturn( false );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_response_code' )->andReturn( 200 );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_body' )->andReturn( $body );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_header' )->andReturn( '100' );
+		\WP_Mock::userFunction( 'set_transient' )->andReturn( true );
+
+		$client = new API_Client( $this->settings_mock() );
+		$result = $client->fetch_releases( '10up/headstartwp', false, '@headstartwp/core@*, @headstartwp/next@*' );
+
+		$this->assertIsArray( $result );
+		$this->assertSame(
+			[
+				'@headstartwp/core@1.6.1',
+				'@headstartwp/next@1.5.1',
+				'@headstartwp/core@1.6.0',
+				'@headstartwp/next@1.5.0',
+				'@headstartwp/core@1.5.0',
+			],
+			array_map( static fn( Release $release ): string => $release->tag, $result )
+		);
+	}
+
+	/**
+	 * With patterns set, the latest-eligible lookup must use the paginated
+	 * /releases list (the /releases/latest endpoint cannot honor patterns and
+	 * would return e.g. an epio-search release) and pick the newest matching
+	 * entry — @headstartwp/core@1.6.1 per the fixture.
+	 *
+	 * @covers API_Client::fetch_latest_eligible_release
+	 */
+	public function test_fetch_latest_eligible_release_with_patterns_uses_list_endpoint(): void {
+		$body = json_encode( $this->headstartwp_fixture() );
+
+		\WP_Mock::userFunction( 'wp_remote_get' )
+			->with(
+				'https://api.github.com/repos/10up/headstartwp/releases?per_page=100',
+				\WP_Mock\Functions::type( 'array' )
+			)
+			->andReturn( $this->mock_response( 200, $body ) );
+		\WP_Mock::userFunction( 'is_wp_error' )->andReturn( false );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_response_code' )->andReturn( 200 );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_body' )->andReturn( $body );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_header' )->andReturn( '100' );
+		\WP_Mock::userFunction( 'set_transient' )->andReturn( true );
+
+		$client = new API_Client( $this->settings_mock() );
+		$result = $client->fetch_latest_eligible_release( '10up/headstartwp', false, '@headstartwp/core@*, @headstartwp/next@*' );
+
+		$this->assertInstanceOf( Release::class, $result );
+		$this->assertSame( '@headstartwp/core@1.6.1', $result->tag );
+	}
+
+	/**
+	 * Without patterns (and without the prerelease opt-in) the fast, cached
+	 * /releases/latest endpoint is still used — byte-for-byte the pre-feature
+	 * behavior.
+	 *
+	 * @covers API_Client::fetch_latest_eligible_release
+	 */
+	public function test_fetch_latest_eligible_release_without_patterns_uses_latest_endpoint(): void {
+		$body = json_encode( $this->valid_release_payload() );
+
+		\WP_Mock::userFunction( 'get_transient' )->andReturn( false );
+		\WP_Mock::userFunction( 'wp_remote_get' )
+			->with(
+				'https://api.github.com/repos/10up/plugin/releases/latest',
+				\WP_Mock\Functions::type( 'array' )
+			)
+			->andReturn( $this->mock_response( 200, $body ) );
+		\WP_Mock::userFunction( 'is_wp_error' )->andReturn( false );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_response_code' )->andReturn( 200 );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_body' )->andReturn( $body );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_header' )->andReturn( '100' );
+		\WP_Mock::userFunction( 'set_transient' )->andReturn( true );
+
+		$client = new API_Client( $this->settings_mock() );
+		$result = $client->fetch_latest_eligible_release( '10up/plugin', false, '  ,  ' );
+
+		$this->assertInstanceOf( Release::class, $result );
+		$this->assertSame( 'v1.2.3', $result->tag );
+	}
 }

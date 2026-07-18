@@ -43,6 +43,7 @@ You can also generate a post on demand at any time from the Repositories tab.
 * Idempotency — the same release never creates duplicate posts
 * Optional project link support — enter a URL or WordPress.org slug for download CTAs
 * Optional pre-release tracking per repository — track stable releases by default, or opt in to include betas, release candidates, and other pre-release versions
+* Monorepo support — per-repository tag patterns limit posts to selected packages (e.g. `@headstartwp/core@*, @headstartwp/next@*`) when one repository releases many packages
 
 **For developers:**
 
@@ -157,6 +158,12 @@ Both source and build outputs ship with the plugin, so the source is available l
 **Bundled npm packages used at build time** (development only — not shipped at runtime): `@10up/scripts` (which itself bundles Webpack, ESLint, Babel, and the build-time-only `wp-prettier` and `eslint-plugin-jsdoc` overrides). All declared in `package.json` and `package-lock.json`. None of these end up in the distributed plugin.
 
 == Changelog ==
+
+= 1.2.0 =
+
+**New: monorepo support (tag patterns)**
+
+* Each repository can now limit posts to a subset of its releases with the new "Tag patterns" setting — a comma-separated list of wildcard patterns matched against release tags (e.g. `@headstartwp/core@*, @headstartwp/next@*`). Ideal for monorepos that cut releases for many packages: only matching releases become posts, in the scheduled monitor, the version picker, and manual generation alike. Matching is case-sensitive; leave blank for all releases (existing repositories are unaffected).
 
 = 1.1.2 =
 

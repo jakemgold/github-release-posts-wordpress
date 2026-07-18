@@ -668,6 +668,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 			display_name: dataRow.dataset.displayName || '',
 			plugin_link: dataRow.dataset.pluginLink || '',
 			tags: dataRow.dataset.tags || '',
+			tag_patterns: dataRow.dataset.tagPatterns || '',
 		};
 
 		Object.keys( fields ).forEach( function ( key ) {
