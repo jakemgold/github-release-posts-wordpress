@@ -115,4 +115,61 @@ class Tag_Pattern_MatcherTest extends TestCase {
 		$this->assertFalse( Tag_Pattern_Matcher::has_patterns( ' , ' ) );
 		$this->assertTrue( Tag_Pattern_Matcher::has_patterns( 'v*' ) );
 	}
+
+	/**
+	 * derive_package() recognizes the npm/changesets tag style, scoped and not.
+	 */
+	public function test_derive_package_npm_style(): void {
+		$this->assertSame(
+			[
+				'package' => '@headstartwp/core',
+				'pattern' => '@headstartwp/core@*',
+			],
+			Tag_Pattern_Matcher::derive_package( '@headstartwp/core@1.6.1' )
+		);
+		$this->assertSame(
+			[
+				'package' => 'mypackage',
+				'pattern' => 'mypackage@*',
+			],
+			Tag_Pattern_Matcher::derive_package( 'mypackage@2.0.0-beta.1' )
+		);
+	}
+
+	/**
+	 * derive_package() recognizes dash-separated tag styles, and its bracket
+	 * patterns keep sibling packages with a shared name prefix apart.
+	 */
+	public function test_derive_package_dash_styles(): void {
+		$this->assertSame(
+			[
+				'package' => 'admin',
+				'pattern' => 'admin-v[0-9]*',
+			],
+			Tag_Pattern_Matcher::derive_package( 'admin-v2.1.0' )
+		);
+		$this->assertSame(
+			[
+				'package' => 'admin-utils',
+				'pattern' => 'admin-utils-[0-9]*',
+			],
+			Tag_Pattern_Matcher::derive_package( 'admin-utils-1.0.0' )
+		);
+
+		// The compiled patterns must match their own tags but not the sibling's.
+		$this->assertTrue( Tag_Pattern_Matcher::matches( 'admin-v2.1.0', 'admin-v[0-9]*' ) );
+		$this->assertFalse( Tag_Pattern_Matcher::matches( 'admin-utils-1.0.0', 'admin-[0-9]*' ) );
+		$this->assertTrue( Tag_Pattern_Matcher::matches( 'admin-utils-1.0.0', 'admin-utils-[0-9]*' ) );
+	}
+
+	/**
+	 * derive_package() returns null for single-package or unclassifiable tags.
+	 */
+	public function test_derive_package_returns_null_for_single_package_tags(): void {
+		$this->assertNull( Tag_Pattern_Matcher::derive_package( 'v1.2.3' ) );
+		$this->assertNull( Tag_Pattern_Matcher::derive_package( '1.2.3' ) );
+		$this->assertNull( Tag_Pattern_Matcher::derive_package( 'release' ) );
+		// Hyphen + bare number is a name, not a version (needs a dot).
+		$this->assertNull( Tag_Pattern_Matcher::derive_package( 'html5-2' ) );
+	}
 }

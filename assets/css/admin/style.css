@@ -368,3 +368,23 @@
 	font-size: 18px;
 	line-height: 1;
 }
+
+/* Quick Edit: monorepo package picker. */
+.ghrp-packages-picker .ghrp-packages-list {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	margin: 6px 0;
+}
+
+.ghrp-package-option {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.ghrp-package-meta {
+	margin-left: auto;
+	color: #646970;
+	font-size: 12px;
+}

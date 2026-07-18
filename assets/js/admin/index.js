@@ -752,6 +752,10 @@ document.addEventListener( 'DOMContentLoaded', function () {
 			wirePluginLinkValidation( pluginLinkInput );
 		}
 
+		// Swap the manual tag-patterns field for the package picker when the
+		// repo turns out to be a monorepo.
+		wirePackagePicker( editRow, dataRow );
+
 		// Insert a hidden spacer + the edit row after the data row.
 		// WP Quick Edit does the same: dataRow, spacer, editRow — so
 		// the edit row lands at the same nth-child parity as the data row.
@@ -951,6 +955,128 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	 */
 	function looksLikeUrl( value ) {
 		return /^https?:\/\//i.test( value ) || /[^/\s]+\.[^/\s]+/.test( value );
+	}
+
+	/**
+	 * Splits a comma-separated tag-pattern string into trimmed entries.
+	 *
+	 * @param {string} value Raw field value.
+	 * @returns {Array} Non-empty patterns.
+	 */
+	function parseTagPatterns( value ) {
+		return ( value || '' )
+			.split( ',' )
+			.map( function ( p ) {
+				return p.trim();
+			} )
+			.filter( Boolean );
+	}
+
+	/**
+	 * Replaces the manual tag-patterns field with a package checkbox picker
+	 * when the repository is detected as a monorepo (2+ packages derived from
+	 * its release tags). Checkboxes compile back into the same pattern field,
+	 * which remains the single submitted source of truth; the manual field
+	 * stays reachable via the "Edit tag patterns manually" link and is the
+	 * automatic fallback for single-package repos or API failures.
+	 *
+	 * @param {Element} editRow Cloned quick-edit row.
+	 * @param {Element} dataRow Data row being edited.
+	 */
+	function wirePackagePicker( editRow, dataRow ) {
+		const picker = editRow.querySelector( '.ghrp-packages-picker' );
+		const manual = editRow.querySelector( '.ghrp-tag-patterns-manual' );
+		const input = editRow.querySelector( '[data-field="tag_patterns"]' );
+		const list = picker ? picker.querySelector( '.ghrp-packages-list' ) : null;
+		if ( ! picker || ! manual || ! input || ! list ) {
+			return;
+		}
+
+		const link = picker.querySelector( '.ghrp-edit-patterns-manually' );
+		if ( link ) {
+			link.addEventListener( 'click', function ( e ) {
+				e.preventDefault();
+				manual.hidden = false;
+			} );
+		}
+
+		window.ghrpFetch(
+			'GET',
+			'/repos/packages',
+			{ repo: dataRow.dataset.repo || '' },
+			function ( response ) {
+				if (
+					! response ||
+					! response.multi_package ||
+					! Array.isArray( response.packages )
+				) {
+					return; // Single-package repo: the manual field stays as-is.
+				}
+
+				const known = response.packages.map( function ( pkg ) {
+					return pkg.pattern;
+				} );
+				const current = parseTagPatterns( input.value );
+
+				const recompile = function () {
+					const custom = parseTagPatterns( input.value ).filter( function ( p ) {
+						return known.indexOf( p ) === -1;
+					} );
+					const checkedBoxes = Array.from( list.querySelectorAll( 'input:checked' ) );
+					// Every package checked with no custom leftovers means "no
+					// filter" — store the empty string so behavior (including
+					// future packages) matches a repo that never set patterns.
+					if ( checkedBoxes.length === known.length && custom.length === 0 ) {
+						input.value = '';
+						return;
+					}
+					input.value = custom
+						.concat(
+							checkedBoxes.map( function ( box ) {
+								return box.value;
+							} ),
+						)
+						.join( ', ' );
+				};
+
+				list.textContent = '';
+				response.packages.forEach( function ( pkg ) {
+					const label = document.createElement( 'label' );
+					label.className = 'ghrp-package-option';
+
+					const box = document.createElement( 'input' );
+					box.type = 'checkbox';
+					box.value = pkg.pattern;
+					// Empty patterns = every release publishes, so every box
+					// starts checked; otherwise reflect the stored patterns.
+					box.checked = current.length === 0 || current.indexOf( pkg.pattern ) !== -1;
+					box.addEventListener( 'change', recompile );
+
+					const name = document.createElement( 'code' );
+					name.textContent = pkg.package;
+
+					const meta = document.createElement( 'span' );
+					meta.className = 'ghrp-package-meta';
+					const template =
+						( ghrpAdmin.i18n && ghrpAdmin.i18n.packageMeta ) ||
+						'%1$s releases · latest %2$s';
+					meta.textContent = template
+						.replace( '%1$s', pkg.count )
+						.replace( '%2$s', pkg.latest_tag );
+
+					label.appendChild( box );
+					label.appendChild( name );
+					label.appendChild( meta );
+					list.appendChild( label );
+				} );
+
+				picker.hidden = false;
+				manual.hidden = true;
+			},
+			function () {
+				// API failure: the manual field stays — never block editing.
+			},
+		);
 	}
 
 	function wirePluginLinkValidation( input ) {

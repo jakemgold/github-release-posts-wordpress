@@ -163,7 +163,7 @@ Both source and build outputs ship with the plugin, so the source is available l
 
 **New: monorepo support (tag patterns)**
 
-* Each repository can now limit posts to a subset of its releases with the new "Tag patterns" setting — a comma-separated list of wildcard patterns matched against release tags (e.g. `@headstartwp/core@*, @headstartwp/next@*`). Ideal for monorepos that cut releases for many packages: only matching releases become posts, in the scheduled monitor, the version picker, and manual generation alike. Matching is case-sensitive; leave blank for all releases (existing repositories are unaffected).
+* When a repository releases multiple packages (a monorepo), the Edit row now shows a Packages list — check the packages that should get posts and the rest are skipped, in the scheduled monitor, the version picker, and manual generation alike. Selections are stored as tag patterns (a comma-separated list of wildcard patterns matched against release tags, e.g. `@headstartwp/core@*, @headstartwp/next@*`), editable directly via "Edit tag patterns manually" for uncommon tagging schemes. Matching is case-sensitive; existing repositories are unaffected until packages are chosen. Full details in the Help tab.
 
 = 1.1.2 =
 

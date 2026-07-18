@@ -19,6 +19,7 @@ use GitHubReleasePosts\GitHub\Onboarding_Handler;
 use GitHubReleasePosts\GitHub\Release_Monitor;
 use GitHubReleasePosts\GitHub\Release_Queue;
 use GitHubReleasePosts\GitHub\Release_State;
+use GitHubReleasePosts\GitHub\Tag_Pattern_Matcher;
 use GitHubReleasePosts\Notification\Email_Notifier;
 use GitHubReleasePosts\Notification\Notification_Entry;
 use GitHubReleasePosts\Plugin_Constants;
@@ -186,8 +187,24 @@ class Admin_Page {
 					. '<li><strong>' . esc_html__( 'Featured Image', 'auto-release-posts-for-github' ) . '</strong> — ' . esc_html__( 'A featured image used as a fallback when the release notes do not contain any images suitable for promotion.', 'auto-release-posts-for-github' ) . '</li>'
 					. '<li><strong>' . esc_html__( 'Paused', 'auto-release-posts-for-github' ) . '</strong> — ' . esc_html__( 'Temporarily skip this repository during scheduled checks. The repo and its history are preserved; uncheck to resume monitoring.', 'auto-release-posts-for-github' ) . '</li>'
 					. '<li><strong>' . esc_html__( 'Include pre-releases', 'auto-release-posts-for-github' ) . '</strong> — ' . esc_html__( 'Generate posts for releases marked as pre-release on GitHub (betas, release candidates, etc.). Off by default; most sites only highlight stable releases.', 'auto-release-posts-for-github' ) . '</li>'
+					. '<li><strong>' . esc_html__( 'Packages / Tag patterns', 'auto-release-posts-for-github' ) . '</strong> — ' . esc_html__( 'For repositories that release multiple packages (monorepos), choose which packages get posts. See the Monorepos section below.', 'auto-release-posts-for-github' ) . '</li>'
 					. '</ul>'
 					. '<p>' . esc_html__( 'Use the Edit row action to change any of these inline, then click Save Repositories at the bottom of the page.', 'auto-release-posts-for-github' ) . '</p>'
+					. '<h4>' . esc_html__( 'Monorepos: Choosing Packages', 'auto-release-posts-for-github' ) . '</h4>'
+					. '<p>' . esc_html__( 'Some repositories release many packages from one codebase — for example, tags like "@myproject/core@1.6.1" alongside "@myproject/utilities@2.0.0". Without any configuration, the plugin considers every release post-worthy, which can fill your feed with minor utility packages.', 'auto-release-posts-for-github' ) . '</p>'
+					. '<p>' . esc_html__( 'When the plugin detects that a repository releases two or more packages, the Edit row shows a Packages list: check the packages that should get posts and leave the rest unchecked. Checking every package (or none of the boxes ever having been changed) means all releases are eligible.', 'auto-release-posts-for-github' ) . '</p>'
+					. '<p>' . esc_html__( 'Behind the checkboxes, the selection is stored as tag patterns — a comma-separated list of wildcard patterns matched against release tag names. Click "Edit tag patterns manually" to work with them directly, which is useful for tagging schemes the plugin does not recognize automatically.', 'auto-release-posts-for-github' ) . '</p>'
+					. '<ul>'
+					. '<li>' . esc_html__( 'A release is eligible when its tag matches ANY listed pattern. The wildcard * matches any characters; ? matches a single character; [0-9] matches a digit.', 'auto-release-posts-for-github' ) . '</li>'
+					. '<li>' . sprintf(
+						/* translators: %s: example pattern list wrapped in <code> tags */
+						esc_html__( 'Example: %s limits posts to core and next releases.', 'auto-release-posts-for-github' ),
+						'<code>@myproject/core@*, @myproject/next@*</code>'
+					) . '</li>'
+					. '<li>' . esc_html__( 'Matching is case-sensitive, since git tags are. Curly-brace lists like {core,next} are NOT supported — use one comma-separated pattern per package instead.', 'auto-release-posts-for-github' ) . '</li>'
+					. '<li>' . esc_html__( 'Patterns combine with the other eligibility rules: drafts never get posts, and pre-releases only do when Include pre-releases is on.', 'auto-release-posts-for-github' ) . '</li>'
+					. '<li>' . esc_html__( 'Leaving the field blank makes every release eligible — existing repositories are unaffected until you choose packages or add patterns.', 'auto-release-posts-for-github' ) . '</li>'
+					. '</ul>'
 					. '<h4>' . esc_html__( 'Generate Post', 'auto-release-posts-for-github' ) . '</h4>'
 					. '<p>' . esc_html__( 'Creates a post from a GitHub release immediately, bypassing the cron schedule. If the repository has multiple releases, a picker lets you choose any historical version — useful for backfilling an archive of past releases.', 'auto-release-posts-for-github' ) . '</p>'
 					. '<p>' . esc_html__( 'Posts generated for older releases are automatically backdated to one hour after the release\'s GitHub publication time, so they slot into the archive in the correct chronological order. You can adjust the date in the editor before publishing.', 'auto-release-posts-for-github' ) . '</p>'
@@ -353,6 +370,8 @@ class Admin_Page {
 					'notImplemented'        => __( 'This feature is not yet available.', 'auto-release-posts-for-github' ),
 					'edit'                  => __( 'Edit', 'auto-release-posts-for-github' ),
 					'editLabel'             => __( 'Edit:', 'auto-release-posts-for-github' ),
+					/* translators: 1: release count, 2: latest tag name */
+					'packageMeta'           => __( '%1$s releases · latest %2$s', 'auto-release-posts-for-github' ),
 					'done'                  => __( 'Done', 'auto-release-posts-for-github' ),
 					'generateDraft'         => __( 'Generate draft post', 'auto-release-posts-for-github' ),
 					'generatePost'          => __( 'Generate post', 'auto-release-posts-for-github' ),
@@ -450,6 +469,23 @@ class Admin_Page {
 			[
 				'methods'             => \WP_REST_Server::READABLE,
 				'callback'            => [ $this, 'rest_list_releases' ],
+				'permission_callback' => [ $this, 'rest_permission_check' ],
+				'args'                => [
+					'repo' => [
+						'required'          => true,
+						'type'              => 'string',
+						'sanitize_callback' => 'sanitize_text_field',
+					],
+				],
+			]
+		);
+
+		register_rest_route(
+			'ghrp/v1',
+			'/repos/packages',
+			[
+				'methods'             => \WP_REST_Server::READABLE,
+				'callback'            => [ $this, 'rest_list_packages' ],
 				'permission_callback' => [ $this, 'rest_permission_check' ],
 				'args'                => [
 					'repo' => [
@@ -865,6 +901,56 @@ class Admin_Page {
 			[
 				'releases'   => $payload,
 				'latest_tag' => $latest_tag,
+			],
+			200
+		);
+	}
+
+	/**
+	 * REST handler: lists the packages a repository releases, derived from its
+	 * release tags, with a compiled tag pattern for each.
+	 *
+	 * Backs the Quick Edit package picker for monorepos. Intentionally reads
+	 * the UNFILTERED release list (prereleases included, patterns ignored) —
+	 * the picker must show packages the current filter excludes so they can be
+	 * re-enabled.
+	 *
+	 * @param \WP_REST_Request $request REST request containing the repo identifier.
+	 * @return \WP_REST_Response|\WP_Error
+	 */
+	public function rest_list_packages( \WP_REST_Request $request ): \WP_REST_Response|\WP_Error {
+		$identifier = (string) $request->get_param( 'repo' );
+		$api_client = new API_Client( $this->global_settings );
+
+		$releases = $api_client->fetch_releases( $identifier, true, '' );
+		if ( is_wp_error( $releases ) ) {
+			return new \WP_Error( $releases->get_error_code(), $releases->get_error_message(), [ 'status' => 400 ] );
+		}
+
+		$packages = [];
+		foreach ( $releases as $release ) {
+			$derived = Tag_Pattern_Matcher::derive_package( $release->tag );
+			if ( null === $derived ) {
+				continue;
+			}
+			$key = $derived['package'];
+			if ( ! isset( $packages[ $key ] ) ) {
+				// Releases arrive newest-first, so the first tag seen for a
+				// package is its latest.
+				$packages[ $key ] = [
+					'package'    => $key,
+					'pattern'    => $derived['pattern'],
+					'count'      => 0,
+					'latest_tag' => $release->tag,
+				];
+			}
+			++$packages[ $key ]['count'];
+		}
+
+		return new \WP_REST_Response(
+			[
+				'multi_package' => count( $packages ) >= 2,
+				'packages'      => array_values( $packages ),
 			],
 			200
 		);

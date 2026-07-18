@@ -52,6 +52,53 @@ final class Tag_Pattern_Matcher {
 	}
 
 	/**
+	 * Derives a package name and matching pattern from a monorepo-style tag.
+	 *
+	 * Recognized tag shapes (in priority order):
+	 *   - `pkg@1.2.3` / `@scope/pkg@1.2.3`  → pattern `pkg@*` (npm/changesets)
+	 *   - `pkg-v1.2.3`                       → pattern `pkg-v[0-9]*`
+	 *   - `pkg-1.2.3`                        → pattern `pkg-[0-9]*`
+	 *
+	 * The dash-style patterns use a `[0-9]` bracket class (fnmatch supports
+	 * them) so `admin-*` can't swallow a sibling `admin-utils` package.
+	 * Returns null for single-package tags (`v1.2.3`, `1.2.3`) or shapes we
+	 * can't classify — callers treat those repos as single-package.
+	 *
+	 * @param string $tag Release tag name.
+	 * @return array{package: string, pattern: string}|null
+	 */
+	public static function derive_package( string $tag ): ?array {
+		$tag = trim( $tag );
+
+		// npm / changesets style: name@version, optionally @scope/name@version.
+		if ( preg_match( '/^(?<pkg>@?[^@\s]+)@(?<ver>[0-9][^@\s]*)$/', $tag, $m ) ) {
+			return [
+				'package' => $m['pkg'],
+				'pattern' => $m['pkg'] . '@*',
+			];
+		}
+
+		// name-v1.2.3 style.
+		if ( preg_match( '/^(?<pkg>[^\s]+)-v[0-9][\w.\-]*$/', $tag, $m ) ) {
+			return [
+				'package' => $m['pkg'],
+				'pattern' => $m['pkg'] . '-v[0-9]*',
+			];
+		}
+
+		// name-1.2.3 style (version needs at least one dot to avoid matching
+		// hyphenated names that merely end in a number, e.g. "html5-2").
+		if ( preg_match( '/^(?<pkg>[^\s]+?)-(?<ver>[0-9]+(?:\.[0-9]+)+[\w.\-]*)$/', $tag, $m ) ) {
+			return [
+				'package' => $m['pkg'],
+				'pattern' => $m['pkg'] . '-[0-9]*',
+			];
+		}
+
+		return null;
+	}
+
+	/**
 	 * Whether a release tag is eligible under the given pattern string.
 	 *
 	 * An empty/blank pattern string matches every tag — the feature is opt-in
