@@ -47,6 +47,10 @@ class Onboarding_Handler {
 	 * Possible outcomes:
 	 *  - Latest release fetched, no existing post → auto-trigger generation
 	 *    on the client; no admin notice (the inline spinner speaks for itself).
+	 *    EXCEPT for monorepos (2+ packages detected): auto-generation is
+	 *    suppressed so the admin can choose packages first — otherwise the
+	 *    repo-wide latest release (possibly a utility package the site never
+	 *    wants) would be drafted while the nudge notice tells them to choose.
 	 *  - Latest release fetched, post already exists → no auto-trigger;
 	 *    show an info notice linking to the existing post.
 	 *  - No releases yet → no auto-trigger; show a success notice explaining
@@ -151,6 +155,22 @@ class Onboarding_Handler {
 			];
 		}
 
+		// Monorepo: do NOT auto-generate. The repo-wide latest release may
+		// belong to a package the site never wants posts for — drafting it
+		// while the nudge says "choose packages" would be contradictory.
+		// The daily cron still generates later with whatever patterns are
+		// set by then; this suppression buys the admin the window to choose.
+		if ( '' !== $package_note ) {
+			return [
+				'auto_trigger' => false,
+				'notice'       => [
+					'type'    => 'info',
+					'message' => $package_note . ' ' . __( 'Automatic generation was skipped so you can choose first.', 'auto-release-posts-for-github' ),
+					'url'     => '',
+				],
+			];
+		}
+
 		// Happy path: client will trigger generation via the inline UI.
 		// Deliberately do NOT pre-record last_seen here — if the client-side
 		// auto-generate fails (browser close, JS error, AI provider down)
@@ -162,11 +182,7 @@ class Onboarding_Handler {
 		// during AI generation.
 		return [
 			'auto_trigger' => true,
-			'notice'       => '' === $package_note ? null : [
-				'type'    => 'info',
-				'message' => $package_note,
-				'url'     => '',
-			],
+			'notice'       => null,
 		];
 	}
 }

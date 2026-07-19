@@ -213,7 +213,7 @@ class Admin_Page {
 					. '<p>' . esc_html__( 'Behind the checkboxes, the selection is stored as tag patterns — a comma-separated list of wildcard patterns matched against release tag names.', 'auto-release-posts-for-github' ) . '</p>'
 					. '<p>' . sprintf(
 						/* translators: %s: filter name wrapped in <code> tags */
-						esc_html__( 'For tagging schemes the plugin does not recognize automatically, or for dynamic rules, developers can supply patterns in code via the %s filter. It receives the stored pattern string, the repository identifier, and the full repository configuration; return a comma-separated list of patterns, or an empty string for no filtering.', 'auto-release-posts-for-github' ),
+						esc_html__( 'For tagging schemes the plugin does not recognize automatically, or for dynamic rules, developers can supply patterns in code via the %s filter. It receives the stored pattern string, the repository identifier, and the full repository configuration; return a comma-separated list of patterns, or an empty string for no filtering. Note that the Packages picker reflects the stored selection only — patterns supplied by the filter apply at generation time and are not shown in the picker.', 'auto-release-posts-for-github' ),
 						'<code>ghrp_repo_tag_patterns</code>'
 					) . '</p>'
 					. '<ul>'
