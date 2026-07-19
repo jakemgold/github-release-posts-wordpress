@@ -27,7 +27,7 @@ class Release_State {
 	 * Returns the state array for a repository, with defaults for any missing keys.
 	 *
 	 * @param string $identifier Normalised `owner/repo` identifier.
-	 * @return array{last_seen_tag: string, last_seen_published_at: string, last_checked_at: int}
+	 * @return array{last_seen_tag: string, last_seen_published_at: string, last_checked_at: int, packages: array<string, array{last_seen_tag: string, last_seen_published_at: string}>}
 	 */
 	public function get_state( string $identifier ): array {
 		$stored = get_option( $this->option_key( $identifier ), [] );
@@ -40,7 +40,40 @@ class Release_State {
 			'last_seen_tag'          => (string) ( $stored['last_seen_tag'] ?? '' ),
 			'last_seen_published_at' => (string) ( $stored['last_seen_published_at'] ?? '' ),
 			'last_checked_at'        => (int) ( $stored['last_checked_at'] ?? 0 ),
+			// Per-package cursors, keyed by package name — only populated for
+			// repos with tag patterns, where one repo-wide cursor would drop
+			// sibling releases published between checks.
+			'packages'               => (array) ( $stored['packages'] ?? [] ),
 		];
+	}
+
+	/**
+	 * Records the last-seen release for one package stream of a monorepo.
+	 *
+	 * Mirrors update_last_seen(): only called by the cron pipeline after a
+	 * post was actually created, so a failed generation never advances the
+	 * cursor past an unprocessed release.
+	 *
+	 * @param string $identifier   Normalised `owner/repo` identifier.
+	 * @param string $package      Package name (from Tag_Pattern_Matcher::derive_package()).
+	 * @param string $tag          Release tag string.
+	 * @param string $published_at ISO 8601 publication timestamp.
+	 * @return void
+	 */
+	public function update_package_seen( string $identifier, string $package, string $tag, string $published_at ): void {
+		$stored = get_option( $this->option_key( $identifier ), [] );
+		if ( ! is_array( $stored ) ) {
+			$stored = [];
+		}
+
+		$packages             = (array) ( $stored['packages'] ?? [] );
+		$packages[ $package ] = [
+			'last_seen_tag'          => $tag,
+			'last_seen_published_at' => $published_at,
+		];
+		$stored['packages']   = $packages;
+
+		update_option( $this->option_key( $identifier ), $stored, false );
 	}
 
 	/**

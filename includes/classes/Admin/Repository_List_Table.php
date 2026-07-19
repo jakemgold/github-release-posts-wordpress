@@ -264,7 +264,10 @@ class Repository_List_Table extends \WP_List_Table {
 
 		$data = $this->last_posts[ $identifier ];
 		// Package tags ("@headstartwp/core@1.6.1") render as "core 1.6.1".
-		$tag_label = Tag_Pattern_Matcher::display_label( (string) $data['tag'] );
+		$tag_label = Tag_Pattern_Matcher::display_label(
+			(string) $data['tag'],
+			Tag_Pattern_Matcher::has_patterns( (string) ( $item['tag_patterns'] ?? '' ) )
+		);
 		$label     = $data['tag'] ? $tag_label . ' ' . __( 'on', 'auto-release-posts-for-github' ) . ' ' . $data['date'] : $data['date'];
 
 		// Show post status for non-published posts. Pulled from WP's status

@@ -102,16 +102,43 @@ final class Tag_Pattern_Matcher {
 	}
 
 	/**
+	 * Derives a package for DISPLAY purposes (titles, slugs, labels).
+	 *
+	 * Tags in the npm style (`name@version`, `@scope/name@version`) are unambiguous
+	 * package syntax and always qualify. Dash-style tags (`name-v1.2.3`,
+	 * `name-1.2.3`) are also common single-package conventions, so they only
+	 * qualify when the repository actually has tag patterns configured —
+	 * otherwise a plain repo tagging `my-plugin-v1.2.3` would suddenly render
+	 * as "My Plugin my-plugin 1.2.3" after upgrading (peer review P2).
+	 * Eligibility matching is unaffected; this gate is display-only.
+	 *
+	 * @param string $tag                Release tag name.
+	 * @param bool   $include_dash_styles Allow dash-style tags to qualify.
+	 * @return array{package: string, pattern: string, version: string}|null
+	 */
+	public static function derive_display_package( string $tag, bool $include_dash_styles = false ): ?array {
+		$parsed = self::derive_package( $tag );
+		if ( null === $parsed ) {
+			return null;
+		}
+		if ( str_ends_with( $parsed['pattern'], '@*' ) || $include_dash_styles ) {
+			return $parsed;
+		}
+		return null;
+	}
+
+	/**
 	 * Human-readable label for a release tag: package tags render as
 	 * "core 1.6.1" (short name + full version — no headline-style .0 trim,
 	 * this is for data displays like the Last Post column); anything else
 	 * is returned verbatim.
 	 *
-	 * @param string $tag Release tag name.
+	 * @param string $tag                 Release tag name.
+	 * @param bool   $include_dash_styles Allow dash-style tags to qualify.
 	 * @return string
 	 */
-	public static function display_label( string $tag ): string {
-		$parsed = self::derive_package( $tag );
+	public static function display_label( string $tag, bool $include_dash_styles = false ): string {
+		$parsed = self::derive_display_package( $tag, $include_dash_styles );
 		if ( null === $parsed ) {
 			return $tag;
 		}

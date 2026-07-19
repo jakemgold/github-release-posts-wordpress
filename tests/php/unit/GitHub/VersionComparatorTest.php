@@ -234,4 +234,54 @@ class VersionComparatorTest extends TestCase {
 			[ '' ],
 		];
 	}
+
+	/**
+	 * Package tags normalize to their embedded versions, so a later-dated
+	 * backport within the same package stream does not beat a higher version
+	 * (peer review P2 — previously fell through to date comparison).
+	 */
+	public function test_package_tag_backport_is_not_newer(): void {
+		$comparator = new Version_Comparator();
+
+		$backport = new Release(
+			tag:          '@acme/core@1.9.6',
+			name:         '@acme/core@1.9.6',
+			body:         '',
+			html_url:     'https://github.com/acme/mono/releases/tag/x',
+			published_at: '2026-07-10T00:00:00Z',
+			assets:       [],
+		);
+
+		$state = [
+			'last_seen_tag'          => '@acme/core@2.0.0',
+			'last_seen_published_at' => '2026-06-01T00:00:00Z',
+			'last_checked_at'        => 0,
+		];
+
+		$this->assertFalse( $comparator->is_newer( $backport, $state ) );
+	}
+
+	/**
+	 * A genuinely newer package version is recognized as newer.
+	 */
+	public function test_package_tag_higher_version_is_newer(): void {
+		$comparator = new Version_Comparator();
+
+		$release = new Release(
+			tag:          '@acme/core@2.1.0',
+			name:         '@acme/core@2.1.0',
+			body:         '',
+			html_url:     'https://github.com/acme/mono/releases/tag/x',
+			published_at: '2026-07-10T00:00:00Z',
+			assets:       [],
+		);
+
+		$state = [
+			'last_seen_tag'          => '@acme/core@2.0.0',
+			'last_seen_published_at' => '2026-06-01T00:00:00Z',
+			'last_checked_at'        => 0,
+		];
+
+		$this->assertTrue( $comparator->is_newer( $release, $state ) );
+	}
 }

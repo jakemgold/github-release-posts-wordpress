@@ -241,8 +241,12 @@ class Tag_Pattern_MatcherTest extends TestCase {
 	 * plain tags verbatim (including the full version — no headline .0 trim).
 	 */
 	public function test_display_label(): void {
+		// npm-style tags always display as packages (unambiguous syntax).
 		$this->assertSame( 'core 1.6.1', Tag_Pattern_Matcher::display_label( '@headstartwp/core@1.6.1' ) );
-		$this->assertSame( 'admin 2.1.0', Tag_Pattern_Matcher::display_label( 'admin-v2.1.0' ) );
+		// Dash-style tags are common single-package conventions: verbatim by
+		// default, package-formatted only when the repo has patterns.
+		$this->assertSame( 'admin-v2.1.0', Tag_Pattern_Matcher::display_label( 'admin-v2.1.0' ) );
+		$this->assertSame( 'admin 2.1.0', Tag_Pattern_Matcher::display_label( 'admin-v2.1.0', true ) );
 		$this->assertSame( 'v7.6.1', Tag_Pattern_Matcher::display_label( 'v7.6.1' ) );
 		$this->assertSame( '1.2.3', Tag_Pattern_Matcher::display_label( '1.2.3' ) );
 	}

@@ -44,11 +44,21 @@ class Version_Comparator {
 			return false;
 		}
 
+		// Package tags ("@acme/core@1.9.6") never parse as semver directly, so
+		// they used to fall through to date comparison — letting a later-dated
+		// backport beat a higher version, the exact case the semver branch
+		// exists to prevent. Normalize to the embedded version first. Callers
+		// are responsible for only comparing within one package stream (the
+		// monitor groups by package); cross-package comparisons are inherently
+		// arbitrary whichever field is used.
+		$candidate_tag = $this->normalize_tag( $candidate->tag );
+		$last_tag_norm = $this->normalize_tag( $last_tag );
+
 		// Both semver — use version_compare (AC-006, BR-005).
-		if ( $this->is_semver( $candidate->tag ) && $this->is_semver( $last_tag ) ) {
+		if ( $this->is_semver( $candidate_tag ) && $this->is_semver( $last_tag_norm ) ) {
 			return version_compare(
-				$this->strip_v( $candidate->tag ),
-				$this->strip_v( $last_tag ),
+				$this->strip_v( $candidate_tag ),
+				$this->strip_v( $last_tag_norm ),
 				'>'
 			);
 		}
@@ -64,6 +74,27 @@ class Version_Comparator {
 		}
 
 		return $candidate_date > $last_date;
+	}
+
+	/**
+	 * Returns true if a tag string looks like a semver version (with optional leading v).
+	 *
+	 * Accepts formats like: v1.2.3, 1.2.3, v1.2, 1.2.
+	 * Rejects pure date strings, hash-like tags, and arbitrary words.
+	 *
+	 * @param string $tag Release tag.
+	 * @return bool
+	 */
+	/**
+	 * Reduces a package tag to its embedded version for comparison; plain
+	 * tags pass through unchanged.
+	 *
+	 * @param string $tag Release tag.
+	 * @return string
+	 */
+	private function normalize_tag( string $tag ): string {
+		$parsed = Tag_Pattern_Matcher::derive_package( $tag );
+		return null === $parsed ? $tag : $parsed['version'];
 	}
 
 	/**

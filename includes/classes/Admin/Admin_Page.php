@@ -849,6 +849,13 @@ class Admin_Page {
 	private function build_post_response( \WP_Post $post ): array {
 		$tag = (string) get_post_meta( $post->ID, Plugin_Constants::META_RELEASE_TAG, true );
 
+		// Dash-style tags only display as packages when the source repo has
+		// patterns configured (see Tag_Pattern_Matcher::derive_display_package()).
+		$source_repo = (string) get_post_meta( $post->ID, Plugin_Constants::META_SOURCE_REPO, true );
+		$repo_config = $this->repo_settings->get_repository( $source_repo );
+		/** This filter is documented in includes/classes/GitHub/Release_Monitor.php */
+		$patterns = (string) apply_filters( 'ghrp_repo_tag_patterns', (string) ( $repo_config['tag_patterns'] ?? '' ), $source_repo, $repo_config );
+
 		return [
 			'id'        => $post->ID,
 			'title'     => $post->post_title,
@@ -857,7 +864,7 @@ class Admin_Page {
 			'tag'       => $tag,
 			// Display form ("core 1.6.1" for package tags) — keeps the JS
 			// Last Post cell update consistent with the PHP-rendered column.
-			'tag_label' => Tag_Pattern_Matcher::display_label( $tag ),
+			'tag_label' => Tag_Pattern_Matcher::display_label( $tag, Tag_Pattern_Matcher::has_patterns( $patterns ) ),
 			'date'      => get_the_date( 'Y/m/d', $post->ID ),
 		];
 	}
@@ -1441,12 +1448,16 @@ class Admin_Page {
 		// previously hardcoded the 'full' format, doubling project name + version
 		// for sites with 'none' selected).
 		$display_name = $this->repo_settings->get_display_name( $identifier );
-		$full_title   = Post_Creator::build_title(
+		$repo_config  = $this->repo_settings->get_repository( $identifier );
+		/** This filter is documented in includes/classes/GitHub/Release_Monitor.php */
+		$patterns   = (string) apply_filters( 'ghrp_repo_tag_patterns', (string) ( $repo_config['tag_patterns'] ?? '' ), $identifier, $repo_config );
+		$full_title = Post_Creator::build_title(
 			$display_name,
 			$data->tag,
 			$result->title,
 			$this->global_settings->get_title_format(),
-			$identifier
+			$identifier,
+			Tag_Pattern_Matcher::has_patterns( $patterns )
 		);
 
 		// Convert HTML to blocks and update the existing post (creates a revision).

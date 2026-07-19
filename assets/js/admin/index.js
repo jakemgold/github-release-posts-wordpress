@@ -1037,11 +1037,19 @@ document.addEventListener( 'DOMContentLoaded', function () {
 					const custom = parseTagPatterns( input.value ).filter( function ( p ) {
 						return known.indexOf( p ) === -1;
 					} );
+					const checkedBoxes = Array.from( list.querySelectorAll( 'input:checked' ) );
+					// Unchecking every package undoes the manual selection, so
+					// revert to the default — visibly, not just at save time.
+					if ( checkedBoxes.length === 0 && custom.length === 0 ) {
+						radios[ 0 ].checked = true;
+						radios[ 1 ].checked = false;
+						list.hidden = true;
+						input.value = '';
+						return;
+					}
 					input.value = custom
 						.concat(
-							Array.from( list.querySelectorAll( 'input:checked' ) ).map( function (
-								box,
-							) {
+							checkedBoxes.map( function ( box ) {
 								return box.value;
 							} ),
 						)

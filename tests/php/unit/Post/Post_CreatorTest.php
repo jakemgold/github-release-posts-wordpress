@@ -558,6 +558,43 @@ class Post_CreatorTest extends TestCase {
 		$this->assertSame( 'Next 1.5 — Simplified routing', $result );
 	}
 
+	/**
+	 * Back-compat (peer review P2): a single-package repo tagging
+	 * "my-plugin-v1.2.3" keeps its pre-1.2 title verbatim — dash-style tags
+	 * only render as packages when the repo has patterns configured.
+	 */
+	public function test_build_title_dash_tag_without_patterns_is_unchanged(): void {
+		\WP_Mock::userFunction( 'apply_filters' )->andReturnUsing( fn( $tag, $value ) => $value )->byDefault();
+
+		$result = Post_Creator::build_title(
+			'My Plugin',
+			'my-plugin-v1.2.3',
+			'A subtitle',
+			'full',
+			'acme/my-plugin'
+		);
+
+		$this->assertSame( 'My Plugin my-plugin-v1.2.3 — A subtitle', $result );
+	}
+
+	/**
+	 * With patterns configured, dash-style tags render as packages.
+	 */
+	public function test_build_title_dash_tag_with_patterns_renders_package(): void {
+		\WP_Mock::userFunction( 'apply_filters' )->andReturnUsing( fn( $tag, $value ) => $value )->byDefault();
+
+		$result = Post_Creator::build_title(
+			'Acme Suite',
+			'admin-v2.1.0',
+			'A subtitle',
+			'full',
+			'acme/suite',
+			true
+		);
+
+		$this->assertSame( 'Acme Suite admin 2.1 — A subtitle', $result );
+	}
+
 	public function test_build_title_version_format_uses_version_prefix(): void {
 		\WP_Mock::userFunction( 'apply_filters' )->andReturnUsing( fn( $tag, $value ) => $value )->byDefault();
 

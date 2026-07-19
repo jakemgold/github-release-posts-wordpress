@@ -119,7 +119,39 @@ class Release_Monitor {
 				 * @param array  $repo         Full repository configuration.
 				 */
 				$tag_patterns = (string) apply_filters( 'ghrp_repo_tag_patterns', (string) ( $repo['tag_patterns'] ?? '' ), $identifier, $repo );
-				$release      = $this->api_client->fetch_latest_eligible_release( $identifier, $include_prereleases, $tag_patterns );
+
+				// Monorepos with patterns are monitored per package stream: a
+				// single repo-wide cursor drops sibling releases published
+				// between checks (coordinated releases are the norm in
+				// monorepos), and cross-package version comparison is
+				// meaningless. One candidate per selected package, each with
+				// its own last-seen cursor.
+				if ( Tag_Pattern_Matcher::has_patterns( $tag_patterns ) ) {
+					$releases = $this->api_client->fetch_releases( $identifier, $include_prereleases, $tag_patterns );
+
+					if ( is_wp_error( $releases ) ) {
+						if ( 'github_rate_limit_exhausted' === $releases->get_error_code() ) {
+							$this->log( $identifier, 'rate limit exhausted — stopping run' );
+							break;
+						}
+						$this->log( $identifier, 'error: ' . $releases->get_error_message() );
+						Publish_Workflow::record_error( $identifier, '', $releases->get_error_message() );
+						$this->state->update_last_checked( $identifier );
+						continue;
+					}
+
+					if ( empty( $releases ) ) {
+						$this->log( $identifier, 'no releases match the configured tag patterns' );
+						$this->state->update_last_checked( $identifier );
+						continue;
+					}
+
+					$this->check_package_streams( $identifier, $releases );
+					$this->state->update_last_checked( $identifier );
+					continue;
+				}
+
+				$release = $this->api_client->fetch_latest_eligible_release( $identifier, $include_prereleases, $tag_patterns );
 
 				if ( is_wp_error( $release ) ) {
 					if ( 'github_rate_limit_exhausted' === $release->get_error_code() ) {
@@ -252,6 +284,13 @@ class Release_Monitor {
 
 			if ( $post instanceof \WP_Post ) {
 				$this->state->update_last_seen( $identifier, $tag, $entry['published_at'] ?? '' );
+				// Package streams keep their own cursor (see
+				// check_package_streams()); advance it here, after creation,
+				// for the same crash-resilience as the repo-wide cursor.
+				$parsed = Tag_Pattern_Matcher::derive_package( $tag );
+				if ( null !== $parsed ) {
+					$this->state->update_package_seen( $identifier, $parsed['package'], $tag, $entry['published_at'] ?? '' );
+				}
 				$this->log( $identifier, 'post created for tag ' . $tag . ' (ID ' . $post->ID . ')' );
 			} else {
 				$this->log( $identifier, 'action fired for tag ' . $tag . ' — no post created yet' );
@@ -260,6 +299,63 @@ class Release_Monitor {
 					$tag,
 					__( 'AI generation or post creation failed for this release.', 'auto-release-posts-for-github' )
 				);
+			}
+		}
+	}
+
+	/**
+	 * Checks each package stream of a patterned monorepo for a new release.
+	 *
+	 * Releases are grouped by package (unclassifiable tags share a default
+	 * stream). Within each group the newest release is chosen by version
+	 * (the comparator normalizes package tags to their embedded versions),
+	 * then compared against that package's own cursor. An empty cursor —
+	 * a newly selected package, or the first patterned run — enqueues the
+	 * package's newest release, mirroring how a newly added repository
+	 * generates its latest. Cursors advance in process_queue() only after
+	 * a post is actually created, so failures never skip releases.
+	 *
+	 * @param string    $identifier Repository identifier.
+	 * @param Release[] $releases   Pattern-matching releases, newest first.
+	 * @return void
+	 */
+	private function check_package_streams( string $identifier, array $releases ): void {
+		$groups = [];
+		foreach ( $releases as $release ) {
+			$parsed           = Tag_Pattern_Matcher::derive_package( $release->tag );
+			$key              = null === $parsed ? '' : $parsed['package'];
+			$groups[ $key ][] = $release;
+		}
+
+		$package_state = $this->state->get_state( $identifier )['packages'];
+
+		foreach ( $groups as $package => $group ) {
+			// Newest by version within the stream — same reduce the API
+			// client uses for its latest-eligible pick.
+			$candidate = $group[0];
+			foreach ( array_slice( $group, 1 ) as $other ) {
+				$synthetic = [
+					'last_seen_tag'          => $candidate->tag,
+					'last_seen_published_at' => $candidate->published_at,
+					'last_checked_at'        => 0,
+				];
+				if ( $this->comparator->is_newer( $other, $synthetic ) ) {
+					$candidate = $other;
+				}
+			}
+
+			$cursor = [
+				'last_seen_tag'          => (string) ( $package_state[ $package ]['last_seen_tag'] ?? '' ),
+				'last_seen_published_at' => (string) ( $package_state[ $package ]['last_seen_published_at'] ?? '' ),
+				'last_checked_at'        => 0,
+			];
+
+			$label = '' === $package ? 'default stream' : $package;
+			if ( $this->comparator->is_newer( $candidate, $cursor ) ) {
+				$this->queue->enqueue( $identifier, $candidate );
+				$this->log( $identifier, 'new release found (' . $label . '): ' . $candidate->tag );
+			} else {
+				$this->log( $identifier, 'no new release (' . $label . ', last seen: ' . $cursor['last_seen_tag'] . ')' );
 			}
 		}
 	}
