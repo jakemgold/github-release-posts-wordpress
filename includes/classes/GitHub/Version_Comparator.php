@@ -104,24 +104,6 @@ class Version_Comparator {
 	}
 
 	/**
-	 * Returns true if a tag string looks like a semver version (with optional leading v).
-	 *
-	 * Accepts formats like: v1.2.3, 1.2.3, v1.2, 1.2.
-	 * Rejects pure date strings, hash-like tags, and arbitrary words.
-	 *
-	 * @param string $tag Release tag.
-	 * @return bool
-	 */
-	/**
-	 * Returns true if a tag string looks like a semver version (with optional leading v).
-	 *
-	 * Accepts formats like: v1.2.3, 1.2.3, v1.2, 1.2.
-	 * Rejects pure date strings, hash-like tags, and arbitrary words.
-	 *
-	 * @param string $tag Release tag.
-	 * @return bool
-	 */
-	/**
 	 * Groups releases into package streams and selects each stream's winner.
 	 *
 	 * The single shared selection routine (peer review round 4): onboarding

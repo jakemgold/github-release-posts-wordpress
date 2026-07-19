@@ -27,7 +27,7 @@ class Release_State {
 	 * Returns the state array for a repository, with defaults for any missing keys.
 	 *
 	 * @param string $identifier Normalised `owner/repo` identifier.
-	 * @return array{last_seen_tag: string, last_seen_published_at: string, last_checked_at: int, packages: array<string, array{last_seen_tag: string, last_seen_published_at: string}>, streams_baseline_at: int, is_monorepo: bool, topology_checked_at: int}
+	 * @return array{last_seen_tag: string, last_seen_published_at: string, last_checked_at: int, packages: array<string, array{last_seen_tag: string, last_seen_published_at: string}>, streams_baseline_at: int, is_monorepo: bool, topology_checked_at: int, tracking_started_at: int}
 	 */
 	public function get_state( string $identifier ): array {
 		$stored = get_option( $this->option_key( $identifier ), [] );
@@ -54,12 +54,37 @@ class Release_State {
 			// list is observed — one latest tag is not enough to infer
 			// repository topology.
 			'is_monorepo'            => (bool) ( $stored['is_monorepo'] ?? false ),
+			// When this plugin began tracking the repo (0 = predates the
+			// marker, i.e. a legacy pre-1.2 repository). Stamped at add time
+			// regardless of API outcomes — it carries no cursor semantics, so
+			// a failed onboarding discovery can never make a NEW repo look
+			// like legacy history (peer review round 6): releases that appear
+			// after this moment are genuinely new and must generate.
+			'tracking_started_at'    => (int) ( $stored['tracking_started_at'] ?? 0 ),
 			// When topology was last determined from a full list (0 = never).
 			// A false is_monorepo is only trusted while fresh: repositories
 			// can BECOME monorepos (peer review round 4), so the monitor
 			// re-inspects the list when this goes stale.
 			'topology_checked_at'    => (int) ( $stored['topology_checked_at'] ?? 0 ),
 		];
+	}
+
+	/**
+	 * Stamps the moment this plugin began tracking a repository. Called
+	 * unconditionally at add time — unlike the stream baseline, it makes no
+	 * claim about cursors or observed lists.
+	 *
+	 * @param string $identifier Normalised `owner/repo` identifier.
+	 * @return void
+	 */
+	public function mark_tracking_started( string $identifier ): void {
+		$stored = get_option( $this->option_key( $identifier ), [] );
+		if ( ! is_array( $stored ) ) {
+			$stored = [];
+		}
+
+		$stored['tracking_started_at'] = time();
+		update_option( $this->option_key( $identifier ), $stored, false );
 	}
 
 	/**

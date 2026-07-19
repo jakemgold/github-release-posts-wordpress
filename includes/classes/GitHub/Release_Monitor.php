@@ -358,14 +358,16 @@ class Release_Monitor {
 		$state         = $this->state->get_state( $identifier );
 		$package_state = $state['packages'];
 
-		// One-time migration for repos that predate stream monitoring: the
-		// EXPLICIT baseline marker decides, not cursor-map emptiness — a repo
-		// added before its first release has a legitimately empty map (and
-		// its first release must generate, as onboarding promised), while
-		// plain-tag posts also write a default-stream cursor (round 3).
-		// Onboarding stamps the baseline for new repos; only repos tracked
-		// before this feature reach the seeding branch, exactly once.
-		$seed_only = 0 === $state['streams_baseline_at'];
+		// One-time migration seeding is ONLY for true legacy repositories —
+		// tracked before this feature existed. Two explicit markers decide
+		// (round 6): a repo with a stream baseline is already migrated, and a
+		// repo whose tracking began under this version (tracking_started_at)
+		// is never legacy even when discovery failed at add time — its
+		// current releases appeared after tracking began, so empty cursors
+		// mean "generate", not "historical". Without this, a transient
+		// onboarding failure made the repo permanently legacy-looking and a
+		// later second stream's first release was silently seeded away.
+		$seed_only = 0 === $state['streams_baseline_at'] && 0 === $state['tracking_started_at'];
 		$seeds     = [];
 
 		foreach ( $winners as $package => $candidate ) {

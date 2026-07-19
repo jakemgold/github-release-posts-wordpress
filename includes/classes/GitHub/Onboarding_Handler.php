@@ -65,6 +65,11 @@ class Onboarding_Handler {
 	 * }
 	 */
 	public function handle_add( string $identifier ): array {
+		// Tracking begins NOW — stamped before any API call so no failure
+		// sequence can make this new repository look like pre-feature legacy
+		// history to the monitor (round 6).
+		$this->state->mark_tracking_started( $identifier );
+
 		// Fetch the full release list once up front: it warms the package
 		// cache so the Quick Edit Packages picker renders instantly right
 		// after adding a monorepo (the moment it is most likely to be
@@ -76,6 +81,7 @@ class Onboarding_Handler {
 			'packages'      => [],
 		];
 		$multi_stream     = false;
+		$ui_choice        = false;
 		if ( is_array( $all_releases ) ) {
 			$packages_payload = Tag_Pattern_Matcher::build_packages_payload( $all_releases );
 			set_transient( Cache_Keys::repo_packages( $identifier ), $packages_payload, 15 * MINUTE_IN_SECONDS );
@@ -88,17 +94,32 @@ class Onboarding_Handler {
 			$comparator   = new Version_Comparator();
 			$multi_stream = $comparator->is_multi_stream( $all_releases );
 
-			// For stream-monitored repos — where client auto-generation is
-			// suppressed — seed every stream cursor the monitor will later
-			// evaluate, from the SAME winner selection (round 4): the picker
-			// payload omits the default stream and trusts GitHub's created_at
-			// order, which pins backports. Single-stream repos get the
-			// baseline marker with no cursors: their pending latest must stay
-			// generatable by the client auto-trigger, or by cron if that
-			// fails (round 3).
+			// Suppressing the initial draft is only justified when the admin
+			// is actually offered a package choice — and the Packages picker
+			// renders only for 2+ RECOGNIZED packages (the payload's UI
+			// notion). A repo mixing one package stream with plain tags is
+			// stream-MONITORED but not package-CHOOSABLE (round 6): it keeps
+			// main's initial latest-draft behavior. Its non-latest streams
+			// are still baselined so the first cron doesn't burst; the
+			// latest release's own stream stays unseeded so the client
+			// auto-trigger — or the cron, if that fails — can generate it.
+			$ui_choice = $multi_stream && $packages_payload['multi_package'];
+
 			$cursors = [];
 			if ( $multi_stream ) {
-				foreach ( $comparator->select_stream_winners( $all_releases ) as $stream => $winner ) {
+				$winners = $comparator->select_stream_winners( $all_releases );
+				$latest  = API_Client::pick_latest_eligible( $all_releases );
+
+				$latest_stream = null;
+				if ( null !== $latest && ! $ui_choice ) {
+					$parsed        = Tag_Pattern_Matcher::derive_package( $latest->tag );
+					$latest_stream = null === $parsed ? '' : $parsed['package'];
+				}
+
+				foreach ( $winners as $stream => $winner ) {
+					if ( ! $ui_choice && (string) $stream === (string) $latest_stream ) {
+						continue; // Pending for auto-generation / cron retry.
+					}
 					$cursors[ (string) $stream ] = [
 						'last_seen_tag'          => $winner->tag,
 						'last_seen_published_at' => $winner->published_at,
@@ -122,14 +143,12 @@ class Onboarding_Handler {
 		// The add moment is the one moment the admin is certainly looking,
 		// so surface the detection here instead of hoping they open Quick Edit.
 		$package_note = '';
-		if ( $multi_stream ) {
-			$package_note = $packages_payload['multi_package']
-				? sprintf(
-					/* translators: %d: number of packages detected in the repository */
-					__( 'This repository releases %d different packages — by default, every release gets a post. Edit the repository to choose which packages.', 'auto-release-posts-for-github' ),
-					count( $packages_payload['packages'] )
-				)
-				: __( 'This repository mixes package releases with repository-wide releases — by default, every release gets a post. Edit the repository to review its Packages settings.', 'auto-release-posts-for-github' );
+		if ( $ui_choice ) {
+			$package_note = sprintf(
+				/* translators: %d: number of packages detected in the repository */
+				__( 'This repository releases %d different packages — by default, every release gets a post. Edit the repository to choose which packages.', 'auto-release-posts-for-github' ),
+				count( $packages_payload['packages'] )
+			);
 		}
 
 		// New repos default to excluding pre-releases (see Repository_Settings

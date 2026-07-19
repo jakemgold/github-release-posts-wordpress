@@ -199,6 +199,7 @@ class Release_MonitorTest extends TestCase {
 			'last_checked_at'        => 0,
 			'packages'               => [],
 			'streams_baseline_at'    => 1700000000,
+			'tracking_started_at'    => 0,
 			'is_monorepo'            => false,
 			'topology_checked_at'    => time(),
 		];
@@ -246,6 +247,7 @@ class Release_MonitorTest extends TestCase {
 			'last_checked_at'        => 0,
 			'packages'               => [],
 			'streams_baseline_at'    => 1700000000,
+			'tracking_started_at'    => 0,
 			'is_monorepo'            => false,
 			'topology_checked_at'    => time(),
 		];
@@ -463,6 +465,8 @@ class Release_MonitorTest extends TestCase {
 				'last_seen_published_at' => '2026-06-01T00:00:00Z',
 				'last_checked_at'        => 0,
 				'streams_baseline_at'    => 1700000000,
+			'tracking_started_at'    => 0,
+				'tracking_started_at'    => 0,
 				'is_monorepo'            => true,
 				'topology_checked_at'    => time(),
 				'packages'               => [
@@ -532,6 +536,8 @@ class Release_MonitorTest extends TestCase {
 				'last_seen_published_at' => '',
 				'last_checked_at'        => 0,
 				'streams_baseline_at'    => 1700000000,
+			'tracking_started_at'    => 0,
+				'tracking_started_at'    => 0,
 				'is_monorepo'            => true,
 				'topology_checked_at'    => time(),
 				'packages'               => [
@@ -603,6 +609,8 @@ class Release_MonitorTest extends TestCase {
 				'last_seen_published_at' => '2026-06-01T00:00:00Z',
 				'last_checked_at'        => 0,
 				'streams_baseline_at'    => 1700000000,
+			'tracking_started_at'    => 0,
+				'tracking_started_at'    => 0,
 				'is_monorepo'            => true,
 				'topology_checked_at'    => time(),
 				'packages'               => [
@@ -674,6 +682,7 @@ class Release_MonitorTest extends TestCase {
 				'last_seen_published_at' => '2026-01-01T00:00:00Z',
 				'last_checked_at'        => 0,
 				'streams_baseline_at'    => 0,
+				'tracking_started_at'    => 0,
 				'is_monorepo'            => true,
 				'packages'               => [
 					'' => [
@@ -743,6 +752,8 @@ class Release_MonitorTest extends TestCase {
 				'last_seen_published_at' => '',
 				'last_checked_at'        => 0,
 				'streams_baseline_at'    => 1700000000,
+			'tracking_started_at'    => 0,
+				'tracking_started_at'    => 0,
 				'is_monorepo'            => false,
 				'packages'               => [
 					'@acme/core' => [
@@ -806,6 +817,8 @@ class Release_MonitorTest extends TestCase {
 				'last_seen_published_at' => '',
 				'last_checked_at'        => 0,
 				'streams_baseline_at'    => 1700000000,
+			'tracking_started_at'    => 0,
+				'tracking_started_at'    => 0,
 				'is_monorepo'            => false,
 				'topology_checked_at'    => time(),
 				'packages'               => [],
@@ -867,6 +880,8 @@ class Release_MonitorTest extends TestCase {
 				'last_seen_published_at' => '2026-01-01T00:00:00Z',
 				'last_checked_at'        => 0,
 				'streams_baseline_at'    => 1700000000,
+			'tracking_started_at'    => 0,
+				'tracking_started_at'    => 0,
 				'is_monorepo'            => true,
 				'topology_checked_at'    => time(),
 				'packages'               => [
@@ -941,6 +956,8 @@ class Release_MonitorTest extends TestCase {
 				'last_seen_published_at' => '2026-01-01T00:00:00Z',
 				'last_checked_at'        => 0,
 				'streams_baseline_at'    => 1700000000,
+			'tracking_started_at'    => 0,
+				'tracking_started_at'    => 0,
 				'is_monorepo'            => false,
 				'topology_checked_at'    => 0,
 				'packages'               => [
@@ -1021,6 +1038,7 @@ class Release_MonitorTest extends TestCase {
 				'last_seen_published_at' => '2026-01-01T00:00:00Z',
 				'last_checked_at'        => 0,
 				'streams_baseline_at'    => 0,
+				'tracking_started_at'    => 0,
 				'is_monorepo'            => false,
 				'topology_checked_at'    => 0,
 				'packages'               => [],
@@ -1083,6 +1101,7 @@ class Release_MonitorTest extends TestCase {
 				'last_seen_published_at' => '',
 				'last_checked_at'        => 0,
 				'streams_baseline_at'    => 0,
+				'tracking_started_at'    => 0,
 				'is_monorepo'            => false,
 				'topology_checked_at'    => 0,
 				'packages'               => [],
@@ -1106,5 +1125,138 @@ class Release_MonitorTest extends TestCase {
 		$monitor->run();
 
 		$this->assertSame( [ 'newborn@1.0.0' ], $enqueued );
+	}
+
+	/**
+	 * Round-6 required: onboarding failed, single-stream generation later
+	 * succeeded (its cursor was written by process_queue), and NOW a second
+	 * stream appears. tracking_started_at proves the repo is not legacy, so
+	 * the new stream's first release is ENQUEUED — the previous inference
+	 * would have seeded it away as migration history.
+	 */
+	public function test_second_stream_after_failed_onboarding_is_enqueued(): void {
+		\WP_Mock::userFunction( 'get_posts' )->andReturn( [] );
+
+		$monitor = new Release_Monitor(
+			$this->api_client,
+			$this->release_state,
+			new Version_Comparator(),
+			$this->queue,
+			$this->repo_settings,
+		);
+
+		$this->repo_settings->method( 'get_repositories' )->willReturn(
+			[ [ 'identifier' => 'acme/grew-a-stream' ] ]
+		);
+
+		$this->api_client->method( 'fetch_latest_eligible_release' )->willReturn(
+			$this->make_release( 'tools@1.0.0', '2026-07-19T00:00:00Z' )
+		);
+		$this->api_client->method( 'fetch_releases' )->willReturn(
+			[
+				$this->make_release( 'tools@1.0.0', '2026-07-19T00:00:00Z' ),
+				$this->make_release( 'newborn@1.2.0', '2026-07-01T00:00:00Z' ),
+			]
+		);
+
+		$this->release_state->method( 'get_state' )->willReturn(
+			[
+				'last_seen_tag'          => 'newborn@1.2.0',
+				'last_seen_published_at' => '2026-07-01T00:00:00Z',
+				'last_checked_at'        => 0,
+				'streams_baseline_at'    => 0,
+				'tracking_started_at'    => 1700000000,
+				'is_monorepo'            => false,
+				'topology_checked_at'    => 0,
+				'packages'               => [
+					'newborn' => [
+						'last_seen_tag'          => 'newborn@1.2.0',
+						'last_seen_published_at' => '2026-07-01T00:00:00Z',
+					],
+				],
+			]
+		);
+
+		$this->release_state->expects( $this->never() )->method( 'seed_streams' );
+
+		$enqueued = [];
+		$this->queue->method( 'enqueue' )->willReturnCallback(
+			function ( string $identifier, Release $release ) use ( &$enqueued ): void {
+				$enqueued[] = $release->tag;
+			}
+		);
+		$this->queue->method( 'dequeue_all' )->willReturn( [] );
+
+		\WP_Mock::userFunction( 'add_option' )->andReturn( true );
+		\WP_Mock::userFunction( 'delete_option' )->andReturn( true );
+		\WP_Mock::userFunction( 'update_option' )->andReturn( true );
+
+		$monitor->run();
+
+		$this->assertSame( [ 'tools@1.0.0' ], $enqueued );
+	}
+
+	/**
+	 * Round-6 required: repo added with no releases while discovery failed;
+	 * its FIRST successful list is already multi-stream. The promised first
+	 * releases generate — tracking began before they existed, so nothing is
+	 * historical.
+	 */
+	public function test_first_multi_stream_releases_after_failed_empty_onboarding_generate(): void {
+		\WP_Mock::userFunction( 'get_posts' )->andReturn( [] );
+
+		$monitor = new Release_Monitor(
+			$this->api_client,
+			$this->release_state,
+			new Version_Comparator(),
+			$this->queue,
+			$this->repo_settings,
+		);
+
+		$this->repo_settings->method( 'get_repositories' )->willReturn(
+			[ [ 'identifier' => 'acme/born-multi' ] ]
+		);
+
+		$this->api_client->method( 'fetch_latest_eligible_release' )->willReturn(
+			$this->make_release( '@acme/core@1.0.0', '2026-07-19T00:00:00Z' )
+		);
+		$this->api_client->method( 'fetch_releases' )->willReturn(
+			[
+				$this->make_release( '@acme/core@1.0.0', '2026-07-19T00:00:00Z' ),
+				$this->make_release( '@acme/next@1.0.0', '2026-07-19T00:00:00Z' ),
+			]
+		);
+
+		$this->release_state->method( 'get_state' )->willReturn(
+			[
+				'last_seen_tag'          => '',
+				'last_seen_published_at' => '',
+				'last_checked_at'        => 0,
+				'streams_baseline_at'    => 0,
+				'tracking_started_at'    => 1700000000,
+				'is_monorepo'            => false,
+				'topology_checked_at'    => 0,
+				'packages'               => [],
+			]
+		);
+
+		$this->release_state->expects( $this->never() )->method( 'seed_streams' );
+
+		$enqueued = [];
+		$this->queue->method( 'enqueue' )->willReturnCallback(
+			function ( string $identifier, Release $release ) use ( &$enqueued ): void {
+				$enqueued[] = $release->tag;
+			}
+		);
+		$this->queue->method( 'dequeue_all' )->willReturn( [] );
+
+		\WP_Mock::userFunction( 'add_option' )->andReturn( true );
+		\WP_Mock::userFunction( 'delete_option' )->andReturn( true );
+		\WP_Mock::userFunction( 'update_option' )->andReturn( true );
+
+		$monitor->run();
+
+		sort( $enqueued );
+		$this->assertSame( [ '@acme/core@1.0.0', '@acme/next@1.0.0' ], $enqueued );
 	}
 }

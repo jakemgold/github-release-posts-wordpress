@@ -129,11 +129,13 @@ class Onboarding_HandlerTest extends TestCase {
 	}
 
 	/**
-	 * Round-5 required: one recognized package stream plus plain repo-wide
-	 * tags IS stream-monitored — persisted as such, auto-generation
-	 * suppressed, and baselined with cursors for BOTH streams. The picker
-	 * payload's multi_package (which ignores the default stream) must not
-	 * decide monitoring state.
+	 * Round-6 (revising round 5): one recognized package stream plus plain
+	 * repo-wide tags is stream-MONITORED (persisted as such) but not
+	 * package-CHOOSABLE — the Packages picker only renders for 2+ recognized
+	 * packages, so suppressing the initial draft would promise a chooser that
+	 * never appears. The repo keeps main's initial latest-draft behavior;
+	 * its NON-latest stream is baselined, and the latest release's stream
+	 * stays unseeded for the auto-trigger / cron retry.
 	 */
 	public function test_one_package_plus_plain_stream_is_stream_monitored(): void {
 		$api = $this->createMock( API_Client::class );
@@ -156,11 +158,11 @@ class Onboarding_HandlerTest extends TestCase {
 
 		$outcome = ( new Onboarding_Handler( $api, $state ) )->handle_add( 'acme/mixed-' . uniqid() );
 
-		$this->assertFalse( $outcome['auto_trigger'] );
-		$this->assertStringContainsString( 'skipped', $outcome['notice']['message'] );
-		$keys = array_keys( $seeded );
-		sort( $keys );
-		$this->assertSame( [ '', '@acme/core' ], $keys );
+		$this->assertTrue( $outcome['auto_trigger'] );
+		$this->assertNull( $outcome['notice'] );
+		// Latest is the plain v9.0.0 → the default stream stays unseeded for
+		// generation; the package stream is baselined.
+		$this->assertSame( [ '@acme/core' ], array_keys( $seeded ) );
 	}
 
 	/**
