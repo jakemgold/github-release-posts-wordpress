@@ -107,24 +107,60 @@ class Onboarding_HandlerTest extends TestCase {
 	}
 
 	/**
-	 * Round-4: a transient failure of the onboarding list fetch must STILL
-	 * stamp the stream baseline (with no cursors) — otherwise the next cron
-	 * mistakes the new repo for a legacy migration and SEEDS its pending
-	 * release instead of generating it, permanently breaking the cron-retry
-	 * promise.
+	 * Round-5: a transient failure of the onboarding list fetch writes NO
+	 * monitoring state at all — no baseline, no topology. An empty baseline
+	 * would turn the next successful topology discovery into a one-post-per-
+	 * package burst; with no baseline, the next cron routes by actual
+	 * topology (single-stream repos enqueue the pending latest, multi-stream
+	 * repos run one-time seeding).
 	 */
-	public function test_list_fetch_failure_still_stamps_baseline(): void {
+	public function test_list_fetch_failure_writes_no_monitoring_state(): void {
 		$api = $this->createMock( API_Client::class );
 		$api->method( 'fetch_releases' )->willReturn( new \WP_Error( 'http_request_failed', 'timeout' ) );
 		$api->method( 'fetch_latest_eligible_release' )->willReturn( $this->release( 'newborn@1.0.0' ) );
 
 		$state = $this->createMock( Release_State::class );
-		$state->expects( $this->once() )->method( 'seed_streams' )->with( $this->anything(), [] );
+		$state->expects( $this->never() )->method( 'seed_streams' );
 		$state->expects( $this->never() )->method( 'set_monorepo' );
 
 		$outcome = ( new Onboarding_Handler( $api, $state ) )->handle_add( 'acme/flaky-' . uniqid() );
 
 		$this->assertTrue( $outcome['auto_trigger'] );
+	}
+
+	/**
+	 * Round-5 required: one recognized package stream plus plain repo-wide
+	 * tags IS stream-monitored — persisted as such, auto-generation
+	 * suppressed, and baselined with cursors for BOTH streams. The picker
+	 * payload's multi_package (which ignores the default stream) must not
+	 * decide monitoring state.
+	 */
+	public function test_one_package_plus_plain_stream_is_stream_monitored(): void {
+		$api = $this->createMock( API_Client::class );
+		$api->method( 'fetch_releases' )->willReturn(
+			[
+				new Release( tag: 'v9.0.0', name: 'plain', body: '', html_url: 'https://github.com/acme/mixed/releases/tag/a', published_at: '2026-07-01T00:00:00Z', assets: [] ),
+				new Release( tag: '@acme/core@2.0.0', name: 'core', body: '', html_url: 'https://github.com/acme/mixed/releases/tag/b', published_at: '2026-06-01T00:00:00Z', assets: [] ),
+			]
+		);
+		$api->method( 'fetch_latest_eligible_release' )->willReturn( $this->release( 'v9.0.0' ) );
+
+		$state  = $this->createMock( Release_State::class );
+		$seeded = null;
+		$state->method( 'seed_streams' )->willReturnCallback(
+			function ( string $identifier, array $cursors ) use ( &$seeded ): void {
+				$seeded = $cursors;
+			}
+		);
+		$state->expects( $this->once() )->method( 'set_monorepo' )->with( $this->anything(), true );
+
+		$outcome = ( new Onboarding_Handler( $api, $state ) )->handle_add( 'acme/mixed-' . uniqid() );
+
+		$this->assertFalse( $outcome['auto_trigger'] );
+		$this->assertStringContainsString( 'skipped', $outcome['notice']['message'] );
+		$keys = array_keys( $seeded );
+		sort( $keys );
+		$this->assertSame( [ '', '@acme/core' ], $keys );
 	}
 
 	/**

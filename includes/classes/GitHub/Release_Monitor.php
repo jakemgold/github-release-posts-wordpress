@@ -190,8 +190,7 @@ class Release_Monitor {
 					if ( is_array( $releases ) && ! empty( $releases ) ) {
 						$is_monorepo = $repo_state['is_monorepo'];
 						if ( ! $is_monorepo ) {
-							$is_monorepo = count( $this->comparator->select_stream_winners( $releases ) ) >= 2
-								|| Tag_Pattern_Matcher::build_packages_payload( $releases )['multi_package'];
+							$is_monorepo = $this->comparator->is_multi_stream( $releases );
 							$this->state->set_monorepo( $identifier, $is_monorepo );
 						}
 						if ( $is_monorepo ) {

@@ -89,6 +89,21 @@ class Version_Comparator {
 	}
 
 	/**
+	 * The single topology predicate (peer review round 5): a repository is
+	 * stream-monitored when its releases form two or more streams — package
+	 * streams AND the default (plain-tag) stream both count, because the
+	 * monitor routes them all. The package-picker payload's multi_package
+	 * value is a narrower UI notion (2+ recognized packages) and must not be
+	 * used as monitoring topology.
+	 *
+	 * @param Release[] $releases Releases, any order.
+	 * @return bool
+	 */
+	public function is_multi_stream( array $releases ): bool {
+		return count( $this->select_stream_winners( $releases ) ) >= 2;
+	}
+
+	/**
 	 * Returns true if a tag string looks like a semver version (with optional leading v).
 	 *
 	 * Accepts formats like: v1.2.3, 1.2.3, v1.2, 1.2.

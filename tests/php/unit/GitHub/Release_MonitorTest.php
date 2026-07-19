@@ -1048,4 +1048,63 @@ class Release_MonitorTest extends TestCase {
 		sort( $keys );
 		$this->assertSame( [ '', '@acme/core', '@acme/next' ], $keys );
 	}
+
+	/**
+	 * Round-5: a single-stream repo whose onboarding discovery failed (no
+	 * baseline, package-shaped tag) routes through the SINGLE-cursor path —
+	 * winners-based topology, not tag shape — and its pending release is
+	 * enqueued, never seeded away.
+	 */
+	public function test_single_stream_package_repo_without_baseline_enqueues_pending(): void {
+		\WP_Mock::userFunction( 'get_posts' )->andReturn( [] );
+
+		$monitor = new Release_Monitor(
+			$this->api_client,
+			$this->release_state,
+			new Version_Comparator(),
+			$this->queue,
+			$this->repo_settings,
+		);
+
+		$this->repo_settings->method( 'get_repositories' )->willReturn(
+			[ [ 'identifier' => 'acme/newborn-flaky' ] ]
+		);
+
+		$this->api_client->method( 'fetch_latest_eligible_release' )->willReturn(
+			$this->make_release( 'newborn@1.0.0', '2026-07-19T00:00:00Z' )
+		);
+		$this->api_client->method( 'fetch_releases' )->willReturn(
+			[ $this->make_release( 'newborn@1.0.0', '2026-07-19T00:00:00Z' ) ]
+		);
+
+		$this->release_state->method( 'get_state' )->willReturn(
+			[
+				'last_seen_tag'          => '',
+				'last_seen_published_at' => '',
+				'last_checked_at'        => 0,
+				'streams_baseline_at'    => 0,
+				'is_monorepo'            => false,
+				'topology_checked_at'    => 0,
+				'packages'               => [],
+			]
+		);
+
+		$this->release_state->expects( $this->never() )->method( 'seed_streams' );
+
+		$enqueued = [];
+		$this->queue->method( 'enqueue' )->willReturnCallback(
+			function ( string $identifier, Release $release ) use ( &$enqueued ): void {
+				$enqueued[] = $release->tag;
+			}
+		);
+		$this->queue->method( 'dequeue_all' )->willReturn( [] );
+
+		\WP_Mock::userFunction( 'add_option' )->andReturn( true );
+		\WP_Mock::userFunction( 'delete_option' )->andReturn( true );
+		\WP_Mock::userFunction( 'update_option' )->andReturn( true );
+
+		$monitor->run();
+
+		$this->assertSame( [ 'newborn@1.0.0' ], $enqueued );
+	}
 }

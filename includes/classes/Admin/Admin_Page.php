@@ -20,6 +20,7 @@ use GitHubReleasePosts\GitHub\Release_Monitor;
 use GitHubReleasePosts\GitHub\Release_Queue;
 use GitHubReleasePosts\GitHub\Release_State;
 use GitHubReleasePosts\GitHub\Tag_Pattern_Matcher;
+use GitHubReleasePosts\GitHub\Version_Comparator;
 use GitHubReleasePosts\Notification\Email_Notifier;
 use GitHubReleasePosts\Notification\Notification_Entry;
 use GitHubReleasePosts\Plugin_Constants;
@@ -978,8 +979,11 @@ class Admin_Page {
 		set_transient( $cache_key, $payload, 15 * MINUTE_IN_SECONDS );
 
 		// Keep the durable topology flag fresh — the monitor relies on it when
-		// the latest release is a plain repo-wide tag (round 3).
-		( new Release_State() )->set_monorepo( $identifier, $payload['multi_package'] );
+		// the latest release is a plain repo-wide tag (round 3). Uses the
+		// shared stream predicate, NOT the payload's UI-only multi_package:
+		// writing the narrower value here could downgrade a monitor-confirmed
+		// determination and stamp it fresh for a week (round 5).
+		( new Release_State() )->set_monorepo( $identifier, ( new Version_Comparator() )->is_multi_stream( $releases ) );
 
 		return new \WP_REST_Response( $payload, 200 );
 	}
@@ -1010,8 +1014,13 @@ class Admin_Page {
 		// endpoint when no patterns are set.
 		$repo_config = $this->repo_settings->get_repository( (string) $identifier );
 		/** This filter is documented in includes/classes/GitHub/Release_Monitor.php */
-		$tag_patterns   = (string) apply_filters( 'ghrp_repo_tag_patterns', (string) ( $repo_config['tag_patterns'] ?? '' ), (string) $identifier, $repo_config );
-		$latest_release = $api_client->fetch_latest_eligible_release( (string) $identifier, false, $tag_patterns );
+		$tag_patterns = (string) apply_filters( 'ghrp_repo_tag_patterns', (string) ( $repo_config['tag_patterns'] ?? '' ), (string) $identifier, $repo_config );
+		// Same eligibility inputs as the version picker (round 5): the picker
+		// honors Include pre-releases, so generation must too — otherwise a
+		// pre-release-only repo lists releases it can never generate, and the
+		// two surfaces disagree about which release is latest.
+		$include_prereleases = ! empty( $repo_config['include_prereleases'] );
+		$latest_release      = $api_client->fetch_latest_eligible_release( (string) $identifier, $include_prereleases, $tag_patterns );
 
 		if ( is_wp_error( $latest_release ) ) {
 			return new \WP_Error( $latest_release->get_error_code(), $latest_release->get_error_message(), [ 'status' => 400 ] );
@@ -1043,6 +1052,17 @@ class Admin_Page {
 			}
 			if ( null === $release ) {
 				return new \WP_Error( 'ghrp_no_release', __( 'The selected release was not found on GitHub.', 'auto-release-posts-for-github' ), [ 'status' => 404 ] );
+			}
+			// Enforce the pre-release rule on explicit tags too (round 5) —
+			// the picker filters, but the endpoint is authoritative. GitHub
+			// drafts are inherently excluded here: they have no tag ref, so
+			// the tags endpoint cannot return them.
+			if ( $release->prerelease && ! $include_prereleases ) {
+				return new \WP_Error(
+					'ghrp_prerelease_not_enabled',
+					__( 'This is a pre-release. Turn on "Include pre-releases" for this repository to generate posts for it.', 'auto-release-posts-for-github' ),
+					[ 'status' => 400 ]
+				);
 			}
 			$is_latest = false;
 		}

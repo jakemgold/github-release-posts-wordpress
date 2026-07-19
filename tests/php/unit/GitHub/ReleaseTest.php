@@ -93,4 +93,38 @@ class ReleaseTest extends TestCase {
 		$this->assertSame( '', $release->body );
 		$this->assertSame( [], $release->assets );
 	}
+
+	/**
+	 * The prerelease flag survives API parsing (round 5) — the generation
+	 * endpoint enforces the Include pre-releases rule on explicit tags with it.
+	 */
+	public function test_from_api_response_carries_prerelease_flag(): void {
+		$release = Release::from_api_response(
+			[
+				'tag_name'     => 'v2.0.0-rc.1',
+				'name'         => 'RC1',
+				'body'         => '',
+				'published_at' => '2026-07-01T00:00:00Z',
+				'html_url'     => 'https://github.com/x/y/releases/tag/v2.0.0-rc.1',
+				'assets'       => [],
+				'prerelease'   => true,
+			]
+		);
+
+		$this->assertTrue( $release->prerelease );
+
+		$stable = Release::from_api_response(
+			[
+				'tag_name'     => 'v2.0.0',
+				'name'         => 'Stable',
+				'body'         => '',
+				'published_at' => '2026-07-02T00:00:00Z',
+				'html_url'     => 'https://github.com/x/y/releases/tag/v2.0.0',
+				'assets'       => [],
+				'prerelease'   => false,
+			]
+		);
+
+		$this->assertFalse( $stable->prerelease );
+	}
 }

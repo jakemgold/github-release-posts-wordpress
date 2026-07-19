@@ -75,50 +75,61 @@ class Onboarding_Handler {
 			'multi_package' => false,
 			'packages'      => [],
 		];
-		$cursors          = [];
+		$multi_stream     = false;
 		if ( is_array( $all_releases ) ) {
 			$packages_payload = Tag_Pattern_Matcher::build_packages_payload( $all_releases );
 			set_transient( Cache_Keys::repo_packages( $identifier ), $packages_payload, 15 * MINUTE_IN_SECONDS );
 
-			// For monorepos — where client auto-generation is suppressed —
-			// seed every stream cursor the monitor will later evaluate,
-			// using the SAME winner selection the monitor applies (round 4):
-			// the picker payload is a UI projection — it omits the default
-			// stream and trusts GitHub's created_at order, so seeding from
-			// it could miss the plain-tag stream or pin a backport.
-			// Single-package repos get no cursors: their pending latest must
-			// stay generatable by the client auto-trigger, or by the cron if
-			// that fails (round 3).
-			if ( $packages_payload['multi_package'] ) {
-				foreach ( ( new Version_Comparator() )->select_stream_winners( $all_releases ) as $stream => $winner ) {
+			// One topology predicate everywhere monitoring state is written
+			// (round 5): the picker payload's multi_package is a UI notion
+			// (2+ recognized packages) and undercounts repos that mix one
+			// package stream with plain repo-wide tags — the monitor routes
+			// those through streams too, so onboarding must agree.
+			$comparator   = new Version_Comparator();
+			$multi_stream = $comparator->is_multi_stream( $all_releases );
+
+			// For stream-monitored repos — where client auto-generation is
+			// suppressed — seed every stream cursor the monitor will later
+			// evaluate, from the SAME winner selection (round 4): the picker
+			// payload omits the default stream and trusts GitHub's created_at
+			// order, which pins backports. Single-stream repos get the
+			// baseline marker with no cursors: their pending latest must stay
+			// generatable by the client auto-trigger, or by cron if that
+			// fails (round 3).
+			$cursors = [];
+			if ( $multi_stream ) {
+				foreach ( $comparator->select_stream_winners( $all_releases ) as $stream => $winner ) {
 					$cursors[ (string) $stream ] = [
 						'last_seen_tag'          => $winner->tag,
 						'last_seen_published_at' => $winner->published_at,
 					];
 				}
 			}
-			$this->state->set_monorepo( $identifier, $packages_payload['multi_package'] );
+			$this->state->set_monorepo( $identifier, $multi_stream );
+			// Baseline only on a successfully observed list (round 5): an
+			// empty baseline after a FAILED list fetch would make a later
+			// topology discovery treat every current stream winner as new —
+			// a one-post-per-package burst. With no baseline, the next cron
+			// routes by actual topology: single-stream repos enqueue the
+			// pending latest (the cron-retry promise holds because only
+			// multi-stream repos ever enter the seeding branch), and
+			// multi-stream repos run the one-time seeding — correct for both.
+			$this->state->seed_streams( $identifier, $cursors );
 		}
-
-		// Establish the stream baseline UNCONDITIONALLY — even when the list
-		// fetch failed (round 4): the marker means "tracking began now". A
-		// newly added repo must never be mistaken for a legacy migration,
-		// which would SEED its pending release instead of generating it and
-		// permanently break the cron-retry promise. When the list failed,
-		// cursors are simply empty and the pending release stays generatable.
-		$this->state->seed_streams( $identifier, $cursors );
 
 		// Monorepo nudge: the default (posts for all packages) is unchanged
 		// pre-1.2 behavior, which floods feeds with utility-package posts.
 		// The add moment is the one moment the admin is certainly looking,
 		// so surface the detection here instead of hoping they open Quick Edit.
 		$package_note = '';
-		if ( $packages_payload['multi_package'] ) {
-			$package_note = sprintf(
-				/* translators: %d: number of packages detected in the repository */
-				__( 'This repository releases %d different packages — by default, every release gets a post. Edit the repository to choose which packages.', 'auto-release-posts-for-github' ),
-				count( $packages_payload['packages'] )
-			);
+		if ( $multi_stream ) {
+			$package_note = $packages_payload['multi_package']
+				? sprintf(
+					/* translators: %d: number of packages detected in the repository */
+					__( 'This repository releases %d different packages — by default, every release gets a post. Edit the repository to choose which packages.', 'auto-release-posts-for-github' ),
+					count( $packages_payload['packages'] )
+				)
+				: __( 'This repository mixes package releases with repository-wide releases — by default, every release gets a post. Edit the repository to review its Packages settings.', 'auto-release-posts-for-github' );
 		}
 
 		// New repos default to excluding pre-releases (see Repository_Settings
