@@ -1102,11 +1102,18 @@ class Admin_Page {
 			// its successful generations; this closes the same gap for
 			// client-initiated generation.
 			if ( $is_latest ) {
-				( new Release_State() )->update_last_seen(
+				$state = new Release_State();
+				$state->update_last_seen(
 					$identifier,
 					$release->tag,
 					$release->published_at
 				);
+				// Patterned/monorepo monitoring reads per-package cursors, not
+				// the repo-wide one — advance the matching stream too so the
+				// next scheduled check doesn't re-enqueue this release (peer
+				// review P1: the replay re-fires the publish workflow).
+				$parsed = Tag_Pattern_Matcher::derive_package( $release->tag );
+				$state->update_package_seen( $identifier, null === $parsed ? '' : $parsed['package'], $release->tag, $release->published_at );
 			}
 			return new \WP_REST_Response(
 				[
@@ -1476,11 +1483,16 @@ class Admin_Page {
 			$update_args['post_excerpt'] = wp_kses_post( $result->excerpt );
 		}
 
-		// Only update the slug if the post is not yet published (preserve live URLs).
+		// Only update the slug if the post is not yet published (preserve live
+		// URLs). Uses the same package-aware builder as initial creation so
+		// regenerating a draft cannot change its URL shape (peer review P2).
 		if ( '' !== $result->slug_keywords && ! Post_Status::has_permalink( $post->post_status ) ) {
-			$version                  = strtolower( ltrim( $data->tag, 'vV' ) );
-			$version                  = str_replace( '.', '-', $version );
-			$update_args['post_name'] = sanitize_title( $display_name . '-' . $version . '-' . $result->slug_keywords );
+			$update_args['post_name'] = Post_Creator::build_release_slug(
+				$display_name,
+				$data->tag,
+				$result->slug_keywords,
+				Tag_Pattern_Matcher::has_patterns( $patterns )
+			);
 		}
 
 		$update_result = wp_update_post( $update_args, true );

@@ -104,27 +104,23 @@ final class Tag_Pattern_Matcher {
 	/**
 	 * Derives a package for DISPLAY purposes (titles, slugs, labels).
 	 *
-	 * Tags in the npm style (`name@version`, `@scope/name@version`) are unambiguous
-	 * package syntax and always qualify. Dash-style tags (`name-v1.2.3`,
-	 * `name-1.2.3`) are also common single-package conventions, so they only
-	 * qualify when the repository actually has tag patterns configured —
-	 * otherwise a plain repo tagging `my-plugin-v1.2.3` would suddenly render
-	 * as "My Plugin my-plugin 1.2.3" after upgrading (peer review P2).
-	 * Eligibility matching is unaffected; this gate is display-only.
+	 * Package-style tags are also legitimate single-package conventions
+	 * (`myplugin@1.2.3`, `my-plugin-v1.2.3`), so display formatting only
+	 * engages when the repository actually has tag patterns configured —
+	 * otherwise existing repositories would see changed titles and slugs
+	 * after upgrading (peer review P2, both rounds). Eligibility matching
+	 * is unaffected; this gate is display-only.
 	 *
-	 * @param string $tag                Release tag name.
-	 * @param bool   $include_dash_styles Allow dash-style tags to qualify.
+	 * @param string $tag              Release tag name.
+	 * @param bool   $package_display  Whether the repo opted into package display
+	 *                                 (i.e. has tag patterns configured).
 	 * @return array{package: string, pattern: string, version: string}|null
 	 */
-	public static function derive_display_package( string $tag, bool $include_dash_styles = false ): ?array {
-		$parsed = self::derive_package( $tag );
-		if ( null === $parsed ) {
+	public static function derive_display_package( string $tag, bool $package_display = false ): ?array {
+		if ( ! $package_display ) {
 			return null;
 		}
-		if ( str_ends_with( $parsed['pattern'], '@*' ) || $include_dash_styles ) {
-			return $parsed;
-		}
-		return null;
+		return self::derive_package( $tag );
 	}
 
 	/**
@@ -133,12 +129,12 @@ final class Tag_Pattern_Matcher {
 	 * this is for data displays like the Last Post column); anything else
 	 * is returned verbatim.
 	 *
-	 * @param string $tag                 Release tag name.
-	 * @param bool   $include_dash_styles Allow dash-style tags to qualify.
+	 * @param string $tag             Release tag name.
+	 * @param bool   $package_display Whether the repo opted into package display.
 	 * @return string
 	 */
-	public static function display_label( string $tag, bool $include_dash_styles = false ): string {
-		$parsed = self::derive_display_package( $tag, $include_dash_styles );
+	public static function display_label( string $tag, bool $package_display = false ): string {
+		$parsed = self::derive_display_package( $tag, $package_display );
 		if ( null === $parsed ) {
 			return $tag;
 		}

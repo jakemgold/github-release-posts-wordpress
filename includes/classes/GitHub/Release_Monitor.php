@@ -172,6 +172,22 @@ class Release_Monitor {
 					continue;
 				}
 
+				// The default all-packages mode has no patterns, but a monorepo
+				// is still a monorepo: one repo-wide cursor drops sibling
+				// releases (peer review P1). Detect it cheaply from the latest
+				// release's tag shape and switch to per-package streams; plain
+				// single-package repos never pay the extra list call.
+				if ( null !== Tag_Pattern_Matcher::derive_package( $release->tag ) ) {
+					$releases = $this->api_client->fetch_releases( $identifier, $include_prereleases, '' );
+					if ( is_array( $releases ) && ! empty( $releases ) ) {
+						$this->check_package_streams( $identifier, $releases );
+						$this->state->update_last_checked( $identifier );
+						continue;
+					}
+					// List fetch failed — fall through to the single-cursor
+					// path rather than skipping the repo entirely.
+				}
+
 				$repo_state = $this->state->get_state( $identifier );
 
 				if ( $this->comparator->is_newer( $release, $repo_state ) ) {
@@ -288,9 +304,8 @@ class Release_Monitor {
 				// check_package_streams()); advance it here, after creation,
 				// for the same crash-resilience as the repo-wide cursor.
 				$parsed = Tag_Pattern_Matcher::derive_package( $tag );
-				if ( null !== $parsed ) {
-					$this->state->update_package_seen( $identifier, $parsed['package'], $tag, $entry['published_at'] ?? '' );
-				}
+				$stream = null === $parsed ? '' : $parsed['package'];
+				$this->state->update_package_seen( $identifier, $stream, $tag, $entry['published_at'] ?? '' );
 				$this->log( $identifier, 'post created for tag ' . $tag . ' (ID ' . $post->ID . ')' );
 			} else {
 				$this->log( $identifier, 'action fired for tag ' . $tag . ' — no post created yet' );
@@ -309,11 +324,12 @@ class Release_Monitor {
 	 * Releases are grouped by package (unclassifiable tags share a default
 	 * stream). Within each group the newest release is chosen by version
 	 * (the comparator normalizes package tags to their embedded versions),
-	 * then compared against that package's own cursor. An empty cursor —
-	 * a newly selected package, or the first patterned run — enqueues the
-	 * package's newest release, mirroring how a newly added repository
-	 * generates its latest. Cursors advance in process_queue() only after
-	 * a post is actually created, so failures never skip releases.
+	 * then compared against that package's own cursor. The first streamed
+	 * run seeds every cursor without generating (no upgrade burst); a
+	 * stream whose newest release already has a post advances its cursor
+	 * instead of re-enqueueing (replay guard). Cursors otherwise advance in
+	 * process_queue() only after a post is actually created, so failures
+	 * never skip releases.
 	 *
 	 * @param string    $identifier Repository identifier.
 	 * @param Release[] $releases   Pattern-matching releases, newest first.
@@ -328,6 +344,14 @@ class Release_Monitor {
 		}
 
 		$package_state = $this->state->get_state( $identifier )['packages'];
+
+		// First streamed run for this repo (upgrade migration, first run after
+		// configuring patterns, or first run after a fresh add): seed every
+		// stream's cursor at its current newest WITHOUT generating. This
+		// prevents a one-post-per-package burst the moment streams engage;
+		// content starts flowing for releases published after this point,
+		// and initial/backfill posts remain a deliberate manual action.
+		$seed_only = empty( $package_state );
 
 		foreach ( $groups as $package => $group ) {
 			// Newest by version within the stream — same reduce the API
@@ -351,12 +375,31 @@ class Release_Monitor {
 			];
 
 			$label = '' === $package ? 'default stream' : $package;
-			if ( $this->comparator->is_newer( $candidate, $cursor ) ) {
-				$this->queue->enqueue( $identifier, $candidate );
-				$this->log( $identifier, 'new release found (' . $label . '): ' . $candidate->tag );
-			} else {
-				$this->log( $identifier, 'no new release (' . $label . ', last seen: ' . $cursor['last_seen_tag'] . ')' );
+
+			if ( $seed_only ) {
+				$this->state->update_package_seen( $identifier, (string) $package, $candidate->tag, $candidate->published_at );
+				$this->log( $identifier, 'stream cursor seeded (' . $label . '): ' . $candidate->tag );
+				continue;
 			}
+
+			if ( ! $this->comparator->is_newer( $candidate, $cursor ) ) {
+				$this->log( $identifier, 'no new release (' . $label . ', last seen: ' . $cursor['last_seen_tag'] . ')' );
+				continue;
+			}
+
+			// Replay guard (peer review P1): a post may already exist for this
+			// release — manually generated, or predating the stream cursors.
+			// Re-enqueueing would burn an AI call and re-fire the publish
+			// workflow with cron context, which can silently publish a draft
+			// that was created for review. Advance the cursor instead.
+			if ( self::find_post( $identifier, $candidate->tag ) instanceof \WP_Post ) {
+				$this->state->update_package_seen( $identifier, (string) $package, $candidate->tag, $candidate->published_at );
+				$this->log( $identifier, 'existing post found (' . $label . '): ' . $candidate->tag . ' — cursor advanced, not re-enqueued' );
+				continue;
+			}
+
+			$this->queue->enqueue( $identifier, $candidate );
+			$this->log( $identifier, 'new release found (' . $label . '): ' . $candidate->tag );
 		}
 	}
 

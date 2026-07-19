@@ -405,13 +405,31 @@ class Post_Creator {
 			return '';
 		}
 
-		$display_name = $this->repo_settings->get_display_name( $identifier );
+		return self::build_release_slug(
+			$this->repo_settings->get_display_name( $identifier ),
+			$tag,
+			$slug_keywords,
+			$this->repo_has_patterns( $identifier )
+		);
+	}
 
-		// Package tags contribute their short name + bare version so monorepo
-		// slugs come out as "headstartwp-core-1-6-1-…" instead of a mush of
-		// the raw tag's @ and / characters. Dash-style tags only qualify when
-		// the repo has patterns configured (see derive_display_package()).
-		$parsed = Tag_Pattern_Matcher::derive_display_package( $tag, $this->repo_has_patterns( $identifier ) );
+	/**
+	 * Builds the release post slug — shared by initial creation and editor
+	 * regeneration so both produce the same URL shape.
+	 *
+	 * Package tags contribute their short name + bare version so monorepo
+	 * slugs come out as "headstartwp-core-1-6-1-…" instead of a mush of the
+	 * raw tag's @ and / characters. Package formatting applies only when the
+	 * repo has patterns configured (see derive_display_package()).
+	 *
+	 * @param string $display_name      Repository display name.
+	 * @param string $tag               Release tag.
+	 * @param string $slug_keywords     AI-generated slug keywords.
+	 * @param bool   $repo_has_patterns Whether the repo has tag patterns configured.
+	 * @return string Sanitized slug.
+	 */
+	public static function build_release_slug( string $display_name, string $tag, string $slug_keywords, bool $repo_has_patterns ): string {
+		$parsed = Tag_Pattern_Matcher::derive_display_package( $tag, $repo_has_patterns );
 		if ( null !== $parsed ) {
 			$version  = str_replace( '.', '-', strtolower( $parsed['version'] ) );
 			$raw_slug = $display_name . '-' . Tag_Pattern_Matcher::short_name( $parsed['package'] ) . '-' . $version . '-' . $slug_keywords;

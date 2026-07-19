@@ -861,4 +861,48 @@ class API_ClientTest extends TestCase {
 		$this->assertInstanceOf( Release::class, $result );
 		$this->assertSame( 'v1.2.3', $result->tag );
 	}
+
+	/**
+	 * Latest-eligible across multiple package patterns ranks by chronology,
+	 * never by unrelated version numbers (peer review round 2): utils@100
+	 * must not beat a newer core@2.0.0.
+	 */
+	public function test_fetch_latest_eligible_release_cross_package_uses_chronology(): void {
+		$payload = [
+			[
+				'tag_name'     => '@acme/core@2.0.0',
+				'name'         => '@acme/core@2.0.0',
+				'published_at' => '2026-07-15T00:00:00Z',
+				'html_url'     => 'https://github.com/acme/mono/releases/tag/a',
+				'body'         => '',
+				'assets'       => [],
+				'draft'        => false,
+				'prerelease'   => false,
+			],
+			[
+				'tag_name'     => '@acme/utils@100.0.0',
+				'name'         => '@acme/utils@100.0.0',
+				'published_at' => '2026-07-01T00:00:00Z',
+				'html_url'     => 'https://github.com/acme/mono/releases/tag/b',
+				'body'         => '',
+				'assets'       => [],
+				'draft'        => false,
+				'prerelease'   => false,
+			],
+		];
+		$body = json_encode( $payload );
+
+		\WP_Mock::userFunction( 'wp_remote_get' )->andReturn( $this->mock_response( 200, $body ) );
+		\WP_Mock::userFunction( 'is_wp_error' )->andReturn( false );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_response_code' )->andReturn( 200 );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_body' )->andReturn( $body );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_header' )->andReturn( '100' );
+		\WP_Mock::userFunction( 'set_transient' )->andReturn( true );
+
+		$client = new API_Client( $this->settings_mock() );
+		$result = $client->fetch_latest_eligible_release( 'acme/mono', false, '@acme/core@*, @acme/utils@*' );
+
+		$this->assertInstanceOf( Release::class, $result );
+		$this->assertSame( '@acme/core@2.0.0', $result->tag );
+	}
 }

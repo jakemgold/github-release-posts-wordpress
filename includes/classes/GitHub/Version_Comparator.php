@@ -47,12 +47,24 @@ class Version_Comparator {
 		// Package tags ("@acme/core@1.9.6") never parse as semver directly, so
 		// they used to fall through to date comparison — letting a later-dated
 		// backport beat a higher version, the exact case the semver branch
-		// exists to prevent. Normalize to the embedded version first. Callers
-		// are responsible for only comparing within one package stream (the
-		// monitor groups by package); cross-package comparisons are inherently
-		// arbitrary whichever field is used.
-		$candidate_tag = $this->normalize_tag( $candidate->tag );
-		$last_tag_norm = $this->normalize_tag( $last_tag );
+		// exists to prevent. Normalize to the embedded version — but ONLY when
+		// both tags belong to the SAME package: comparing core@2.0.0 against
+		// utils@100.0.0 by version number is meaningless and would suppress
+		// lower-versioned packages indefinitely. Across different packages
+		// (or package vs. plain tag) fall through to release chronology.
+		$candidate_pkg = Tag_Pattern_Matcher::derive_package( $candidate->tag );
+		$last_pkg      = Tag_Pattern_Matcher::derive_package( $last_tag );
+
+		$candidate_tag = $candidate->tag;
+		$last_tag_norm = $last_tag;
+		if ( null !== $candidate_pkg && null !== $last_pkg && $candidate_pkg['package'] === $last_pkg['package'] ) {
+			$candidate_tag = $candidate_pkg['version'];
+			$last_tag_norm = $last_pkg['version'];
+		} elseif ( null !== $candidate_pkg || null !== $last_pkg ) {
+			// Mixed or cross-package: force the chronology branch below.
+			$candidate_tag = '';
+			$last_tag_norm = '';
+		}
 
 		// Both semver — use version_compare (AC-006, BR-005).
 		if ( $this->is_semver( $candidate_tag ) && $this->is_semver( $last_tag_norm ) ) {
@@ -85,18 +97,6 @@ class Version_Comparator {
 	 * @param string $tag Release tag.
 	 * @return bool
 	 */
-	/**
-	 * Reduces a package tag to its embedded version for comparison; plain
-	 * tags pass through unchanged.
-	 *
-	 * @param string $tag Release tag.
-	 * @return string
-	 */
-	private function normalize_tag( string $tag ): string {
-		$parsed = Tag_Pattern_Matcher::derive_package( $tag );
-		return null === $parsed ? $tag : $parsed['version'];
-	}
-
 	/**
 	 * Returns true if a tag string looks like a semver version (with optional leading v).
 	 *

@@ -412,6 +412,7 @@ class Release_MonitorTest extends TestCase {
 	 * so package tags exercise the semver normalization end to end.
 	 */
 	public function test_patterned_run_enqueues_sibling_package_releases(): void {
+		\WP_Mock::userFunction( 'get_posts' )->andReturn( [] );
 		$monitor = new Release_Monitor(
 			$this->api_client,
 			$this->release_state,
@@ -481,6 +482,7 @@ class Release_MonitorTest extends TestCase {
 	 * when its sibling has a new release.
 	 */
 	public function test_patterned_run_skips_stream_with_no_new_release(): void {
+		\WP_Mock::userFunction( 'get_posts' )->andReturn( [] );
 		$monitor = new Release_Monitor(
 			$this->api_client,
 			$this->release_state,
@@ -538,5 +540,200 @@ class Release_MonitorTest extends TestCase {
 		$monitor->run();
 
 		$this->assertSame( [ '@acme/core@2.0.0' ], $enqueued );
+	}
+
+	/**
+	 * The default all-packages mode (no patterns) must ALSO monitor per
+	 * stream: a monorepo is detected from its latest release's tag shape,
+	 * and coordinated sibling releases are both enqueued (peer review
+	 * round 2, P1).
+	 */
+	public function test_unfiltered_monorepo_enqueues_sibling_releases(): void {
+		\WP_Mock::userFunction( 'get_posts' )->andReturn( [] );
+
+		$monitor = new Release_Monitor(
+			$this->api_client,
+			$this->release_state,
+			new Version_Comparator(),
+			$this->queue,
+			$this->repo_settings,
+		);
+
+		$this->repo_settings->method( 'get_repositories' )->willReturn(
+			[ [ 'identifier' => 'acme/unfiltered' ] ]
+		);
+
+		// Fast path returns the repo-wide latest — a package tag, so the
+		// monitor switches to streams and fetches the full list.
+		$this->api_client->method( 'fetch_latest_eligible_release' )->willReturn(
+			$this->make_release( '@acme/core@2.0.0', '2026-07-18T12:00:00Z' )
+		);
+		$this->api_client->method( 'fetch_releases' )->willReturn(
+			[
+				$this->make_release( '@acme/core@2.0.0', '2026-07-18T12:00:00Z' ),
+				$this->make_release( '@acme/next@1.5.0', '2026-07-18T11:00:00Z' ),
+			]
+		);
+
+		$this->release_state->method( 'get_state' )->willReturn(
+			[
+				'last_seen_tag'          => '@acme/core@1.9.0',
+				'last_seen_published_at' => '2026-06-01T00:00:00Z',
+				'last_checked_at'        => 0,
+				'packages'               => [
+					'@acme/core' => [
+						'last_seen_tag'          => '@acme/core@1.9.0',
+						'last_seen_published_at' => '2026-06-01T00:00:00Z',
+					],
+					'@acme/next' => [
+						'last_seen_tag'          => '@acme/next@1.4.0',
+						'last_seen_published_at' => '2026-05-01T00:00:00Z',
+					],
+				],
+			]
+		);
+
+		$enqueued = [];
+		$this->queue->method( 'enqueue' )->willReturnCallback(
+			function ( string $identifier, Release $release ) use ( &$enqueued ): void {
+				$enqueued[] = $release->tag;
+			}
+		);
+		$this->queue->method( 'dequeue_all' )->willReturn( [] );
+
+		\WP_Mock::userFunction( 'add_option' )->andReturn( true );
+		\WP_Mock::userFunction( 'delete_option' )->andReturn( true );
+		\WP_Mock::userFunction( 'update_option' )->andReturn( true );
+
+		$monitor->run();
+
+		sort( $enqueued );
+		$this->assertSame( [ '@acme/core@2.0.0', '@acme/next@1.5.0' ], $enqueued );
+	}
+
+	/**
+	 * The first streamed run seeds cursors without generating — no
+	 * one-post-per-package burst on upgrade or pattern configuration.
+	 */
+	public function test_first_streamed_run_seeds_without_enqueueing(): void {
+		$monitor = new Release_Monitor(
+			$this->api_client,
+			$this->release_state,
+			new Version_Comparator(),
+			$this->queue,
+			$this->repo_settings,
+		);
+
+		$this->repo_settings->method( 'get_repositories' )->willReturn(
+			[
+				[
+					'identifier'   => 'acme/mono-seed',
+					'tag_patterns' => '@acme/core@*, @acme/next@*',
+				],
+			]
+		);
+
+		$this->api_client->method( 'fetch_releases' )->willReturn(
+			[
+				$this->make_release( '@acme/core@2.0.0', '2026-07-18T12:00:00Z' ),
+				$this->make_release( '@acme/next@1.5.0', '2026-07-18T11:00:00Z' ),
+			]
+		);
+
+		$this->release_state->method( 'get_state' )->willReturn(
+			[
+				'last_seen_tag'          => '@acme/core@1.0.0',
+				'last_seen_published_at' => '2026-01-01T00:00:00Z',
+				'last_checked_at'        => 0,
+				'packages'               => [],
+			]
+		);
+
+		$seeded = [];
+		$this->release_state->method( 'update_package_seen' )->willReturnCallback(
+			function ( string $identifier, string $package, string $tag, string $published_at ) use ( &$seeded ): void {
+				$seeded[ $package ] = $tag;
+			}
+		);
+
+		$this->queue->expects( $this->never() )->method( 'enqueue' );
+		$this->queue->method( 'dequeue_all' )->willReturn( [] );
+
+		\WP_Mock::userFunction( 'add_option' )->andReturn( true );
+		\WP_Mock::userFunction( 'delete_option' )->andReturn( true );
+		\WP_Mock::userFunction( 'update_option' )->andReturn( true );
+
+		$monitor->run();
+
+		$this->assertSame(
+			[
+				'@acme/core' => '@acme/core@2.0.0',
+				'@acme/next' => '@acme/next@1.5.0',
+			],
+			$seeded
+		);
+	}
+
+	/**
+	 * Replay guard: a stream candidate that already has a post (manual
+	 * generation, pre-existing content) advances its cursor and is NOT
+	 * re-enqueued — re-enqueueing burned an AI call and could publish a
+	 * review draft via the cron's publish workflow (peer review round 2).
+	 */
+	public function test_stream_candidate_with_existing_post_is_not_reenqueued(): void {
+		\WP_Mock::userFunction( 'get_posts' )->andReturn( [ new \WP_Post( [ 'ID' => 77 ] ) ] );
+
+		$monitor = new Release_Monitor(
+			$this->api_client,
+			$this->release_state,
+			new Version_Comparator(),
+			$this->queue,
+			$this->repo_settings,
+		);
+
+		$this->repo_settings->method( 'get_repositories' )->willReturn(
+			[
+				[
+					'identifier'   => 'acme/mono-replay',
+					'tag_patterns' => '@acme/core@*',
+				],
+			]
+		);
+
+		$this->api_client->method( 'fetch_releases' )->willReturn(
+			[ $this->make_release( '@acme/core@3.0.0', '2026-07-18T12:00:00Z' ) ]
+		);
+
+		$this->release_state->method( 'get_state' )->willReturn(
+			[
+				'last_seen_tag'          => '',
+				'last_seen_published_at' => '',
+				'last_checked_at'        => 0,
+				'packages'               => [
+					'@acme/core' => [
+						'last_seen_tag'          => '@acme/core@2.0.0',
+						'last_seen_published_at' => '2026-06-01T00:00:00Z',
+					],
+				],
+			]
+		);
+
+		$advanced = [];
+		$this->release_state->method( 'update_package_seen' )->willReturnCallback(
+			function ( string $identifier, string $package, string $tag, string $published_at ) use ( &$advanced ): void {
+				$advanced[] = $tag;
+			}
+		);
+
+		$this->queue->expects( $this->never() )->method( 'enqueue' );
+		$this->queue->method( 'dequeue_all' )->willReturn( [] );
+
+		\WP_Mock::userFunction( 'add_option' )->andReturn( true );
+		\WP_Mock::userFunction( 'delete_option' )->andReturn( true );
+		\WP_Mock::userFunction( 'update_option' )->andReturn( true );
+
+		$monitor->run();
+
+		$this->assertSame( [ '@acme/core@3.0.0' ], $advanced );
 	}
 }

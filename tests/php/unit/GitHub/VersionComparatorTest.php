@@ -284,4 +284,30 @@ class VersionComparatorTest extends TestCase {
 
 		$this->assertTrue( $comparator->is_newer( $release, $state ) );
 	}
+
+	/**
+	 * Cross-package comparison must use chronology, not version numbers
+	 * (peer review round 2): a later core@2.0.0 is eligible even after
+	 * utils@100.0.0, which would otherwise suppress it forever.
+	 */
+	public function test_cross_package_comparison_uses_chronology(): void {
+		$comparator = new Version_Comparator();
+
+		$core = new Release(
+			tag:          '@acme/core@2.0.0',
+			name:         '@acme/core@2.0.0',
+			body:         '',
+			html_url:     'https://github.com/acme/mono/releases/tag/x',
+			published_at: '2026-07-15T00:00:00Z',
+			assets:       [],
+		);
+
+		$state = [
+			'last_seen_tag'          => '@acme/utils@100.0.0',
+			'last_seen_published_at' => '2026-07-01T00:00:00Z',
+			'last_checked_at'        => 0,
+		];
+
+		$this->assertTrue( $comparator->is_newer( $core, $state ) );
+	}
 }
