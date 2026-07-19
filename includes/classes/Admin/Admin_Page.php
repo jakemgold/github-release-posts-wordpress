@@ -994,7 +994,7 @@ class Admin_Page {
 		// release of ANY package in a monorepo, so "Generate post" could draft
 		// a package the site never publishes. Delegates to the fast cached
 		// endpoint when no patterns are set.
-		$repo_config    = $this->repo_settings->get_repository( (string) $identifier );
+		$repo_config = $this->repo_settings->get_repository( (string) $identifier );
 		/** This filter is documented in includes/classes/GitHub/Release_Monitor.php */
 		$tag_patterns   = (string) apply_filters( 'ghrp_repo_tag_patterns', (string) ( $repo_config['tag_patterns'] ?? '' ), (string) $identifier, $repo_config );
 		$latest_release = $api_client->fetch_latest_eligible_release( (string) $identifier, false, $tag_patterns );

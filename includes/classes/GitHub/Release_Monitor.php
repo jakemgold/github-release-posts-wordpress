@@ -119,7 +119,7 @@ class Release_Monitor {
 				 * @param array  $repo         Full repository configuration.
 				 */
 				$tag_patterns = (string) apply_filters( 'ghrp_repo_tag_patterns', (string) ( $repo['tag_patterns'] ?? '' ), $identifier, $repo );
-				$release             = $this->api_client->fetch_latest_eligible_release( $identifier, $include_prereleases, $tag_patterns );
+				$release      = $this->api_client->fetch_latest_eligible_release( $identifier, $include_prereleases, $tag_patterns );
 
 				if ( is_wp_error( $release ) ) {
 					if ( 'github_rate_limit_exhausted' === $release->get_error_code() ) {
