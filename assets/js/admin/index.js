@@ -1553,7 +1553,8 @@ document.addEventListener( 'DOMContentLoaded', function () {
 				} else {
 					versionConflictRow.hidden = true;
 					if ( versionConfirm ) {
-						versionConfirm.textContent = ghrpAdmin.i18n.generatePost || 'Generate post';
+						versionConfirm.textContent =
+							ghrpAdmin.i18n.generateDraft || 'Generate draft';
 					}
 				}
 			}

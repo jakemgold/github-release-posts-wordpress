@@ -190,11 +190,12 @@ class Admin_Page {
 					. '<li><strong>' . esc_html__( 'Packages / Tag patterns', 'auto-release-posts-for-github' ) . '</strong> — ' . esc_html__( 'For repositories that release multiple packages (monorepos), choose which packages get posts. See the Monorepos help tab.', 'auto-release-posts-for-github' ) . '</li>'
 					. '</ul>'
 					. '<p>' . esc_html__( 'Use the Edit row action to change any of these inline, then click Save Repositories at the bottom of the page.', 'auto-release-posts-for-github' ) . '</p>'
-					. '<h4>' . esc_html__( 'Generate Post', 'auto-release-posts-for-github' ) . '</h4>'
+					. '<h4>' . esc_html__( 'Generate Draft', 'auto-release-posts-for-github' ) . '</h4>'
 					. '<p>' . esc_html__( 'Creates a post from a GitHub release immediately, bypassing the cron schedule. If the repository has multiple releases, a picker lets you choose any historical version — useful for backfilling an archive of past releases.', 'auto-release-posts-for-github' ) . '</p>'
+					. '<p>' . esc_html__( 'Manually generated posts are always created as drafts so you can review them before publishing — even when the repository\'s Status setting is Published. The Status setting applies to posts created automatically by the scheduled check.', 'auto-release-posts-for-github' ) . '</p>'
 					. '<p>' . esc_html__( 'Posts generated for older releases are automatically backdated to one hour after the release\'s GitHub publication time, so they slot into the archive in the correct chronological order. You can adjust the date in the editor before publishing.', 'auto-release-posts-for-github' ) . '</p>'
 					. '<p>' . esc_html__( 'If a post already exists for the selected version, the picker shows an inline warning and re-generation creates a new revision while preserving the existing post date and URL slug.', 'auto-release-posts-for-github' ) . '</p>'
-					. '<p>' . esc_html__( 'After generation succeeds, a green checkmark appears next to the Generate post button — click it to jump straight to the new post in the editor.', 'auto-release-posts-for-github' ) . '</p>',
+					. '<p>' . esc_html__( 'After generation succeeds, a green checkmark appears next to the Generate draft button — click it to jump straight to the new post in the editor.', 'auto-release-posts-for-github' ) . '</p>',
 			]
 		);
 
@@ -392,7 +393,7 @@ class Admin_Page {
 					/* translators: %2$s: latest tag name */
 					'packageMetaOne'        => __( '1 release · latest %2$s', 'auto-release-posts-for-github' ),
 					'done'                  => __( 'Done', 'auto-release-posts-for-github' ),
-					'generateDraft'         => __( 'Generate draft post', 'auto-release-posts-for-github' ),
+					'generateDraft'         => __( 'Generate draft', 'auto-release-posts-for-github' ),
 					'generatePost'          => __( 'Generate post', 'auto-release-posts-for-github' ),
 					'generating'            => __( 'Generating…', 'auto-release-posts-for-github' ),
 					'draftCreated'          => __( 'Draft created.', 'auto-release-posts-for-github' ),

@@ -182,7 +182,7 @@ if ( $admin_notice ) {
 		<!-- Version picker dialog for "Generate post" when a repo has multiple releases (JS-driven) -->
 		<dialog id="ghrp-version-picker-dialog" class="ghrp-dialog" aria-labelledby="ghrp-version-picker-title">
 			<p id="ghrp-version-picker-title">
-				<strong><?php echo esc_html__( 'Generate a post for which release?', 'auto-release-posts-for-github' ); ?></strong>
+				<strong><?php echo esc_html__( 'Generate a draft for which release?', 'auto-release-posts-for-github' ); ?></strong>
 			</p>
 			<p>
 				<label for="ghrp-version-picker-select">
@@ -198,9 +198,12 @@ if ( $admin_notice ) {
 			<p id="ghrp-version-picker-backdate" class="description" hidden>
 				<?php echo esc_html__( 'Because this is an older release, the post date will be set to one hour after the release was published. You can adjust it before publishing.', 'auto-release-posts-for-github' ); ?>
 			</p>
+			<p class="description">
+				<?php echo esc_html__( 'Creates a draft for your review — the repository\'s Status setting applies to posts created by the scheduled check.', 'auto-release-posts-for-github' ); ?>
+			</p>
 			<div class="ghrp-dialog-actions">
 				<button type="button" id="ghrp-version-picker-confirm" class="button button-primary">
-					<?php echo esc_html__( 'Generate post', 'auto-release-posts-for-github' ); ?>
+					<?php echo esc_html__( 'Generate draft', 'auto-release-posts-for-github' ); ?>
 				</button>
 				<button type="button" id="ghrp-version-picker-cancel" class="button">
 					<?php echo esc_html__( 'Cancel', 'auto-release-posts-for-github' ); ?>

@@ -316,7 +316,7 @@ class Repository_List_Table extends \WP_List_Table {
 			return sprintf(
 				'<button type="button" class="button button-small" disabled aria-label="%s">%s</button>',
 				esc_attr__( 'No AI connector configured. Set one up under Settings → Connectors.', 'auto-release-posts-for-github' ),
-				esc_html__( 'Generate post', 'auto-release-posts-for-github' )
+				esc_html__( 'Generate draft', 'auto-release-posts-for-github' )
 			);
 		}
 
@@ -326,7 +326,7 @@ class Repository_List_Table extends \WP_List_Table {
 			'<span class="ghrp-generate-status" aria-live="polite"></span>',
 			esc_attr( $identifier ),
 			esc_attr__( 'Generate a draft post from the latest release version', 'auto-release-posts-for-github' ),
-			esc_html__( 'Generate post', 'auto-release-posts-for-github' )
+			esc_html__( 'Generate draft', 'auto-release-posts-for-github' )
 		);
 	}
 
