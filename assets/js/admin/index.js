@@ -1057,9 +1057,11 @@ document.addEventListener( 'DOMContentLoaded', function () {
 
 					const meta = document.createElement( 'span' );
 					meta.className = 'ghrp-package-meta';
+					const i18n = ghrpAdmin.i18n || {};
 					const template =
-						( ghrpAdmin.i18n && ghrpAdmin.i18n.packageMeta ) ||
-						'%1$s releases · latest %2$s';
+						pkg.count === 1
+							? i18n.packageMetaOne || '1 release · latest %2$s'
+							: i18n.packageMeta || '%1$s releases · latest %2$s';
 					meta.textContent = template
 						.replace( '%1$s', pkg.count )
 						.replace( '%2$s', pkg.latest_tag );

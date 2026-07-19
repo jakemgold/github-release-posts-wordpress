@@ -372,6 +372,8 @@ class Admin_Page {
 					'editLabel'             => __( 'Edit:', 'auto-release-posts-for-github' ),
 					/* translators: 1: release count, 2: latest tag name */
 					'packageMeta'           => __( '%1$s releases · latest %2$s', 'auto-release-posts-for-github' ),
+					/* translators: %2$s: latest tag name */
+					'packageMetaOne'        => __( '1 release · latest %2$s', 'auto-release-posts-for-github' ),
 					'done'                  => __( 'Done', 'auto-release-posts-for-github' ),
 					'generateDraft'         => __( 'Generate draft post', 'auto-release-posts-for-github' ),
 					'generatePost'          => __( 'Generate post', 'auto-release-posts-for-github' ),
