@@ -1197,7 +1197,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 		// post.tag is a git ref name that can legitimately contain characters
 		// the HTML parser would interpret (`<`, `>`, `&`, quotes). textContent
 		// + property assignment is the only escape that's actually safe here.
-		const label = post.tag ? `${ post.tag } on ${ post.date }` : post.date;
+		const label = post.tag ? `${ post.tag_label || post.tag } on ${ post.date }` : post.date;
 
 		while ( lastPostCell.firstChild ) {
 			lastPostCell.removeChild( lastPostCell.firstChild );

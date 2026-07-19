@@ -843,16 +843,21 @@ class Admin_Page {
 	 * Builds a standard post data array for REST responses.
 	 *
 	 * @param \WP_Post $post WordPress post object.
-	 * @return array Post data with id, title, status, edit_url, tag, and date.
+	 * @return array Post data with id, title, status, edit_url, tag, tag_label, and date.
 	 */
 	private function build_post_response( \WP_Post $post ): array {
+		$tag = (string) get_post_meta( $post->ID, Plugin_Constants::META_RELEASE_TAG, true );
+
 		return [
-			'id'       => $post->ID,
-			'title'    => $post->post_title,
-			'status'   => $post->post_status,
-			'edit_url' => get_edit_post_link( $post->ID, 'raw' ),
-			'tag'      => get_post_meta( $post->ID, Plugin_Constants::META_RELEASE_TAG, true ),
-			'date'     => get_the_date( 'Y/m/d', $post->ID ),
+			'id'        => $post->ID,
+			'title'     => $post->post_title,
+			'status'    => $post->post_status,
+			'edit_url'  => get_edit_post_link( $post->ID, 'raw' ),
+			'tag'       => $tag,
+			// Display form ("core 1.6.1" for package tags) — keeps the JS
+			// Last Post cell update consistent with the PHP-rendered column.
+			'tag_label' => Tag_Pattern_Matcher::display_label( $tag ),
+			'date'      => get_the_date( 'Y/m/d', $post->ID ),
 		];
 	}
 
