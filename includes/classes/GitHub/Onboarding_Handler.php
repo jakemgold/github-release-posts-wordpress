@@ -75,29 +75,38 @@ class Onboarding_Handler {
 			'multi_package' => false,
 			'packages'      => [],
 		];
+		$cursors          = [];
 		if ( is_array( $all_releases ) ) {
 			$packages_payload = Tag_Pattern_Matcher::build_packages_payload( $all_releases );
 			set_transient( Cache_Keys::repo_packages( $identifier ), $packages_payload, 15 * MINUTE_IN_SECONDS );
 
-			// Establish the stream baseline NOW, while the code knows every
-			// current release is historical (the repo was just added). For
-			// monorepos — where client auto-generation is suppressed — also
-			// seed each stream's cursor so the first cron doesn't generate
-			// a burst. Single-package repos get the marker only: their
-			// pending latest release must stay generatable, both by the
-			// client auto-trigger and by the cron if that fails (round 3).
-			$cursors = [];
+			// For monorepos — where client auto-generation is suppressed —
+			// seed every stream cursor the monitor will later evaluate,
+			// using the SAME winner selection the monitor applies (round 4):
+			// the picker payload is a UI projection — it omits the default
+			// stream and trusts GitHub's created_at order, so seeding from
+			// it could miss the plain-tag stream or pin a backport.
+			// Single-package repos get no cursors: their pending latest must
+			// stay generatable by the client auto-trigger, or by the cron if
+			// that fails (round 3).
 			if ( $packages_payload['multi_package'] ) {
-				foreach ( $packages_payload['packages'] as $entry ) {
-					$cursors[ $entry['package'] ] = [
-						'last_seen_tag'          => $entry['latest_tag'],
-						'last_seen_published_at' => $entry['latest_published_at'],
+				foreach ( ( new Version_Comparator() )->select_stream_winners( $all_releases ) as $stream => $winner ) {
+					$cursors[ (string) $stream ] = [
+						'last_seen_tag'          => $winner->tag,
+						'last_seen_published_at' => $winner->published_at,
 					];
 				}
 			}
-			$this->state->seed_streams( $identifier, $cursors );
 			$this->state->set_monorepo( $identifier, $packages_payload['multi_package'] );
 		}
+
+		// Establish the stream baseline UNCONDITIONALLY — even when the list
+		// fetch failed (round 4): the marker means "tracking began now". A
+		// newly added repo must never be mistaken for a legacy migration,
+		// which would SEED its pending release instead of generating it and
+		// permanently break the cron-retry promise. When the list failed,
+		// cursors are simply empty and the pending release stays generatable.
+		$this->state->seed_streams( $identifier, $cursors );
 
 		// Monorepo nudge: the default (posts for all packages) is unchanged
 		// pre-1.2 behavior, which floods feeds with utility-package posts.

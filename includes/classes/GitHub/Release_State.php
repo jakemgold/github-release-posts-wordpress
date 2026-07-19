@@ -27,7 +27,7 @@ class Release_State {
 	 * Returns the state array for a repository, with defaults for any missing keys.
 	 *
 	 * @param string $identifier Normalised `owner/repo` identifier.
-	 * @return array{last_seen_tag: string, last_seen_published_at: string, last_checked_at: int, packages: array<string, array{last_seen_tag: string, last_seen_published_at: string}>, streams_baseline_at: int, is_monorepo: bool}
+	 * @return array{last_seen_tag: string, last_seen_published_at: string, last_checked_at: int, packages: array<string, array{last_seen_tag: string, last_seen_published_at: string}>, streams_baseline_at: int, is_monorepo: bool, topology_checked_at: int}
 	 */
 	public function get_state( string $identifier ): array {
 		$stored = get_option( $this->option_key( $identifier ), [] );
@@ -54,6 +54,11 @@ class Release_State {
 			// list is observed — one latest tag is not enough to infer
 			// repository topology.
 			'is_monorepo'            => (bool) ( $stored['is_monorepo'] ?? false ),
+			// When topology was last determined from a full list (0 = never).
+			// A false is_monorepo is only trusted while fresh: repositories
+			// can BECOME monorepos (peer review round 4), so the monitor
+			// re-inspects the list when this goes stale.
+			'topology_checked_at'    => (int) ( $stored['topology_checked_at'] ?? 0 ),
 		];
 	}
 
@@ -94,11 +99,8 @@ class Release_State {
 			$stored = [];
 		}
 
-		if ( (bool) ( $stored['is_monorepo'] ?? false ) === $is_monorepo ) {
-			return; // No change — skip the write.
-		}
-
-		$stored['is_monorepo'] = $is_monorepo;
+		$stored['is_monorepo']         = $is_monorepo;
+		$stored['topology_checked_at'] = time();
 		update_option( $this->option_key( $identifier ), $stored, false );
 	}
 

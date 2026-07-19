@@ -200,6 +200,7 @@ class Release_MonitorTest extends TestCase {
 			'packages'               => [],
 			'streams_baseline_at'    => 1700000000,
 			'is_monorepo'            => false,
+			'topology_checked_at'    => time(),
 		];
 
 		$this->repo_settings->method( 'get_repositories' )->willReturn(
@@ -246,6 +247,7 @@ class Release_MonitorTest extends TestCase {
 			'packages'               => [],
 			'streams_baseline_at'    => 1700000000,
 			'is_monorepo'            => false,
+			'topology_checked_at'    => time(),
 		];
 
 		$this->repo_settings->method( 'get_repositories' )->willReturn(
@@ -462,6 +464,7 @@ class Release_MonitorTest extends TestCase {
 				'last_checked_at'        => 0,
 				'streams_baseline_at'    => 1700000000,
 				'is_monorepo'            => true,
+				'topology_checked_at'    => time(),
 				'packages'               => [
 					'@acme/core' => [
 						'last_seen_tag'          => '@acme/core@1.9.0',
@@ -530,6 +533,7 @@ class Release_MonitorTest extends TestCase {
 				'last_checked_at'        => 0,
 				'streams_baseline_at'    => 1700000000,
 				'is_monorepo'            => true,
+				'topology_checked_at'    => time(),
 				'packages'               => [
 					'@acme/core' => [
 						'last_seen_tag'          => '@acme/core@1.9.0',
@@ -600,6 +604,7 @@ class Release_MonitorTest extends TestCase {
 				'last_checked_at'        => 0,
 				'streams_baseline_at'    => 1700000000,
 				'is_monorepo'            => true,
+				'topology_checked_at'    => time(),
 				'packages'               => [
 					'@acme/core' => [
 						'last_seen_tag'          => '@acme/core@1.9.0',
@@ -802,6 +807,7 @@ class Release_MonitorTest extends TestCase {
 				'last_checked_at'        => 0,
 				'streams_baseline_at'    => 1700000000,
 				'is_monorepo'            => false,
+				'topology_checked_at'    => time(),
 				'packages'               => [],
 			]
 		);
@@ -862,6 +868,7 @@ class Release_MonitorTest extends TestCase {
 				'last_checked_at'        => 0,
 				'streams_baseline_at'    => 1700000000,
 				'is_monorepo'            => true,
+				'topology_checked_at'    => time(),
 				'packages'               => [
 					''           => [
 						'last_seen_tag'          => 'v2.0.0',
@@ -895,5 +902,150 @@ class Release_MonitorTest extends TestCase {
 
 		sort( $enqueued );
 		$this->assertSame( [ '@acme/core@2.0.0', '@acme/next@1.5.0', 'v3.0.0' ], $enqueued );
+	}
+
+	/**
+	 * Round-4 required test 1: a stale/never-made topology determination
+	 * with a PLAIN latest tag must still inspect the full list — a repo can
+	 * become a monorepo behind a repo-wide tag. Unseen streams process.
+	 */
+	public function test_stale_topology_with_plain_latest_discovers_monorepo(): void {
+		\WP_Mock::userFunction( 'get_posts' )->andReturn( [] );
+
+		$monitor = new Release_Monitor(
+			$this->api_client,
+			$this->release_state,
+			new Version_Comparator(),
+			$this->queue,
+			$this->repo_settings,
+		);
+
+		$this->repo_settings->method( 'get_repositories' )->willReturn(
+			[ [ 'identifier' => 'acme/became-mono' ] ]
+		);
+
+		$this->api_client->method( 'fetch_latest_eligible_release' )->willReturn(
+			$this->make_release( 'v9.0.0', '2026-07-19T00:00:00Z' )
+		);
+		$this->api_client->method( 'fetch_releases' )->willReturn(
+			[
+				$this->make_release( 'v9.0.0', '2026-07-19T00:00:00Z' ),
+				$this->make_release( '@acme/core@2.0.0', '2026-07-18T12:00:00Z' ),
+				$this->make_release( '@acme/next@1.5.0', '2026-07-18T11:00:00Z' ),
+			]
+		);
+
+		$this->release_state->method( 'get_state' )->willReturn(
+			[
+				'last_seen_tag'          => 'v8.0.0',
+				'last_seen_published_at' => '2026-01-01T00:00:00Z',
+				'last_checked_at'        => 0,
+				'streams_baseline_at'    => 1700000000,
+				'is_monorepo'            => false,
+				'topology_checked_at'    => 0,
+				'packages'               => [
+					''           => [
+						'last_seen_tag'          => 'v8.0.0',
+						'last_seen_published_at' => '2026-01-01T00:00:00Z',
+					],
+					'@acme/core' => [
+						'last_seen_tag'          => '@acme/core@1.0.0',
+						'last_seen_published_at' => '2026-01-01T00:00:00Z',
+					],
+					'@acme/next' => [
+						'last_seen_tag'          => '@acme/next@1.0.0',
+						'last_seen_published_at' => '2026-01-01T00:00:00Z',
+					],
+				],
+			]
+		);
+
+		$flagged = null;
+		$this->release_state->method( 'set_monorepo' )->willReturnCallback(
+			function ( string $identifier, bool $flag ) use ( &$flagged ): void {
+				$flagged = $flag;
+			}
+		);
+
+		$enqueued = [];
+		$this->queue->method( 'enqueue' )->willReturnCallback(
+			function ( string $identifier, Release $release ) use ( &$enqueued ): void {
+				$enqueued[] = $release->tag;
+			}
+		);
+		$this->queue->method( 'dequeue_all' )->willReturn( [] );
+
+		\WP_Mock::userFunction( 'add_option' )->andReturn( true );
+		\WP_Mock::userFunction( 'delete_option' )->andReturn( true );
+		\WP_Mock::userFunction( 'update_option' )->andReturn( true );
+
+		$monitor->run();
+
+		$this->assertTrue( $flagged );
+		sort( $enqueued );
+		$this->assertSame( [ '@acme/core@2.0.0', '@acme/next@1.5.0', 'v9.0.0' ], $enqueued );
+	}
+
+	/**
+	 * Round-4 required test 2: legacy state (upgrade — no baseline, no
+	 * topology fields) with a plain latest tag still discovers the monorepo
+	 * and runs the one-time migration seeding rather than bursting.
+	 */
+	public function test_legacy_upgrade_with_plain_latest_discovers_and_seeds(): void {
+		$monitor = new Release_Monitor(
+			$this->api_client,
+			$this->release_state,
+			new Version_Comparator(),
+			$this->queue,
+			$this->repo_settings,
+		);
+
+		$this->repo_settings->method( 'get_repositories' )->willReturn(
+			[ [ 'identifier' => 'acme/legacy-mono' ] ]
+		);
+
+		$this->api_client->method( 'fetch_latest_eligible_release' )->willReturn(
+			$this->make_release( 'v9.0.0', '2026-07-19T00:00:00Z' )
+		);
+		$this->api_client->method( 'fetch_releases' )->willReturn(
+			[
+				$this->make_release( 'v9.0.0', '2026-07-19T00:00:00Z' ),
+				$this->make_release( '@acme/core@2.0.0', '2026-07-18T12:00:00Z' ),
+				$this->make_release( '@acme/next@1.5.0', '2026-07-18T11:00:00Z' ),
+			]
+		);
+
+		$this->release_state->method( 'get_state' )->willReturn(
+			[
+				'last_seen_tag'          => 'v8.0.0',
+				'last_seen_published_at' => '2026-01-01T00:00:00Z',
+				'last_checked_at'        => 0,
+				'streams_baseline_at'    => 0,
+				'is_monorepo'            => false,
+				'topology_checked_at'    => 0,
+				'packages'               => [],
+			]
+		);
+
+		$seeded = null;
+		$this->release_state->method( 'seed_streams' )->willReturnCallback(
+			function ( string $identifier, array $cursors ) use ( &$seeded ): void {
+				$seeded = $cursors;
+			}
+		);
+
+		$this->queue->expects( $this->never() )->method( 'enqueue' );
+		$this->queue->method( 'dequeue_all' )->willReturn( [] );
+
+		\WP_Mock::userFunction( 'add_option' )->andReturn( true );
+		\WP_Mock::userFunction( 'delete_option' )->andReturn( true );
+		\WP_Mock::userFunction( 'update_option' )->andReturn( true );
+
+		$monitor->run();
+
+		$this->assertNotNull( $seeded );
+		$keys = array_keys( $seeded );
+		sort( $keys );
+		$this->assertSame( [ '', '@acme/core', '@acme/next' ], $keys );
 	}
 }

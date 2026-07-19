@@ -414,34 +414,32 @@ class API_Client {
 		// February release of another package via a March core backport). Reduce
 		// in two stages instead: highest version within each package stream,
 		// then newest by publication date among the stream winners.
-		$comparator = new Version_Comparator();
+		return self::pick_latest_eligible( $releases );
+	}
 
-		$groups = [];
-		foreach ( $releases as $release ) {
-			$parsed           = Tag_Pattern_Matcher::derive_package( $release->tag );
-			$key              = null === $parsed ? '' : $parsed['package'];
-			$groups[ $key ][] = $release;
+	/**
+	 * Selects the latest eligible release from an already-fetched list using
+	 * the shared two-stage rule: highest version within each package stream,
+	 * then newest by publication date among stream winners.
+	 *
+	 * Public and static so the version-picker REST response can mark the SAME
+	 * release as latest that generation will select (peer review round 4 —
+	 * the picker previously used GitHub's list order, which disagrees under
+	 * backports).
+	 *
+	 * @param Release[] $releases Releases (newest-first or any order).
+	 * @return Release|null Latest eligible release, or null for an empty list.
+	 */
+	public static function pick_latest_eligible( array $releases ): ?Release {
+		if ( empty( $releases ) ) {
+			return null;
 		}
 
-		$winners = [];
-		foreach ( $groups as $group ) {
-			$winner = $group[0];
-			foreach ( array_slice( $group, 1 ) as $candidate ) {
-				$state = [
-					'last_seen_tag'          => $winner->tag,
-					'last_seen_published_at' => $winner->published_at,
-					'last_checked_at'        => 0,
-				];
-				if ( $comparator->is_newer( $candidate, $state ) ) {
-					$winner = $candidate;
-				}
-			}
-			$winners[] = $winner;
-		}
+		$winners = ( new Version_Comparator() )->select_stream_winners( $releases );
 
-		$latest = $winners[0];
-		foreach ( array_slice( $winners, 1 ) as $winner ) {
-			if ( $winner->published_at > $latest->published_at ) {
+		$latest = null;
+		foreach ( $winners as $winner ) {
+			if ( null === $latest || $winner->published_at > $latest->published_at ) {
 				$latest = $winner;
 			}
 		}

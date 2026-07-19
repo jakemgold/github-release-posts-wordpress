@@ -106,6 +106,60 @@ class Version_Comparator {
 	 * @param string $tag Release tag.
 	 * @return bool
 	 */
+	/**
+	 * Groups releases into package streams and selects each stream's winner.
+	 *
+	 * The single shared selection routine (peer review round 4): onboarding
+	 * baselines, cron monitoring, and latest-release selection must all agree
+	 * on stream heads. Unclassifiable tags form the '' (default) stream —
+	 * they are monitored too, so they must be represented here even though
+	 * the package-picker UI omits them. Winners are chosen by the same
+	 * within-stream ordering is_newer() applies (semantic version for one
+	 * package, chronology otherwise) — NOT by GitHub's created_at list
+	 * order, which crowns later-created backports.
+	 *
+	 * @param Release[] $releases Releases, any order.
+	 * @return array<string, Release> Stream winners keyed by package ('' = default stream).
+	 */
+	public function select_stream_winners( array $releases ): array {
+		$groups = [];
+		foreach ( $releases as $release ) {
+			if ( ! $release instanceof Release ) {
+				continue;
+			}
+			$parsed           = Tag_Pattern_Matcher::derive_package( $release->tag );
+			$key              = null === $parsed ? '' : $parsed['package'];
+			$groups[ $key ][] = $release;
+		}
+
+		$winners = [];
+		foreach ( $groups as $key => $group ) {
+			$winner = $group[0];
+			foreach ( array_slice( $group, 1 ) as $candidate ) {
+				$state = [
+					'last_seen_tag'          => $winner->tag,
+					'last_seen_published_at' => $winner->published_at,
+					'last_checked_at'        => 0,
+				];
+				if ( $this->is_newer( $candidate, $state ) ) {
+					$winner = $candidate;
+				}
+			}
+			$winners[ $key ] = $winner;
+		}
+
+		return $winners;
+	}
+
+	/**
+	 * Returns true if a tag string looks like a semver version (with optional leading v).
+	 *
+	 * Accepts formats like: v1.2.3, 1.2.3, v1.2, 1.2.
+	 * Rejects pure date strings, hash-like tags, and arbitrary words.
+	 *
+	 * @param string $tag Release tag.
+	 * @return bool
+	 */
 	public function is_semver( string $tag ): bool {
 		return (bool) preg_match( '/^v?\d+\.\d+(\.\d+)?(\.\d+)?(-[a-zA-Z0-9.]+)?(\+[a-zA-Z0-9.]+)?$/', $tag );
 	}

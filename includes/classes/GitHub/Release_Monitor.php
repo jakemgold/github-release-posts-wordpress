@@ -174,23 +174,33 @@ class Release_Monitor {
 
 				// The default all-packages mode has no patterns, but a monorepo
 				// is still a monorepo: one repo-wide cursor drops sibling
-				// releases (peer review P1). The durable is_monorepo flag —
-				// set wherever a full release list is observed — is the
-				// primary signal, because one latest tag proves nothing: a
-				// monorepo can publish a plain repo-wide tag too (round 3).
-				// The tag-shape check remains as the bootstrap that first
-				// discovers a monorepo and sets the flag.
-				$repo_state = $this->state->get_state( $identifier );
+				// releases (peer review P1). Topology routing (round 4):
+				// - is_monorepo=true is durable and authoritative;
+				// - a package-shaped latest tag triggers immediate inspection;
+				// - is_monorepo=false is only trusted while FRESH — repos can
+				// become monorepos behind a plain latest tag, so a stale or
+				// never-made determination re-inspects the full list. The
+				// weekly re-check bounds the extra API cost for true
+				// single-package repos to one list call per week.
+				$repo_state     = $this->state->get_state( $identifier );
+				$topology_stale = ( time() - $repo_state['topology_checked_at'] ) > WEEK_IN_SECONDS;
 
-				if ( $repo_state['is_monorepo'] || null !== Tag_Pattern_Matcher::derive_package( $release->tag ) ) {
+				if ( $repo_state['is_monorepo'] || $topology_stale || null !== Tag_Pattern_Matcher::derive_package( $release->tag ) ) {
 					$releases = $this->api_client->fetch_releases( $identifier, $include_prereleases, '' );
 					if ( is_array( $releases ) && ! empty( $releases ) ) {
-						if ( ! $repo_state['is_monorepo'] && Tag_Pattern_Matcher::build_packages_payload( $releases )['multi_package'] ) {
-							$this->state->set_monorepo( $identifier, true );
+						$is_monorepo = $repo_state['is_monorepo'];
+						if ( ! $is_monorepo ) {
+							$is_monorepo = count( $this->comparator->select_stream_winners( $releases ) ) >= 2
+								|| Tag_Pattern_Matcher::build_packages_payload( $releases )['multi_package'];
+							$this->state->set_monorepo( $identifier, $is_monorepo );
 						}
-						$this->check_package_streams( $identifier, $releases );
-						$this->state->update_last_checked( $identifier );
-						continue;
+						if ( $is_monorepo ) {
+							$this->check_package_streams( $identifier, $releases );
+							$this->state->update_last_checked( $identifier );
+							continue;
+						}
+						// Confirmed single-package — fall through to the
+						// single-cursor path with the latest already fetched.
 					}
 					// List fetch failed — fall through to the single-cursor
 					// path rather than skipping the repo entirely.
@@ -342,12 +352,9 @@ class Release_Monitor {
 	 * @return void
 	 */
 	private function check_package_streams( string $identifier, array $releases ): void {
-		$groups = [];
-		foreach ( $releases as $release ) {
-			$parsed           = Tag_Pattern_Matcher::derive_package( $release->tag );
-			$key              = null === $parsed ? '' : $parsed['package'];
-			$groups[ $key ][] = $release;
-		}
+		// The single shared selection routine — onboarding baselines and
+		// latest-release selection use the same one (round 4).
+		$winners = $this->comparator->select_stream_winners( $releases );
 
 		$state         = $this->state->get_state( $identifier );
 		$package_state = $state['packages'];
@@ -362,21 +369,7 @@ class Release_Monitor {
 		$seed_only = 0 === $state['streams_baseline_at'];
 		$seeds     = [];
 
-		foreach ( $groups as $package => $group ) {
-			// Newest by version within the stream — same reduce the API
-			// client uses for its latest-eligible pick.
-			$candidate = $group[0];
-			foreach ( array_slice( $group, 1 ) as $other ) {
-				$synthetic = [
-					'last_seen_tag'          => $candidate->tag,
-					'last_seen_published_at' => $candidate->published_at,
-					'last_checked_at'        => 0,
-				];
-				if ( $this->comparator->is_newer( $other, $synthetic ) ) {
-					$candidate = $other;
-				}
-			}
-
+		foreach ( $winners as $package => $candidate ) {
 			$cursor = [
 				'last_seen_tag'          => (string) ( $package_state[ $package ]['last_seen_tag'] ?? '' ),
 				'last_seen_published_at' => (string) ( $package_state[ $package ]['last_seen_published_at'] ?? '' ),

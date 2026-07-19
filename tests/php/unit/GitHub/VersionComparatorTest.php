@@ -310,4 +310,25 @@ class VersionComparatorTest extends TestCase {
 
 		$this->assertTrue( $comparator->is_newer( $core, $state ) );
 	}
+
+	/**
+	 * select_stream_winners(): groups by package including the default
+	 * stream, picks by within-stream ordering — never by list position, so a
+	 * later-created backport is not a winner.
+	 */
+	public function test_select_stream_winners(): void {
+		$comparator = new Version_Comparator();
+
+		$releases = [
+			new Release( tag: '@acme/core@1.9.6', name: '', body: '', html_url: 'https://github.com/x/y/releases/tag/a', published_at: '2026-03-01T00:00:00Z', assets: [] ),
+			new Release( tag: 'v9.0.0', name: '', body: '', html_url: 'https://github.com/x/y/releases/tag/b', published_at: '2026-07-01T00:00:00Z', assets: [] ),
+			new Release( tag: '@acme/core@2.0.0', name: '', body: '', html_url: 'https://github.com/x/y/releases/tag/c', published_at: '2026-01-01T00:00:00Z', assets: [] ),
+		];
+
+		$winners = $comparator->select_stream_winners( $releases );
+
+		$this->assertSame( [ '@acme/core', '' ], array_keys( $winners ) );
+		$this->assertSame( '@acme/core@2.0.0', $winners['@acme/core']->tag );
+		$this->assertSame( 'v9.0.0', $winners['']->tag );
+	}
 }

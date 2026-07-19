@@ -105,4 +105,60 @@ class Onboarding_HandlerTest extends TestCase {
 		$this->assertTrue( $outcome['auto_trigger'] );
 		$this->assertNull( $outcome['notice'] );
 	}
+
+	/**
+	 * Round-4: a transient failure of the onboarding list fetch must STILL
+	 * stamp the stream baseline (with no cursors) — otherwise the next cron
+	 * mistakes the new repo for a legacy migration and SEEDS its pending
+	 * release instead of generating it, permanently breaking the cron-retry
+	 * promise.
+	 */
+	public function test_list_fetch_failure_still_stamps_baseline(): void {
+		$api = $this->createMock( API_Client::class );
+		$api->method( 'fetch_releases' )->willReturn( new \WP_Error( 'http_request_failed', 'timeout' ) );
+		$api->method( 'fetch_latest_eligible_release' )->willReturn( $this->release( 'newborn@1.0.0' ) );
+
+		$state = $this->createMock( Release_State::class );
+		$state->expects( $this->once() )->method( 'seed_streams' )->with( $this->anything(), [] );
+		$state->expects( $this->never() )->method( 'set_monorepo' );
+
+		$outcome = ( new Onboarding_Handler( $api, $state ) )->handle_add( 'acme/flaky-' . uniqid() );
+
+		$this->assertTrue( $outcome['auto_trigger'] );
+	}
+
+	/**
+	 * Round-4: monorepo baselines are seeded from the SAME stream-winner
+	 * selection the monitor uses — the default (plain-tag) stream is seeded
+	 * too, and a later-created backport never becomes a cursor.
+	 */
+	public function test_monorepo_seeding_uses_stream_winners(): void {
+		$api = $this->createMock( API_Client::class );
+		$api->method( 'fetch_releases' )->willReturn(
+			[
+				new Release( tag: '@acme/core@1.9.6', name: 'backport', body: '', html_url: 'https://github.com/acme/mono/releases/tag/a', published_at: '2026-03-01T00:00:00Z', assets: [] ),
+				new Release( tag: 'v9.0.0', name: 'plain', body: '', html_url: 'https://github.com/acme/mono/releases/tag/b', published_at: '2026-07-01T00:00:00Z', assets: [] ),
+				new Release( tag: '@acme/core@2.0.0', name: 'core2', body: '', html_url: 'https://github.com/acme/mono/releases/tag/c', published_at: '2026-01-01T00:00:00Z', assets: [] ),
+				new Release( tag: '@acme/next@1.0.0', name: 'next1', body: '', html_url: 'https://github.com/acme/mono/releases/tag/d', published_at: '2026-02-01T00:00:00Z', assets: [] ),
+			]
+		);
+		$api->method( 'fetch_latest_eligible_release' )->willReturn( $this->release( 'v9.0.0' ) );
+
+		$state  = $this->createMock( Release_State::class );
+		$seeded = null;
+		$state->method( 'seed_streams' )->willReturnCallback(
+			function ( string $identifier, array $cursors ) use ( &$seeded ): void {
+				$seeded = $cursors;
+			}
+		);
+
+		( new Onboarding_Handler( $api, $state ) )->handle_add( 'acme/mono-winners-' . uniqid() );
+
+		$this->assertNotNull( $seeded );
+		$keys = array_keys( $seeded );
+		sort( $keys );
+		$this->assertSame( [ '', '@acme/core', '@acme/next' ], $keys );
+		$this->assertSame( '@acme/core@2.0.0', $seeded['@acme/core']['last_seen_tag'] );
+		$this->assertSame( 'v9.0.0', $seeded['']['last_seen_tag'] );
+	}
 }

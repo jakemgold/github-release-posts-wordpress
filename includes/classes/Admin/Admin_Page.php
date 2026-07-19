@@ -906,7 +906,10 @@ class Admin_Page {
 			);
 		}
 
-		$latest_tag = $releases[0]->tag;
+		// Mark as latest the SAME release generation will select — GitHub's
+		// list order crowns later-created backports (round 4).
+		$latest_pick = API_Client::pick_latest_eligible( $releases );
+		$latest_tag  = null !== $latest_pick ? $latest_pick->tag : $releases[0]->tag;
 
 		$payload = [];
 		foreach ( $releases as $release ) {

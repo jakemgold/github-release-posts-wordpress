@@ -945,4 +945,22 @@ class API_ClientTest extends TestCase {
 		$this->assertInstanceOf( Release::class, $result );
 		$this->assertSame( '@acme/b@1.0.0', $result->tag );
 	}
+
+	/**
+	 * pick_latest_eligible() is the shared selector the version picker's
+	 * latest_tag now uses — for the pinned non-transitive sequence it must
+	 * agree with generation's choice (round 4).
+	 */
+	public function test_pick_latest_eligible_matches_generation_choice(): void {
+		$releases = [
+			new Release( tag: '@acme/a@1.0.0', name: '', body: '', html_url: 'https://github.com/x/y/releases/tag/a', published_at: '2026-03-01T00:00:00Z', assets: [] ),
+			new Release( tag: '@acme/b@1.0.0', name: '', body: '', html_url: 'https://github.com/x/y/releases/tag/b', published_at: '2026-02-01T00:00:00Z', assets: [] ),
+			new Release( tag: '@acme/a@2.0.0', name: '', body: '', html_url: 'https://github.com/x/y/releases/tag/c', published_at: '2026-01-01T00:00:00Z', assets: [] ),
+		];
+
+		$picked = API_Client::pick_latest_eligible( $releases );
+
+		$this->assertInstanceOf( Release::class, $picked );
+		$this->assertSame( '@acme/b@1.0.0', $picked->tag );
+	}
 }
