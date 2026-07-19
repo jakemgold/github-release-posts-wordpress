@@ -102,6 +102,24 @@ final class Tag_Pattern_Matcher {
 	}
 
 	/**
+	 * Human-readable label for a release tag: package tags render as
+	 * "core 1.6.1" (short name + full version — no headline-style .0 trim,
+	 * this is for data displays like the Last Post column); anything else
+	 * is returned verbatim.
+	 *
+	 * @param string $tag Release tag name.
+	 * @return string
+	 */
+	public static function display_label( string $tag ): string {
+		$parsed = self::derive_package( $tag );
+		if ( null === $parsed ) {
+			return $tag;
+		}
+
+		return self::short_name( $parsed['package'] ) . ' ' . $parsed['version'];
+	}
+
+	/**
 	 * Returns the short display name for a package: the last path segment,
 	 * so `@headstartwp/core` reads as `core`. Callers that show short names
 	 * side by side are responsible for collision handling.

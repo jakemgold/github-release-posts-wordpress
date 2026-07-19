@@ -17,6 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 use GitHubReleasePosts\Plugin_Constants;
 use GitHubReleasePosts\Post\Post_Status;
+use GitHubReleasePosts\GitHub\Tag_Pattern_Matcher;
 use GitHubReleasePosts\Settings\Repository_Settings;
 
 // WP_List_Table is not loaded automatically in all contexts.
@@ -261,8 +262,10 @@ class Repository_List_Table extends \WP_List_Table {
 			return '—';
 		}
 
-		$data  = $this->last_posts[ $identifier ];
-		$label = $data['tag'] ? $data['tag'] . ' ' . __( 'on', 'auto-release-posts-for-github' ) . ' ' . $data['date'] : $data['date'];
+		$data = $this->last_posts[ $identifier ];
+		// Package tags ("@headstartwp/core@1.6.1") render as "core 1.6.1".
+		$tag_label = Tag_Pattern_Matcher::display_label( (string) $data['tag'] );
+		$label     = $data['tag'] ? $tag_label . ' ' . __( 'on', 'auto-release-posts-for-github' ) . ' ' . $data['date'] : $data['date'];
 
 		// Show post status for non-published posts. Pulled from WP's status
 		// registry so custom statuses (Edit Flow's "Pitch", etc.) render too.

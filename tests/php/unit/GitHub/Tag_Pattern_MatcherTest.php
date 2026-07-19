@@ -237,6 +237,17 @@ class Tag_Pattern_MatcherTest extends TestCase {
 	}
 
 	/**
+	 * display_label() renders package tags as "short-name version" and leaves
+	 * plain tags verbatim (including the full version — no headline .0 trim).
+	 */
+	public function test_display_label(): void {
+		$this->assertSame( 'core 1.6.1', Tag_Pattern_Matcher::display_label( '@headstartwp/core@1.6.1' ) );
+		$this->assertSame( 'admin 2.1.0', Tag_Pattern_Matcher::display_label( 'admin-v2.1.0' ) );
+		$this->assertSame( 'v7.6.1', Tag_Pattern_Matcher::display_label( 'v7.6.1' ) );
+		$this->assertSame( '1.2.3', Tag_Pattern_Matcher::display_label( '1.2.3' ) );
+	}
+
+	/**
 	 * derive_package() returns null for single-package or unclassifiable tags.
 	 */
 	public function test_derive_package_returns_null_for_single_package_tags(): void {
