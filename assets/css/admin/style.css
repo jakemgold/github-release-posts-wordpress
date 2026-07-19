@@ -379,6 +379,13 @@
 	margin: 2px 0 4px;
 }
 
-.ghrp-package-checklist {
+/* Outranks core's `.inline-edit-row fieldset ul.cat-checklist` max-height,
+   which otherwise wins on specificity. Show about four ~26px packages before
+   scrolling — this is a secondary control and shouldn't dwarf the Categories
+   box below it. */
+.inline-edit-row fieldset ul.ghrp-package-checklist {
 	margin-top: 4px;
+	max-height: 110px;
+	min-height: 0;
+	overflow-y: auto;
 }

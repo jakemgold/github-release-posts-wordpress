@@ -209,8 +209,13 @@ class Admin_Page {
 					. '<h4>' . esc_html__( 'When New Packages Appear Later', 'auto-release-posts-for-github' ) . '</h4>'
 					. '<p>' . esc_html__( 'If you have chosen a subset of packages and the repository later starts releasing a new package, the new package is excluded automatically — nothing unexpected shows up in your feed. It appears as a new, unchecked entry in the Packages list the next time you edit the repository; check it to start generating posts for it.', 'auto-release-posts-for-github' ) . '</p>'
 					. '<p>' . esc_html__( 'With "Create posts for all packages" selected, no filter is applied — releases of any package the repository adds in the future are eligible too. To permanently limit posts to a fixed set of packages even as new ones appear, select "Choose which packages get posts" and check every package you want: the selection is stored explicitly, so future packages stay excluded until checked.', 'auto-release-posts-for-github' ) . '</p>'
-					. '<h4>' . esc_html__( 'Tag Patterns (Advanced)', 'auto-release-posts-for-github' ) . '</h4>'
-					. '<p>' . esc_html__( 'Behind the checkboxes, the selection is stored as tag patterns — a comma-separated list of wildcard patterns matched against release tag names. Click "Edit tag patterns manually" to work with them directly, which is useful for tagging schemes the plugin does not recognize automatically.', 'auto-release-posts-for-github' ) . '</p>'
+					. '<h4>' . esc_html__( 'Tag Patterns (for Developers)', 'auto-release-posts-for-github' ) . '</h4>'
+					. '<p>' . esc_html__( 'Behind the checkboxes, the selection is stored as tag patterns — a comma-separated list of wildcard patterns matched against release tag names.', 'auto-release-posts-for-github' ) . '</p>'
+					. '<p>' . sprintf(
+						/* translators: %s: filter name wrapped in <code> tags */
+						esc_html__( 'For tagging schemes the plugin does not recognize automatically, or for dynamic rules, developers can supply patterns in code via the %s filter. It receives the stored pattern string, the repository identifier, and the full repository configuration; return a comma-separated list of patterns, or an empty string for no filtering.', 'auto-release-posts-for-github' ),
+						'<code>ghrp_repo_tag_patterns</code>'
+					) . '</p>'
 					. '<ul>'
 					. '<li>' . esc_html__( 'A release is eligible when its tag matches ANY listed pattern. The wildcard * matches any characters; ? matches a single character; [0-9] matches a digit.', 'auto-release-posts-for-github' ) . '</li>'
 					. '<li>' . sprintf(
@@ -869,7 +874,8 @@ class Admin_Page {
 		// where the field is missing (pre-1.0 entries).
 		$repo                = $this->repo_settings->get_repository( $identifier );
 		$include_prereleases = ! empty( $repo['include_prereleases'] );
-		$tag_patterns        = (string) ( $repo['tag_patterns'] ?? '' );
+		/** This filter is documented in includes/classes/GitHub/Release_Monitor.php */
+		$tag_patterns = (string) apply_filters( 'ghrp_repo_tag_patterns', (string) ( $repo['tag_patterns'] ?? '' ), $identifier, $repo );
 
 		$releases = $api_client->fetch_releases( $identifier, $include_prereleases, $tag_patterns );
 
@@ -995,7 +1001,8 @@ class Admin_Page {
 		// a package the site never publishes. Delegates to the fast cached
 		// endpoint when no patterns are set.
 		$repo_config    = $this->repo_settings->get_repository( (string) $identifier );
-		$tag_patterns   = (string) ( $repo_config['tag_patterns'] ?? '' );
+		/** This filter is documented in includes/classes/GitHub/Release_Monitor.php */
+		$tag_patterns   = (string) apply_filters( 'ghrp_repo_tag_patterns', (string) ( $repo_config['tag_patterns'] ?? '' ), (string) $identifier, $repo_config );
 		$latest_release = $api_client->fetch_latest_eligible_release( (string) $identifier, false, $tag_patterns );
 
 		if ( is_wp_error( $latest_release ) ) {

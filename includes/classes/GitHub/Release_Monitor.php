@@ -105,7 +105,20 @@ class Release_Monitor {
 				}
 
 				$include_prereleases = ! empty( $repo['include_prereleases'] );
-				$tag_patterns        = (string) ( $repo['tag_patterns'] ?? '' );
+				/**
+				 * Filters the tag patterns applied to a repository's releases.
+				 *
+				 * The primary way to set patterns is the Packages picker in the
+				 * admin; this filter is the code-level override for dynamic or
+				 * uncommon needs (unrecognized tag schemes, per-environment
+				 * rules). Return a comma-separated list of fnmatch globs, or
+				 * an empty string for no filtering.
+				 *
+				 * @param string $tag_patterns Stored comma-separated patterns.
+				 * @param string $identifier   Repository identifier (owner/repo).
+				 * @param array  $repo         Full repository configuration.
+				 */
+				$tag_patterns = (string) apply_filters( 'ghrp_repo_tag_patterns', (string) ( $repo['tag_patterns'] ?? '' ), $identifier, $repo );
 				$release             = $this->api_client->fetch_latest_eligible_release( $identifier, $include_prereleases, $tag_patterns );
 
 				if ( is_wp_error( $release ) ) {

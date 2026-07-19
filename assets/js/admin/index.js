@@ -985,13 +985,12 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	 */
 	function wirePackagePicker( editRow, dataRow ) {
 		const picker = editRow.querySelector( '.ghrp-packages-picker' );
-		const manual = editRow.querySelector( '.ghrp-tag-patterns-manual' );
 		const input = editRow.querySelector( '[data-field="tag_patterns"]' );
 		const list = picker ? picker.querySelector( '.ghrp-package-checklist' ) : null;
 		const radios = picker
 			? Array.from( picker.querySelectorAll( '.ghrp-packages-mode input[type=radio]' ) )
 			: [];
-		if ( ! picker || ! manual || ! input || ! list || radios.length !== 2 ) {
+		if ( ! picker || ! input || ! list || radios.length !== 2 ) {
 			return;
 		}
 
@@ -1003,14 +1002,6 @@ document.addEventListener( 'DOMContentLoaded', function () {
 			radio.name = `ghrp_packages_mode_${ repo }`;
 		} );
 
-		const link = picker.querySelector( '.ghrp-edit-patterns-manually' );
-		if ( link ) {
-			link.addEventListener( 'click', function ( e ) {
-				e.preventDefault();
-				manual.hidden = false;
-			} );
-		}
-
 		window.ghrpFetch(
 			'GET',
 			'/repos/packages',
@@ -1021,7 +1012,11 @@ document.addEventListener( 'DOMContentLoaded', function () {
 					! response.multi_package ||
 					! Array.isArray( response.packages )
 				) {
-					return; // Single-package repo: the manual field stays as-is.
+					// Single-package repo (or unrecognized tag scheme): no
+					// picker. Stored patterns still round-trip via the hidden
+					// field, and the ghrp_repo_tag_patterns filter remains the
+					// code-level control.
+					return;
 				}
 
 				const known = response.packages.map( function ( pkg ) {
@@ -1109,10 +1104,10 @@ document.addEventListener( 'DOMContentLoaded', function () {
 				} );
 
 				picker.hidden = false;
-				manual.hidden = true;
 			},
 			function () {
-				// API failure: the manual field stays — never block editing.
+				// API failure: no picker this session; stored patterns are
+				// preserved by the hidden field — never block editing.
 			},
 		);
 	}

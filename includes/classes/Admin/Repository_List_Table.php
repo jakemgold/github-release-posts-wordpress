@@ -360,15 +360,8 @@ class Repository_List_Table extends \WP_List_Table {
 									</span>
 								</label>
 
-								<label class="ghrp-tag-patterns-manual">
-									<span class="title"><?php echo esc_html__( 'Tag patterns (optional)', 'auto-release-posts-for-github' ); ?></span>
-									<span class="input-text-wrap">
-										<input type="text" data-field="tag_patterns" placeholder="<?php echo esc_attr__( 'e.g. @headstartwp/core@*, @headstartwp/next@*', 'auto-release-posts-for-github' ); ?>">
-									</span>
-									<span class="description">
-										<?php echo esc_html__( 'Comma-separated patterns; only releases whose tag matches one will get posts. Wildcard * supported. Case-sensitive. Leave blank for all releases.', 'auto-release-posts-for-github' ); ?>
-									</span>
-								</label>
+								<?php // Written by the Packages picker; round-trips stored patterns untouched when the picker doesn't render. ?>
+								<input type="hidden" data-field="tag_patterns">
 
 								<label>
 									<span class="title"><?php echo esc_html__( 'Status', 'auto-release-posts-for-github' ); ?></span>
@@ -435,9 +428,6 @@ class Repository_List_Table extends \WP_List_Table {
 										</label>
 									</div>
 									<ul class="cat-checklist ghrp-package-checklist" hidden></ul>
-									<span class="description">
-										<a href="#" class="ghrp-edit-patterns-manually"><?php echo esc_html__( 'Edit tag patterns manually', 'auto-release-posts-for-github' ); ?></a>
-									</span>
 								</div>
 
 								<span class="title inline-edit-categories-label"><?php echo esc_html__( 'Categories', 'auto-release-posts-for-github' ); ?></span>
