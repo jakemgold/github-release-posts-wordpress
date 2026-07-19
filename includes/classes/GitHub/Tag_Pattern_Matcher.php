@@ -65,7 +65,7 @@ final class Tag_Pattern_Matcher {
 	 * can't classify — callers treat those repos as single-package.
 	 *
 	 * @param string $tag Release tag name.
-	 * @return array{package: string, pattern: string}|null
+	 * @return array{package: string, pattern: string, version: string}|null
 	 */
 	public static function derive_package( string $tag ): ?array {
 		$tag = trim( $tag );
@@ -75,14 +75,16 @@ final class Tag_Pattern_Matcher {
 			return [
 				'package' => $m['pkg'],
 				'pattern' => $m['pkg'] . '@*',
+				'version' => $m['ver'],
 			];
 		}
 
 		// name-v1.2.3 style.
-		if ( preg_match( '/^(?<pkg>[^\s]+)-v[0-9][\w.\-]*$/', $tag, $m ) ) {
+		if ( preg_match( '/^(?<pkg>[^\s]+)-v(?<ver>[0-9][\w.\-]*)$/', $tag, $m ) ) {
 			return [
 				'package' => $m['pkg'],
 				'pattern' => $m['pkg'] . '-v[0-9]*',
+				'version' => $m['ver'],
 			];
 		}
 
@@ -92,10 +94,24 @@ final class Tag_Pattern_Matcher {
 			return [
 				'package' => $m['pkg'],
 				'pattern' => $m['pkg'] . '-[0-9]*',
+				'version' => $m['ver'],
 			];
 		}
 
 		return null;
+	}
+
+	/**
+	 * Returns the short display name for a package: the last path segment,
+	 * so `@headstartwp/core` reads as `core`. Callers that show short names
+	 * side by side are responsible for collision handling.
+	 *
+	 * @param string $package Full package name.
+	 * @return string
+	 */
+	public static function short_name( string $package ): string {
+		$pos = strrpos( $package, '/' );
+		return false === $pos ? $package : substr( $package, $pos + 1 );
 	}
 
 	/**

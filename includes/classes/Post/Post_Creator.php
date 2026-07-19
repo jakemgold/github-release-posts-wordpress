@@ -13,6 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 use GitHubReleasePosts\AI\GeneratedPost;
+use GitHubReleasePosts\GitHub\Tag_Pattern_Matcher;
 use GitHubReleasePosts\AI\ReleaseData;
 use GitHubReleasePosts\GitHub\Release_Monitor;
 use GitHubReleasePosts\Plugin_Constants;
@@ -319,13 +320,34 @@ class Post_Creator {
 	 * @return string Full post title.
 	 */
 	public static function build_title( string $display_name, string $tag, string $ai_title, string $format, string $identifier ): string {
-		$tag = self::format_version_tag( $tag );
+		// Monorepo package tags (e.g. "@headstartwp/core@1.6.1") read as code
+		// dumps when used verbatim — and the 'version' format's v-strip does
+		// nothing to them. When the tag parses as a package release, render
+		// the short package name + bare version ("core 1.6.1") instead; the
+		// per-repo display name still provides the project context. Plain
+		// tags are formatted exactly as before.
+		$parsed = Tag_Pattern_Matcher::derive_package( $tag );
+		if ( null !== $parsed ) {
+			$package = Tag_Pattern_Matcher::short_name( $parsed['package'] );
+			$version = self::format_version_tag( $parsed['version'] );
+			$tag     = "{$package} {$version}";
 
-		$title = match ( $format ) {
-			'none'    => $ai_title,
-			'version' => 'Version ' . ltrim( $tag, 'vV' ) . ' — ' . $ai_title,
-			default   => "{$display_name} {$tag} — {$ai_title}",
-		};
+			$title = match ( $format ) {
+				'none'    => $ai_title,
+				// "Version 1.6.1" alone is ambiguous across packages — keep
+				// the package name in the version-only format.
+				'version' => "{$package} " . ltrim( $version, 'vV' ) . ' — ' . $ai_title,
+				default   => "{$display_name} {$package} {$version} — {$ai_title}",
+			};
+		} else {
+			$tag = self::format_version_tag( $tag );
+
+			$title = match ( $format ) {
+				'none'    => $ai_title,
+				'version' => 'Version ' . ltrim( $tag, 'vV' ) . ' — ' . $ai_title,
+				default   => "{$display_name} {$tag} — {$ai_title}",
+			};
+		}
 
 		/**
 		 * Filters the full post title before it is saved.
@@ -357,6 +379,16 @@ class Post_Creator {
 		}
 
 		$display_name = $this->repo_settings->get_display_name( $identifier );
+
+		// Package tags contribute their short name + bare version so monorepo
+		// slugs come out as "headstartwp-core-1-6-1-…" instead of a mush of
+		// the raw tag's @ and / characters.
+		$parsed = Tag_Pattern_Matcher::derive_package( $tag );
+		if ( null !== $parsed ) {
+			$version  = str_replace( '.', '-', strtolower( $parsed['version'] ) );
+			$raw_slug = $display_name . '-' . Tag_Pattern_Matcher::short_name( $parsed['package'] ) . '-' . $version . '-' . $slug_keywords;
+			return sanitize_title( $raw_slug );
+		}
 
 		// Strip 'v' prefix and dots → hyphens for the version.
 		$version = strtolower( ltrim( $tag, 'vV' ) );

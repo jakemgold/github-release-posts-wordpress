@@ -164,6 +164,7 @@ Both source and build outputs ship with the plugin, so the source is available l
 **New: monorepo support (tag patterns)**
 
 * When a repository releases multiple packages (a monorepo), the Edit row now shows a Packages option — create posts for all packages, or choose exactly which ones get posts; unchosen packages are skipped, in the scheduled monitor, the version picker, and manual generation alike. Selections are stored as tag patterns (a comma-separated list of wildcard patterns matched against release tags, e.g. `@headstartwp/core@*, @headstartwp/next@*`); developers can override or supply patterns in code with the new `ghrp_repo_tag_patterns` filter. When a newly added repository is detected as a monorepo, a notice says so and points to the package chooser.
+* Post titles and slugs understand package releases: a monorepo tag like `@headstartwp/core@1.6.1` now renders as "core 1.6.1" in title prefixes (e.g. "HeadstartWP core 1.6.1 — …") and produces clean slugs, instead of embedding the raw tag. The version-only title format keeps the package name so titles stay unambiguous across packages. Single-package repositories are unchanged.
 * Adding a repository now verifies it exists on GitHub, so a mistyped path is rejected with a helpful message instead of being silently tracked forever. (Private repositories need a Personal Access Token with access configured first.) Matching is case-sensitive; existing repositories are unaffected until packages are chosen. Full details in the Help tab.
 
 = 1.1.2 =

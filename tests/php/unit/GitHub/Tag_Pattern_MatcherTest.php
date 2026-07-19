@@ -124,6 +124,7 @@ class Tag_Pattern_MatcherTest extends TestCase {
 			[
 				'package' => '@headstartwp/core',
 				'pattern' => '@headstartwp/core@*',
+				'version' => '1.6.1',
 			],
 			Tag_Pattern_Matcher::derive_package( '@headstartwp/core@1.6.1' )
 		);
@@ -131,6 +132,7 @@ class Tag_Pattern_MatcherTest extends TestCase {
 			[
 				'package' => 'mypackage',
 				'pattern' => 'mypackage@*',
+				'version' => '2.0.0-beta.1',
 			],
 			Tag_Pattern_Matcher::derive_package( 'mypackage@2.0.0-beta.1' )
 		);
@@ -145,6 +147,7 @@ class Tag_Pattern_MatcherTest extends TestCase {
 			[
 				'package' => 'admin',
 				'pattern' => 'admin-v[0-9]*',
+				'version' => '2.1.0',
 			],
 			Tag_Pattern_Matcher::derive_package( 'admin-v2.1.0' )
 		);
@@ -152,6 +155,7 @@ class Tag_Pattern_MatcherTest extends TestCase {
 			[
 				'package' => 'admin-utils',
 				'pattern' => 'admin-utils-[0-9]*',
+				'version' => '1.0.0',
 			],
 			Tag_Pattern_Matcher::derive_package( 'admin-utils-1.0.0' )
 		);
@@ -221,6 +225,15 @@ class Tag_Pattern_MatcherTest extends TestCase {
 
 		$this->assertFalse( $payload['multi_package'] );
 		$this->assertSame( [], $payload['packages'] );
+	}
+
+	/**
+	 * short_name() returns the last path segment of a package name.
+	 */
+	public function test_short_name(): void {
+		$this->assertSame( 'core', Tag_Pattern_Matcher::short_name( '@headstartwp/core' ) );
+		$this->assertSame( 'admin', Tag_Pattern_Matcher::short_name( 'admin' ) );
+		$this->assertSame( 'next-redis-cache-provider', Tag_Pattern_Matcher::short_name( '@10up/next-redis-cache-provider' ) );
 	}
 
 	/**

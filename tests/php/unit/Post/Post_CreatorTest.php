@@ -520,6 +520,43 @@ class Post_CreatorTest extends TestCase {
 		$this->assertSame( 'Restricted Site Access v7.6.1 — Elementor fatal error fixed', $result );
 	}
 
+	/**
+	 * Monorepo package tags render as short package name + bare version in
+	 * the full format, instead of the raw "@scope/name@x.y.z" tag.
+	 */
+	public function test_build_title_full_format_package_tag(): void {
+		\WP_Mock::userFunction( 'apply_filters' )->andReturnUsing( fn( $tag, $value ) => $value )->byDefault();
+
+		$result = Post_Creator::build_title(
+			'HeadstartWP',
+			'@headstartwp/core@1.6.1',
+			'Faster data fetching',
+			'full',
+			'10up/headstartwp'
+		);
+
+		$this->assertSame( 'HeadstartWP core 1.6.1 — Faster data fetching', $result );
+	}
+
+	/**
+	 * The version-only format keeps the package name for monorepo tags —
+	 * "Version 1.6.1" alone is ambiguous across packages. Trailing .0 patch
+	 * versions are trimmed as with plain tags.
+	 */
+	public function test_build_title_version_format_package_tag(): void {
+		\WP_Mock::userFunction( 'apply_filters' )->andReturnUsing( fn( $tag, $value ) => $value )->byDefault();
+
+		$result = Post_Creator::build_title(
+			'HeadstartWP',
+			'@headstartwp/next@1.5.0',
+			'Simplified routing',
+			'version',
+			'10up/headstartwp'
+		);
+
+		$this->assertSame( 'next 1.5 — Simplified routing', $result );
+	}
+
 	public function test_build_title_version_format_uses_version_prefix(): void {
 		\WP_Mock::userFunction( 'apply_filters' )->andReturnUsing( fn( $tag, $value ) => $value )->byDefault();
 
