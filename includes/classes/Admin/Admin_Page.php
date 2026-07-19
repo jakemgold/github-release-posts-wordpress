@@ -958,30 +958,7 @@ class Admin_Page {
 			return new \WP_Error( $releases->get_error_code(), $releases->get_error_message(), [ 'status' => 400 ] );
 		}
 
-		$packages = [];
-		foreach ( $releases as $release ) {
-			$derived = Tag_Pattern_Matcher::derive_package( $release->tag );
-			if ( null === $derived ) {
-				continue;
-			}
-			$key = $derived['package'];
-			if ( ! isset( $packages[ $key ] ) ) {
-				// Releases arrive newest-first, so the first tag seen for a
-				// package is its latest.
-				$packages[ $key ] = [
-					'package'    => $key,
-					'pattern'    => $derived['pattern'],
-					'count'      => 0,
-					'latest_tag' => $release->tag,
-				];
-			}
-			++$packages[ $key ]['count'];
-		}
-
-		$payload = [
-			'multi_package' => count( $packages ) >= 2,
-			'packages'      => array_values( $packages ),
-		];
+		$payload = Tag_Pattern_Matcher::build_packages_payload( $releases );
 		set_transient( $cache_key, $payload, 15 * MINUTE_IN_SECONDS );
 
 		return new \WP_REST_Response( $payload, 200 );

@@ -12,6 +12,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+use GitHubReleasePosts\Cache_Keys;
+
 /**
  * Runs the server-side bookkeeping for a newly added repository.
  *
@@ -59,6 +61,20 @@ class Onboarding_Handler {
 	 * }
 	 */
 	public function handle_add( string $identifier ): array {
+		// Fetch the full release list once up front: it warms the package
+		// cache so the Quick Edit Packages picker renders instantly right
+		// after adding a monorepo (the moment it is most likely to be
+		// configured), and the only-prereleases branch below reuses it.
+		// Failures are ignored — warming must never break onboarding.
+		$all_releases = $this->api_client->fetch_releases( $identifier, true );
+		if ( is_array( $all_releases ) ) {
+			set_transient(
+				Cache_Keys::repo_packages( $identifier ),
+				Tag_Pattern_Matcher::build_packages_payload( $all_releases ),
+				15 * MINUTE_IN_SECONDS
+			);
+		}
+
 		// New repos default to excluding pre-releases (see Repository_Settings
 		// defaults). We still surface a helpful notice if the repo turns out to
 		// have only pre-releases — see the null branch below.
@@ -83,8 +99,8 @@ class Onboarding_Handler {
 			// No stable release. Before saying "no releases yet," check whether
 			// the repo has pre-releases — this is a common case for projects in
 			// beta lifecycle, and the "no releases" notice would be misleading.
-			$prereleases = $this->api_client->fetch_releases( $identifier, true );
-			if ( is_array( $prereleases ) && count( $prereleases ) > 0 ) {
+			$prereleases = is_array( $all_releases ) ? $all_releases : [];
+			if ( count( $prereleases ) > 0 ) {
 				return [
 					'auto_trigger' => false,
 					'notice'       => [

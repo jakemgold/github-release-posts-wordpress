@@ -163,6 +163,67 @@ class Tag_Pattern_MatcherTest extends TestCase {
 	}
 
 	/**
+	 * build_packages_payload() aggregates counts and latest tags per package,
+	 * newest-first, and flags multi-package repos.
+	 */
+	public function test_build_packages_payload_aggregates(): void {
+		$releases = array_map(
+			static fn( string $tag ): \GitHubReleasePosts\GitHub\Release => new \GitHubReleasePosts\GitHub\Release(
+				tag:          $tag,
+				name:         $tag,
+				body:         '',
+				html_url:     'https://github.com/10up/headstartwp/releases/tag/' . rawurlencode( $tag ),
+				published_at: '2026-01-01T00:00:00Z',
+				assets:       [],
+			),
+			[ '@headstartwp/core@1.6.1', '@headstartwp/next@1.5.1', '@headstartwp/core@1.6.0' ]
+		);
+
+		$payload = Tag_Pattern_Matcher::build_packages_payload( $releases );
+
+		$this->assertTrue( $payload['multi_package'] );
+		$this->assertSame(
+			[
+				[
+					'package'    => '@headstartwp/core',
+					'pattern'    => '@headstartwp/core@*',
+					'count'      => 2,
+					'latest_tag' => '@headstartwp/core@1.6.1',
+				],
+				[
+					'package'    => '@headstartwp/next',
+					'pattern'    => '@headstartwp/next@*',
+					'count'      => 1,
+					'latest_tag' => '@headstartwp/next@1.5.1',
+				],
+			],
+			$payload['packages']
+		);
+	}
+
+	/**
+	 * Single-package (or unclassifiable) release streams are not flagged as
+	 * monorepos.
+	 */
+	public function test_build_packages_payload_single_package(): void {
+		$releases = [
+			new \GitHubReleasePosts\GitHub\Release(
+				tag:          'v1.2.3',
+				name:         'v1.2.3',
+				body:         '',
+				html_url:     'https://github.com/10up/plugin/releases/tag/v1.2.3',
+				published_at: '2026-01-01T00:00:00Z',
+				assets:       [],
+			),
+		];
+
+		$payload = Tag_Pattern_Matcher::build_packages_payload( $releases );
+
+		$this->assertFalse( $payload['multi_package'] );
+		$this->assertSame( [], $payload['packages'] );
+	}
+
+	/**
 	 * derive_package() returns null for single-package or unclassifiable tags.
 	 */
 	public function test_derive_package_returns_null_for_single_package_tags(): void {

@@ -99,6 +99,44 @@ final class Tag_Pattern_Matcher {
 	}
 
 	/**
+	 * Builds the package-picker payload from a release list.
+	 *
+	 * Shared by the /repos/packages REST endpoint and the onboarding cache
+	 * warm so both derive identical data. Releases arrive newest-first from
+	 * the GitHub API, so the first tag seen for a package is its latest.
+	 *
+	 * @param Release[] $releases Releases, newest first.
+	 * @return array{multi_package: bool, packages: array<int, array{package: string, pattern: string, count: int, latest_tag: string}>}
+	 */
+	public static function build_packages_payload( array $releases ): array {
+		$packages = [];
+		foreach ( $releases as $release ) {
+			if ( ! $release instanceof Release ) {
+				continue;
+			}
+			$derived = self::derive_package( $release->tag );
+			if ( null === $derived ) {
+				continue;
+			}
+			$key = $derived['package'];
+			if ( ! isset( $packages[ $key ] ) ) {
+				$packages[ $key ] = [
+					'package'    => $key,
+					'pattern'    => $derived['pattern'],
+					'count'      => 0,
+					'latest_tag' => $release->tag,
+				];
+			}
+			++$packages[ $key ]['count'];
+		}
+
+		return [
+			'multi_package' => count( $packages ) >= 2,
+			'packages'      => array_values( $packages ),
+		];
+	}
+
+	/**
 	 * Whether a release tag is eligible under the given pattern string.
 	 *
 	 * An empty/blank pattern string matches every tag — the feature is opt-in
