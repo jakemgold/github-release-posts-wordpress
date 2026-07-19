@@ -369,22 +369,16 @@
 	line-height: 1;
 }
 
-/* Quick Edit: monorepo package picker. */
-.ghrp-packages-picker .ghrp-packages-list {
-	display: flex;
-	flex-direction: column;
-	gap: 4px;
-	margin: 6px 0;
+/* Quick Edit: monorepo package picker (center column, above Categories). */
+.ghrp-packages-picker {
+	margin-bottom: 1em;
 }
 
-.ghrp-package-option {
-	display: flex;
-	align-items: center;
-	gap: 8px;
+.ghrp-packages-mode label {
+	display: block;
+	margin: 2px 0 4px;
 }
 
-.ghrp-package-meta {
-	margin-left: auto;
-	color: #646970;
-	font-size: 12px;
+.ghrp-package-checklist {
+	margin-top: 4px;
 }

@@ -360,15 +360,6 @@ class Repository_List_Table extends \WP_List_Table {
 									</span>
 								</label>
 
-								<div class="ghrp-packages-picker" hidden>
-									<span class="title"><?php echo esc_html__( 'Packages', 'auto-release-posts-for-github' ); ?></span>
-									<span class="description"><?php echo esc_html__( 'This repository releases multiple packages. Choose which ones get posts.', 'auto-release-posts-for-github' ); ?></span>
-									<div class="ghrp-packages-list"></div>
-									<span class="description">
-										<a href="#" class="ghrp-edit-patterns-manually"><?php echo esc_html__( 'Edit tag patterns manually', 'auto-release-posts-for-github' ); ?></a>
-									</span>
-								</div>
-
 								<label class="ghrp-tag-patterns-manual">
 									<span class="title"><?php echo esc_html__( 'Tag patterns (optional)', 'auto-release-posts-for-github' ); ?></span>
 									<span class="input-text-wrap">
@@ -431,6 +422,24 @@ class Repository_List_Table extends \WP_List_Table {
 
 						<fieldset class="inline-edit-col-center inline-edit-categories">
 							<div class="inline-edit-col">
+								<div class="ghrp-packages-picker" hidden>
+									<span class="title"><?php echo esc_html__( 'Packages', 'auto-release-posts-for-github' ); ?></span>
+									<div class="ghrp-packages-mode">
+										<label>
+											<input type="radio" value="all" checked>
+											<?php echo esc_html__( 'Create posts for all packages', 'auto-release-posts-for-github' ); ?>
+										</label>
+										<label>
+											<input type="radio" value="choose">
+											<?php echo esc_html__( 'Choose which packages get posts', 'auto-release-posts-for-github' ); ?>
+										</label>
+									</div>
+									<ul class="cat-checklist ghrp-package-checklist" hidden></ul>
+									<span class="description">
+										<a href="#" class="ghrp-edit-patterns-manually"><?php echo esc_html__( 'Edit tag patterns manually', 'auto-release-posts-for-github' ); ?></a>
+									</span>
+								</div>
+
 								<span class="title inline-edit-categories-label"><?php echo esc_html__( 'Categories', 'auto-release-posts-for-github' ); ?></span>
 								<input type="hidden" name="" value="0" class="ghrp-tpl-cat-hidden">
 								<ul class="cat-checklist category-checklist ghrp-tpl-categories">

@@ -987,10 +987,21 @@ document.addEventListener( 'DOMContentLoaded', function () {
 		const picker = editRow.querySelector( '.ghrp-packages-picker' );
 		const manual = editRow.querySelector( '.ghrp-tag-patterns-manual' );
 		const input = editRow.querySelector( '[data-field="tag_patterns"]' );
-		const list = picker ? picker.querySelector( '.ghrp-packages-list' ) : null;
-		if ( ! picker || ! manual || ! input || ! list ) {
+		const list = picker ? picker.querySelector( '.ghrp-package-checklist' ) : null;
+		const radios = picker
+			? Array.from( picker.querySelectorAll( '.ghrp-packages-mode input[type=radio]' ) )
+			: [];
+		if ( ! picker || ! manual || ! input || ! list || radios.length !== 2 ) {
 			return;
 		}
+
+		const repo = dataRow.dataset.repo || '';
+		// Radios need a per-row name: an unnamed pair would not be mutually
+		// exclusive, and sharing a name with the hidden template's pair would
+		// let a click here silently flip the template's default state.
+		radios.forEach( function ( radio ) {
+			radio.name = `ghrp_packages_mode_${ repo }`;
+		} );
 
 		const link = picker.querySelector( '.ghrp-edit-patterns-manually' );
 		if ( link ) {
@@ -1003,7 +1014,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 		window.ghrpFetch(
 			'GET',
 			'/repos/packages',
-			{ repo: dataRow.dataset.repo || '' },
+			{ repo },
 			function ( response ) {
 				if (
 					! response ||
@@ -1017,59 +1028,84 @@ document.addEventListener( 'DOMContentLoaded', function () {
 					return pkg.pattern;
 				} );
 				const current = parseTagPatterns( input.value );
+				const chooseMode = function () {
+					return radios[ 1 ].checked;
+				};
 
 				const recompile = function () {
-					const custom = parseTagPatterns( input.value ).filter( function ( p ) {
-						return known.indexOf( p ) === -1;
-					} );
-					const checkedBoxes = Array.from( list.querySelectorAll( 'input:checked' ) );
-					// Every package checked with no custom leftovers means "no
-					// filter" — store the empty string so behavior (including
-					// future packages) matches a repo that never set patterns.
-					if ( checkedBoxes.length === known.length && custom.length === 0 ) {
+					if ( ! chooseMode() ) {
+						// "All packages" applies no filter — future packages
+						// included, identical to never configuring the feature.
 						input.value = '';
 						return;
 					}
+					const custom = parseTagPatterns( input.value ).filter( function ( p ) {
+						return known.indexOf( p ) === -1;
+					} );
 					input.value = custom
 						.concat(
-							checkedBoxes.map( function ( box ) {
+							Array.from( list.querySelectorAll( 'input:checked' ) ).map( function (
+								box,
+							) {
 								return box.value;
 							} ),
 						)
 						.join( ', ' );
 				};
 
-				list.textContent = '';
+				// Display short names (last path segment) unless two packages
+				// would collide; collisions keep their full name. Full package,
+				// release count, and latest tag live in the tooltip.
+				const shortCounts = {};
 				response.packages.forEach( function ( pkg ) {
-					const label = document.createElement( 'label' );
-					label.className = 'ghrp-package-option';
+					const short = pkg.package.split( '/' ).pop();
+					shortCounts[ short ] = ( shortCounts[ short ] || 0 ) + 1;
+				} );
 
-					const box = document.createElement( 'input' );
-					box.type = 'checkbox';
-					box.value = pkg.pattern;
-					// Empty patterns = every release publishes, so every box
-					// starts checked; otherwise reflect the stored patterns.
-					box.checked = current.length === 0 || current.indexOf( pkg.pattern ) !== -1;
-					box.addEventListener( 'change', recompile );
+				const sorted = response.packages.slice().sort( function ( a, b ) {
+					return a.package.localeCompare( b.package );
+				} );
 
-					const name = document.createElement( 'code' );
-					name.textContent = pkg.package;
-
-					const meta = document.createElement( 'span' );
-					meta.className = 'ghrp-package-meta';
+				list.textContent = '';
+				sorted.forEach( function ( pkg ) {
+					const short = pkg.package.split( '/' ).pop();
+					const display = shortCounts[ short ] > 1 ? pkg.package : short;
 					const i18n = ghrpAdmin.i18n || {};
 					const template =
 						pkg.count === 1
 							? i18n.packageMetaOne || '1 release · latest %2$s'
 							: i18n.packageMeta || '%1$s releases · latest %2$s';
-					meta.textContent = template
+
+					const item = document.createElement( 'li' );
+					const label = document.createElement( 'label' );
+					label.className = 'selectit';
+					label.title = template
 						.replace( '%1$s', pkg.count )
 						.replace( '%2$s', pkg.latest_tag );
 
+					const box = document.createElement( 'input' );
+					box.type = 'checkbox';
+					box.value = pkg.pattern;
+					box.checked = current.length === 0 || current.indexOf( pkg.pattern ) !== -1;
+					box.addEventListener( 'change', recompile );
+
 					label.appendChild( box );
-					label.appendChild( name );
-					label.appendChild( meta );
-					list.appendChild( label );
+					label.appendChild( document.createTextNode( ` ${ display }` ) );
+					item.appendChild( label );
+					list.appendChild( item );
+				} );
+
+				// Stored patterns mean a subset was chosen; empty means all.
+				const initialChoose = current.length > 0;
+				radios[ 0 ].checked = ! initialChoose;
+				radios[ 1 ].checked = initialChoose;
+				list.hidden = ! initialChoose;
+
+				radios.forEach( function ( radio ) {
+					radio.addEventListener( 'change', function () {
+						list.hidden = ! chooseMode();
+						recompile();
+					} );
 				} );
 
 				picker.hidden = false;
