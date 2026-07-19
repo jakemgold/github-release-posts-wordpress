@@ -238,6 +238,58 @@ class API_Client {
 	}
 
 	/**
+	 * Checks whether a repository exists (and is visible to current credentials).
+	 *
+	 * Needed because the release endpoints 404 identically for a nonexistent
+	 * repo and a real repo with zero releases (AC-003 treats those 404s as
+	 * "no releases"), so existence must be asked of `GET /repos/{owner}/{repo}`
+	 * directly. GitHub masks private repos the current credentials cannot see
+	 * as 404, so `false` means "nonexistent or not visible", not provably
+	 * nonexistent.
+	 *
+	 * @param string $identifier Repository identifier (owner/repo or full URL).
+	 * @return bool|\WP_Error True if visible, false on 404, WP_Error on
+	 *                        network/HTTP/rate-limit failures.
+	 */
+	public function repo_exists( string $identifier ): bool|\WP_Error {
+		try {
+			$identifier = $this->normalize_identifier( $identifier );
+		} catch ( \InvalidArgumentException $e ) {
+			return new \WP_Error( 'github_invalid_identifier', $e->getMessage() );
+		}
+
+		[ $owner, $repo ] = explode( '/', $identifier, 2 );
+		$url              = sprintf( '%s/repos/%s/%s', self::API_BASE, $owner, $repo );
+
+		$response = wp_remote_get( $url, $this->build_request_args() );
+		if ( is_wp_error( $response ) ) {
+			return $response;
+		}
+
+		$rate_limit = $this->handle_rate_limit( $response );
+		if ( is_wp_error( $rate_limit ) ) {
+			return $rate_limit;
+		}
+
+		$code = (int) wp_remote_retrieve_response_code( $response );
+		if ( 200 === $code ) {
+			return true;
+		}
+		if ( 404 === $code ) {
+			return false;
+		}
+
+		return new \WP_Error(
+			'github_http_error',
+			sprintf(
+				/* translators: %d: HTTP status code */
+				__( 'GitHub API returned HTTP %d.', 'auto-release-posts-for-github' ),
+				$code
+			)
+		);
+	}
+
+	/**
 	 * Fetches a list of releases for a repository (latest first, capped at 100).
 	 *
 	 * Used by the manual "Generate post" flow to let admins pick an older release.

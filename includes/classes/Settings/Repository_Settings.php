@@ -234,6 +234,28 @@ class Repository_Settings {
 			];
 		}
 
+		// Reject paths GitHub can't see. Without this, a typo'd repo saved
+		// successfully: the release endpoints 404 for both nonexistent repos
+		// and repos with zero releases, so onboarding read junk paths as
+		// "no releases yet" and the cron tracked them forever. A definite 404
+		// here means nonexistent — or private and invisible to the current
+		// credentials, which the message covers. Transient failures (network,
+		// rate limit) fail open rather than blocking a legitimate add.
+		if ( null !== $api_client ) {
+			$exists = $api_client->repo_exists( $identifier );
+			if ( false === $exists ) {
+				return [
+					'success' => false,
+					'error'   => sprintf(
+						/* translators: %s: repository identifier */
+						__( 'GitHub couldn\'t find "%s". Check the spelling — or, if the repository is private, add a Personal Access Token with access to it on the Settings tab first.', 'auto-release-posts-for-github' ),
+						$identifier
+					),
+					'repos'   => $repos,
+				];
+			}
+		}
+
 		$display_name = $this->resolve_initial_display_name( $identifier, $api_client );
 
 		$repos[] = [

@@ -677,6 +677,59 @@ class API_ClientTest extends TestCase {
 	}
 
 	// -------------------------------------------------------------------------
+	// repo_exists()
+	// -------------------------------------------------------------------------
+
+	/**
+	 * @covers API_Client::repo_exists
+	 */
+	public function test_repo_exists_true_on_200(): void {
+		\WP_Mock::userFunction( 'wp_remote_get' )
+			->with(
+				'https://api.github.com/repos/10up/plugin',
+				\WP_Mock\Functions::type( 'array' )
+			)
+			->andReturn( $this->mock_response( 200, '{}' ) );
+		\WP_Mock::userFunction( 'is_wp_error' )->andReturn( false );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_response_code' )->andReturn( 200 );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_header' )->andReturn( '100' );
+		\WP_Mock::userFunction( 'set_transient' )->andReturn( true );
+
+		$client = new API_Client( $this->settings_mock() );
+		$this->assertTrue( $client->repo_exists( '10up/plugin' ) );
+	}
+
+	/**
+	 * @covers API_Client::repo_exists
+	 */
+	public function test_repo_exists_false_on_404(): void {
+		\WP_Mock::userFunction( 'wp_remote_get' )->andReturn( $this->mock_response( 404 ) );
+		\WP_Mock::userFunction( 'is_wp_error' )->andReturn( false );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_response_code' )->andReturn( 404 );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_header' )->andReturn( '100' );
+		\WP_Mock::userFunction( 'set_transient' )->andReturn( true );
+
+		$client = new API_Client( $this->settings_mock() );
+		$this->assertFalse( $client->repo_exists( '10up/does-not-exist' ) );
+	}
+
+	/**
+	 * Other HTTP statuses surface as WP_Error so callers can fail open.
+	 *
+	 * @covers API_Client::repo_exists
+	 */
+	public function test_repo_exists_error_on_other_status(): void {
+		\WP_Mock::userFunction( 'wp_remote_get' )->andReturn( $this->mock_response( 500 ) );
+		\WP_Mock::userFunction( 'is_wp_error' )->andReturnUsing( static fn( $thing ) => $thing instanceof \WP_Error );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_response_code' )->andReturn( 500 );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_header' )->andReturn( '100' );
+		\WP_Mock::userFunction( 'set_transient' )->andReturn( true );
+
+		$client = new API_Client( $this->settings_mock() );
+		$this->assertInstanceOf( \WP_Error::class, $client->repo_exists( '10up/plugin' ) );
+	}
+
+	// -------------------------------------------------------------------------
 	// Tag patterns (monorepo package selection)
 	// -------------------------------------------------------------------------
 
