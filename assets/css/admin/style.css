@@ -374,9 +374,21 @@
 	margin-bottom: 1em;
 }
 
-.ghrp-packages-mode label {
+/* Mirror core's treatment of quick-edit column titles (display, margin,
+   line-height) so "Packages" top-aligns with "Categories"/"Tags" at any
+   viewport width. */
+.inline-edit-row fieldset .ghrp-packages-picker > .title {
 	display: block;
-	margin: 2px 0 4px;
+	margin: 0.2em 0;
+	line-height: 2.5;
+}
+
+/* Core gives quick-edit labels line-height 2.5, which reads as a large gap
+   between the two radio options; tighten just this pair. */
+.inline-edit-row fieldset .ghrp-packages-mode label {
+	display: block;
+	margin: 0 0 2px;
+	line-height: 1.8;
 }
 
 /* Outranks core's `.inline-edit-row fieldset ul.cat-checklist` max-height,
