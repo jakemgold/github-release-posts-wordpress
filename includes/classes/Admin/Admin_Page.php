@@ -187,12 +187,29 @@ class Admin_Page {
 					. '<li><strong>' . esc_html__( 'Featured Image', 'auto-release-posts-for-github' ) . '</strong> — ' . esc_html__( 'A featured image used as a fallback when the release notes do not contain any images suitable for promotion.', 'auto-release-posts-for-github' ) . '</li>'
 					. '<li><strong>' . esc_html__( 'Paused', 'auto-release-posts-for-github' ) . '</strong> — ' . esc_html__( 'Temporarily skip this repository during scheduled checks. The repo and its history are preserved; uncheck to resume monitoring.', 'auto-release-posts-for-github' ) . '</li>'
 					. '<li><strong>' . esc_html__( 'Include pre-releases', 'auto-release-posts-for-github' ) . '</strong> — ' . esc_html__( 'Generate posts for releases marked as pre-release on GitHub (betas, release candidates, etc.). Off by default; most sites only highlight stable releases.', 'auto-release-posts-for-github' ) . '</li>'
-					. '<li><strong>' . esc_html__( 'Packages / Tag patterns', 'auto-release-posts-for-github' ) . '</strong> — ' . esc_html__( 'For repositories that release multiple packages (monorepos), choose which packages get posts. See the Monorepos section below.', 'auto-release-posts-for-github' ) . '</li>'
+					. '<li><strong>' . esc_html__( 'Packages / Tag patterns', 'auto-release-posts-for-github' ) . '</strong> — ' . esc_html__( 'For repositories that release multiple packages (monorepos), choose which packages get posts. See the Monorepos help tab.', 'auto-release-posts-for-github' ) . '</li>'
 					. '</ul>'
 					. '<p>' . esc_html__( 'Use the Edit row action to change any of these inline, then click Save Repositories at the bottom of the page.', 'auto-release-posts-for-github' ) . '</p>'
-					. '<h4>' . esc_html__( 'Monorepos: Choosing Packages', 'auto-release-posts-for-github' ) . '</h4>'
+					. '<h4>' . esc_html__( 'Generate Post', 'auto-release-posts-for-github' ) . '</h4>'
+					. '<p>' . esc_html__( 'Creates a post from a GitHub release immediately, bypassing the cron schedule. If the repository has multiple releases, a picker lets you choose any historical version — useful for backfilling an archive of past releases.', 'auto-release-posts-for-github' ) . '</p>'
+					. '<p>' . esc_html__( 'Posts generated for older releases are automatically backdated to one hour after the release\'s GitHub publication time, so they slot into the archive in the correct chronological order. You can adjust the date in the editor before publishing.', 'auto-release-posts-for-github' ) . '</p>'
+					. '<p>' . esc_html__( 'If a post already exists for the selected version, the picker shows an inline warning and re-generation creates a new revision while preserving the existing post date and URL slug.', 'auto-release-posts-for-github' ) . '</p>'
+					. '<p>' . esc_html__( 'After generation succeeds, a green checkmark appears next to the Generate post button — click it to jump straight to the new post in the editor.', 'auto-release-posts-for-github' ) . '</p>',
+			]
+		);
+
+		$screen->add_help_tab(
+			[
+				'id'      => 'ghrp-help-monorepos',
+				'title'   => __( 'Monorepos', 'auto-release-posts-for-github' ),
+				'content' => '<h3>' . esc_html__( 'Monorepos: Repositories That Release Multiple Packages', 'auto-release-posts-for-github' ) . '</h3>'
 					. '<p>' . esc_html__( 'Some repositories release many packages from one codebase — for example, tags like "@myproject/core@1.6.1" alongside "@myproject/utilities@2.0.0". Without any configuration, the plugin considers every release post-worthy, which can fill your feed with minor utility packages.', 'auto-release-posts-for-github' ) . '</p>'
-					. '<p>' . esc_html__( 'When the plugin detects that a repository releases two or more packages, the Edit row shows a Packages list: check the packages that should get posts and leave the rest unchecked. Checking every package (or none of the boxes ever having been changed) means all releases are eligible.', 'auto-release-posts-for-github' ) . '</p>'
+					. '<h4>' . esc_html__( 'Choosing Packages', 'auto-release-posts-for-github' ) . '</h4>'
+					. '<p>' . esc_html__( 'When the plugin detects that a repository releases two or more packages, the Edit row shows a Packages list: check the packages that should get posts and leave the rest unchecked. Only releases of checked packages become posts — in the scheduled check, the version picker, and manual generation alike.', 'auto-release-posts-for-github' ) . '</p>'
+					. '<h4>' . esc_html__( 'When New Packages Appear Later', 'auto-release-posts-for-github' ) . '</h4>'
+					. '<p>' . esc_html__( 'If you have chosen a subset of packages and the repository later starts releasing a new package, the new package is excluded automatically — nothing unexpected shows up in your feed. It appears as a new, unchecked entry in the Packages list the next time you edit the repository; check it to start generating posts for it.', 'auto-release-posts-for-github' ) . '</p>'
+					. '<p>' . esc_html__( 'Checking every package is the same as choosing no filter: all releases are eligible, including any packages the repository adds in the future. If you want to permanently limit posts to a fixed set of packages — even as new ones appear — list their patterns explicitly using "Edit tag patterns manually".', 'auto-release-posts-for-github' ) . '</p>'
+					. '<h4>' . esc_html__( 'Tag Patterns (Advanced)', 'auto-release-posts-for-github' ) . '</h4>'
 					. '<p>' . esc_html__( 'Behind the checkboxes, the selection is stored as tag patterns — a comma-separated list of wildcard patterns matched against release tag names. Click "Edit tag patterns manually" to work with them directly, which is useful for tagging schemes the plugin does not recognize automatically.', 'auto-release-posts-for-github' ) . '</p>'
 					. '<ul>'
 					. '<li>' . esc_html__( 'A release is eligible when its tag matches ANY listed pattern. The wildcard * matches any characters; ? matches a single character; [0-9] matches a digit.', 'auto-release-posts-for-github' ) . '</li>'
@@ -204,12 +221,7 @@ class Admin_Page {
 					. '<li>' . esc_html__( 'Matching is case-sensitive, since git tags are. Curly-brace lists like {core,next} are NOT supported — use one comma-separated pattern per package instead.', 'auto-release-posts-for-github' ) . '</li>'
 					. '<li>' . esc_html__( 'Patterns combine with the other eligibility rules: drafts never get posts, and pre-releases only do when Include pre-releases is on.', 'auto-release-posts-for-github' ) . '</li>'
 					. '<li>' . esc_html__( 'Leaving the field blank makes every release eligible — existing repositories are unaffected until you choose packages or add patterns.', 'auto-release-posts-for-github' ) . '</li>'
-					. '</ul>'
-					. '<h4>' . esc_html__( 'Generate Post', 'auto-release-posts-for-github' ) . '</h4>'
-					. '<p>' . esc_html__( 'Creates a post from a GitHub release immediately, bypassing the cron schedule. If the repository has multiple releases, a picker lets you choose any historical version — useful for backfilling an archive of past releases.', 'auto-release-posts-for-github' ) . '</p>'
-					. '<p>' . esc_html__( 'Posts generated for older releases are automatically backdated to one hour after the release\'s GitHub publication time, so they slot into the archive in the correct chronological order. You can adjust the date in the editor before publishing.', 'auto-release-posts-for-github' ) . '</p>'
-					. '<p>' . esc_html__( 'If a post already exists for the selected version, the picker shows an inline warning and re-generation creates a new revision while preserving the existing post date and URL slug.', 'auto-release-posts-for-github' ) . '</p>'
-					. '<p>' . esc_html__( 'After generation succeeds, a green checkmark appears next to the Generate post button — click it to jump straight to the new post in the editor.', 'auto-release-posts-for-github' ) . '</p>',
+					. '</ul>',
 			]
 		);
 
