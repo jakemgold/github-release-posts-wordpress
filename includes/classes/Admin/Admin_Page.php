@@ -940,6 +940,17 @@ class Admin_Page {
 	 */
 	public function rest_list_packages( \WP_REST_Request $request ): \WP_REST_Response|\WP_Error {
 		$identifier = (string) $request->get_param( 'repo' );
+
+		// The package list drives a UI control that renders when this call
+		// returns, so an uncached GitHub round trip on every Quick Edit open
+		// is a visible delay. Package composition changes rarely — serve a
+		// short-lived cached copy (mirrors the 15-minute release cache).
+		$cache_key = Cache_Keys::repo_packages( $identifier );
+		$cached    = get_transient( $cache_key );
+		if ( is_array( $cached ) && isset( $cached['packages'] ) ) {
+			return new \WP_REST_Response( $cached, 200 );
+		}
+
 		$api_client = new API_Client( $this->global_settings );
 
 		$releases = $api_client->fetch_releases( $identifier, true, '' );
@@ -967,13 +978,13 @@ class Admin_Page {
 			++$packages[ $key ]['count'];
 		}
 
-		return new \WP_REST_Response(
-			[
-				'multi_package' => count( $packages ) >= 2,
-				'packages'      => array_values( $packages ),
-			],
-			200
-		);
+		$payload = [
+			'multi_package' => count( $packages ) >= 2,
+			'packages'      => array_values( $packages ),
+		];
+		set_transient( $cache_key, $payload, 15 * MINUTE_IN_SECONDS );
+
+		return new \WP_REST_Response( $payload, 200 );
 	}
 
 	/**

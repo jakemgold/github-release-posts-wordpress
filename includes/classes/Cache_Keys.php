@@ -47,6 +47,16 @@ final class Cache_Keys {
 	}
 
 	/**
+	 * Derived package list for a repository (transient).
+	 *
+	 * @param string $identifier Repository identifier (owner/repo).
+	 * @return string
+	 */
+	public static function repo_packages( string $identifier ): string {
+		return 'ghrp_packages_' . md5( $identifier );
+	}
+
+	/**
 	 * Per-repo stampede lock guarding the release fetch (object cache).
 	 *
 	 * @param string $identifier Repository identifier (owner/repo).
