@@ -335,8 +335,9 @@ class Post_Creator {
 			$title = match ( $format ) {
 				'none'    => $ai_title,
 				// "Version 1.6.1" alone is ambiguous across packages — keep
-				// the package name in the version-only format.
-				'version' => "{$package} " . ltrim( $version, 'vV' ) . ' — ' . $ai_title,
+				// the package name in the version-only format. It leads the
+				// title here, so capitalize it (npm names are ASCII-safe).
+				'version' => ucfirst( $package ) . ' ' . ltrim( $version, 'vV' ) . ' — ' . $ai_title,
 				default   => "{$display_name} {$package} {$version} — {$ai_title}",
 			};
 		} else {

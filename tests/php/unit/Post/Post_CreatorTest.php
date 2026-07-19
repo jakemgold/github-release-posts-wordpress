@@ -540,8 +540,9 @@ class Post_CreatorTest extends TestCase {
 
 	/**
 	 * The version-only format keeps the package name for monorepo tags —
-	 * "Version 1.6.1" alone is ambiguous across packages. Trailing .0 patch
-	 * versions are trimmed as with plain tags.
+	 * "Version 1.6.1" alone is ambiguous across packages — and capitalizes
+	 * it, since it leads the title. Trailing .0 patch versions are trimmed
+	 * as with plain tags.
 	 */
 	public function test_build_title_version_format_package_tag(): void {
 		\WP_Mock::userFunction( 'apply_filters' )->andReturnUsing( fn( $tag, $value ) => $value )->byDefault();
@@ -554,7 +555,7 @@ class Post_CreatorTest extends TestCase {
 			'10up/headstartwp'
 		);
 
-		$this->assertSame( 'next 1.5 — Simplified routing', $result );
+		$this->assertSame( 'Next 1.5 — Simplified routing', $result );
 	}
 
 	public function test_build_title_version_format_uses_version_prefix(): void {
