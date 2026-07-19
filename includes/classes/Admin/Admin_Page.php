@@ -974,6 +974,10 @@ class Admin_Page {
 		$payload = Tag_Pattern_Matcher::build_packages_payload( $releases );
 		set_transient( $cache_key, $payload, 15 * MINUTE_IN_SECONDS );
 
+		// Keep the durable topology flag fresh — the monitor relies on it when
+		// the latest release is a plain repo-wide tag (round 3).
+		( new Release_State() )->set_monorepo( $identifier, $payload['multi_package'] );
+
 		return new \WP_REST_Response( $payload, 200 );
 	}
 
@@ -1018,6 +1022,18 @@ class Admin_Page {
 			$release   = $latest_release;
 			$is_latest = true;
 		} else {
+			// The browser picker only offers eligible releases, but the REST
+			// endpoint is authoritative: an explicitly submitted tag must satisfy
+			// the repository's package selection too (peer review round 3), or a
+			// direct request could draft an unchecked package.
+			if ( ! Tag_Pattern_Matcher::matches( $selected_tag, $tag_patterns ) ) {
+				return new \WP_Error(
+					'ghrp_tag_not_selected',
+					__( 'This release belongs to a package that is not selected for posts. Adjust the repository\'s package selection to generate it.', 'auto-release-posts-for-github' ),
+					[ 'status' => 400 ]
+				);
+			}
+
 			$release = $api_client->fetch_release_by_tag( $identifier, $selected_tag );
 			if ( is_wp_error( $release ) ) {
 				return new \WP_Error( $release->get_error_code(), $release->get_error_message(), [ 'status' => 400 ] );

@@ -163,7 +163,7 @@ final class Tag_Pattern_Matcher {
 	 * the GitHub API, so the first tag seen for a package is its latest.
 	 *
 	 * @param Release[] $releases Releases, newest first.
-	 * @return array{multi_package: bool, packages: array<int, array{package: string, pattern: string, count: int, latest_tag: string}>}
+	 * @return array{multi_package: bool, packages: array<int, array{package: string, pattern: string, count: int, latest_tag: string, latest_published_at: string}>}
 	 */
 	public static function build_packages_payload( array $releases ): array {
 		$packages = [];
@@ -178,10 +178,11 @@ final class Tag_Pattern_Matcher {
 			$key = $derived['package'];
 			if ( ! isset( $packages[ $key ] ) ) {
 				$packages[ $key ] = [
-					'package'    => $key,
-					'pattern'    => $derived['pattern'],
-					'count'      => 0,
-					'latest_tag' => $release->tag,
+					'package'             => $key,
+					'pattern'             => $derived['pattern'],
+					'count'               => 0,
+					'latest_tag'          => $release->tag,
+					'latest_published_at' => $release->published_at,
 				];
 			}
 			++$packages[ $key ]['count'];

@@ -189,16 +189,18 @@ class Tag_Pattern_MatcherTest extends TestCase {
 		$this->assertSame(
 			[
 				[
-					'package'    => '@headstartwp/core',
-					'pattern'    => '@headstartwp/core@*',
-					'count'      => 2,
-					'latest_tag' => '@headstartwp/core@1.6.1',
+					'package'             => '@headstartwp/core',
+					'pattern'             => '@headstartwp/core@*',
+					'count'               => 2,
+					'latest_tag'          => '@headstartwp/core@1.6.1',
+					'latest_published_at' => '2026-01-01T00:00:00Z',
 				],
 				[
-					'package'    => '@headstartwp/next',
-					'pattern'    => '@headstartwp/next@*',
-					'count'      => 1,
-					'latest_tag' => '@headstartwp/next@1.5.1',
+					'package'             => '@headstartwp/next',
+					'pattern'             => '@headstartwp/next@*',
+					'count'               => 1,
+					'latest_tag'          => '@headstartwp/next@1.5.1',
+					'latest_published_at' => '2026-01-01T00:00:00Z',
 				],
 			],
 			$payload['packages']

@@ -174,12 +174,20 @@ class Release_Monitor {
 
 				// The default all-packages mode has no patterns, but a monorepo
 				// is still a monorepo: one repo-wide cursor drops sibling
-				// releases (peer review P1). Detect it cheaply from the latest
-				// release's tag shape and switch to per-package streams; plain
-				// single-package repos never pay the extra list call.
-				if ( null !== Tag_Pattern_Matcher::derive_package( $release->tag ) ) {
+				// releases (peer review P1). The durable is_monorepo flag —
+				// set wherever a full release list is observed — is the
+				// primary signal, because one latest tag proves nothing: a
+				// monorepo can publish a plain repo-wide tag too (round 3).
+				// The tag-shape check remains as the bootstrap that first
+				// discovers a monorepo and sets the flag.
+				$repo_state = $this->state->get_state( $identifier );
+
+				if ( $repo_state['is_monorepo'] || null !== Tag_Pattern_Matcher::derive_package( $release->tag ) ) {
 					$releases = $this->api_client->fetch_releases( $identifier, $include_prereleases, '' );
 					if ( is_array( $releases ) && ! empty( $releases ) ) {
+						if ( ! $repo_state['is_monorepo'] && Tag_Pattern_Matcher::build_packages_payload( $releases )['multi_package'] ) {
+							$this->state->set_monorepo( $identifier, true );
+						}
 						$this->check_package_streams( $identifier, $releases );
 						$this->state->update_last_checked( $identifier );
 						continue;
@@ -187,8 +195,6 @@ class Release_Monitor {
 					// List fetch failed — fall through to the single-cursor
 					// path rather than skipping the repo entirely.
 				}
-
-				$repo_state = $this->state->get_state( $identifier );
 
 				if ( $this->comparator->is_newer( $release, $repo_state ) ) {
 					$this->queue->enqueue( $identifier, $release );
@@ -343,15 +349,18 @@ class Release_Monitor {
 			$groups[ $key ][] = $release;
 		}
 
-		$package_state = $this->state->get_state( $identifier )['packages'];
+		$state         = $this->state->get_state( $identifier );
+		$package_state = $state['packages'];
 
-		// First streamed run for this repo (upgrade migration, first run after
-		// configuring patterns, or first run after a fresh add): seed every
-		// stream's cursor at its current newest WITHOUT generating. This
-		// prevents a one-post-per-package burst the moment streams engage;
-		// content starts flowing for releases published after this point,
-		// and initial/backfill posts remain a deliberate manual action.
-		$seed_only = empty( $package_state );
+		// One-time migration for repos that predate stream monitoring: the
+		// EXPLICIT baseline marker decides, not cursor-map emptiness — a repo
+		// added before its first release has a legitimately empty map (and
+		// its first release must generate, as onboarding promised), while
+		// plain-tag posts also write a default-stream cursor (round 3).
+		// Onboarding stamps the baseline for new repos; only repos tracked
+		// before this feature reach the seeding branch, exactly once.
+		$seed_only = 0 === $state['streams_baseline_at'];
+		$seeds     = [];
 
 		foreach ( $groups as $package => $group ) {
 			// Newest by version within the stream — same reduce the API
@@ -377,7 +386,10 @@ class Release_Monitor {
 			$label = '' === $package ? 'default stream' : $package;
 
 			if ( $seed_only ) {
-				$this->state->update_package_seen( $identifier, (string) $package, $candidate->tag, $candidate->published_at );
+				$seeds[ (string) $package ] = [
+					'last_seen_tag'          => $candidate->tag,
+					'last_seen_published_at' => $candidate->published_at,
+				];
 				$this->log( $identifier, 'stream cursor seeded (' . $label . '): ' . $candidate->tag );
 				continue;
 			}
@@ -400,6 +412,10 @@ class Release_Monitor {
 
 			$this->queue->enqueue( $identifier, $candidate );
 			$this->log( $identifier, 'new release found (' . $label . '): ' . $candidate->tag );
+		}
+
+		if ( $seed_only ) {
+			$this->state->seed_streams( $identifier, $seeds );
 		}
 	}
 

@@ -78,6 +78,25 @@ class Onboarding_Handler {
 		if ( is_array( $all_releases ) ) {
 			$packages_payload = Tag_Pattern_Matcher::build_packages_payload( $all_releases );
 			set_transient( Cache_Keys::repo_packages( $identifier ), $packages_payload, 15 * MINUTE_IN_SECONDS );
+
+			// Establish the stream baseline NOW, while the code knows every
+			// current release is historical (the repo was just added). For
+			// monorepos — where client auto-generation is suppressed — also
+			// seed each stream's cursor so the first cron doesn't generate
+			// a burst. Single-package repos get the marker only: their
+			// pending latest release must stay generatable, both by the
+			// client auto-trigger and by the cron if that fails (round 3).
+			$cursors = [];
+			if ( $packages_payload['multi_package'] ) {
+				foreach ( $packages_payload['packages'] as $entry ) {
+					$cursors[ $entry['package'] ] = [
+						'last_seen_tag'          => $entry['latest_tag'],
+						'last_seen_published_at' => $entry['latest_published_at'],
+					];
+				}
+			}
+			$this->state->seed_streams( $identifier, $cursors );
+			$this->state->set_monorepo( $identifier, $packages_payload['multi_package'] );
 		}
 
 		// Monorepo nudge: the default (posts for all packages) is unchanged

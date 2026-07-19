@@ -193,7 +193,14 @@ class Release_MonitorTest extends TestCase {
 	 */
 	public function test_run_enqueues_new_release(): void {
 		$release = $this->make_release( 'v1.1.0' );
-		$state   = [ 'last_seen_tag' => 'v1.0.0', 'last_seen_published_at' => '', 'last_checked_at' => 0 ];
+		$state   = [
+			'last_seen_tag'          => 'v1.0.0',
+			'last_seen_published_at' => '',
+			'last_checked_at'        => 0,
+			'packages'               => [],
+			'streams_baseline_at'    => 1700000000,
+			'is_monorepo'            => false,
+		];
 
 		$this->repo_settings->method( 'get_repositories' )->willReturn(
 			[ [ 'identifier' => 'owner/repo' ] ]
@@ -232,7 +239,14 @@ class Release_MonitorTest extends TestCase {
 	 */
 	public function test_run_does_not_enqueue_when_no_new_release(): void {
 		$release = $this->make_release( 'v1.0.0' );
-		$state   = [ 'last_seen_tag' => 'v1.0.0', 'last_seen_published_at' => '', 'last_checked_at' => 0 ];
+		$state   = [
+			'last_seen_tag'          => 'v1.0.0',
+			'last_seen_published_at' => '',
+			'last_checked_at'        => 0,
+			'packages'               => [],
+			'streams_baseline_at'    => 1700000000,
+			'is_monorepo'            => false,
+		];
 
 		$this->repo_settings->method( 'get_repositories' )->willReturn(
 			[ [ 'identifier' => 'owner/repo' ] ]
@@ -446,6 +460,8 @@ class Release_MonitorTest extends TestCase {
 				'last_seen_tag'          => '@acme/core@1.9.0',
 				'last_seen_published_at' => '2026-06-01T00:00:00Z',
 				'last_checked_at'        => 0,
+				'streams_baseline_at'    => 1700000000,
+				'is_monorepo'            => true,
 				'packages'               => [
 					'@acme/core' => [
 						'last_seen_tag'          => '@acme/core@1.9.0',
@@ -512,6 +528,8 @@ class Release_MonitorTest extends TestCase {
 				'last_seen_tag'          => '',
 				'last_seen_published_at' => '',
 				'last_checked_at'        => 0,
+				'streams_baseline_at'    => 1700000000,
+				'is_monorepo'            => true,
 				'packages'               => [
 					'@acme/core' => [
 						'last_seen_tag'          => '@acme/core@1.9.0',
@@ -580,6 +598,8 @@ class Release_MonitorTest extends TestCase {
 				'last_seen_tag'          => '@acme/core@1.9.0',
 				'last_seen_published_at' => '2026-06-01T00:00:00Z',
 				'last_checked_at'        => 0,
+				'streams_baseline_at'    => 1700000000,
+				'is_monorepo'            => true,
 				'packages'               => [
 					'@acme/core' => [
 						'last_seen_tag'          => '@acme/core@1.9.0',
@@ -640,19 +660,29 @@ class Release_MonitorTest extends TestCase {
 			]
 		);
 
+		// No baseline marker: this repo predates stream monitoring. An
+		// unrelated default-stream cursor is present and must NOT disable
+		// migration seeding (round 3 — emptiness is not the signal).
 		$this->release_state->method( 'get_state' )->willReturn(
 			[
 				'last_seen_tag'          => '@acme/core@1.0.0',
 				'last_seen_published_at' => '2026-01-01T00:00:00Z',
 				'last_checked_at'        => 0,
-				'packages'               => [],
+				'streams_baseline_at'    => 0,
+				'is_monorepo'            => true,
+				'packages'               => [
+					'' => [
+						'last_seen_tag'          => 'v0.9.0',
+						'last_seen_published_at' => '2025-01-01T00:00:00Z',
+					],
+				],
 			]
 		);
 
-		$seeded = [];
-		$this->release_state->method( 'update_package_seen' )->willReturnCallback(
-			function ( string $identifier, string $package, string $tag, string $published_at ) use ( &$seeded ): void {
-				$seeded[ $package ] = $tag;
+		$seeded = null;
+		$this->release_state->method( 'seed_streams' )->willReturnCallback(
+			function ( string $identifier, array $cursors ) use ( &$seeded ): void {
+				$seeded = $cursors;
 			}
 		);
 
@@ -666,12 +696,10 @@ class Release_MonitorTest extends TestCase {
 		$monitor->run();
 
 		$this->assertSame(
-			[
-				'@acme/core' => '@acme/core@2.0.0',
-				'@acme/next' => '@acme/next@1.5.0',
-			],
-			$seeded
+			[ '@acme/core', '@acme/next' ],
+			array_keys( $seeded )
 		);
+		$this->assertSame( '@acme/core@2.0.0', $seeded['@acme/core']['last_seen_tag'] );
 	}
 
 	/**
@@ -709,6 +737,8 @@ class Release_MonitorTest extends TestCase {
 				'last_seen_tag'          => '',
 				'last_seen_published_at' => '',
 				'last_checked_at'        => 0,
+				'streams_baseline_at'    => 1700000000,
+				'is_monorepo'            => false,
 				'packages'               => [
 					'@acme/core' => [
 						'last_seen_tag'          => '@acme/core@2.0.0',
@@ -735,5 +765,135 @@ class Release_MonitorTest extends TestCase {
 		$monitor->run();
 
 		$this->assertSame( [ '@acme/core@3.0.0' ], $advanced );
+	}
+
+	/**
+	 * A repo added before its first release (baseline stamped by onboarding,
+	 * cursors empty) must generate when that first package-style release
+	 * appears — onboarding promised it, and this is also the cron-retry path
+	 * when client auto-generation fails (round 3).
+	 */
+	public function test_first_release_after_empty_add_is_enqueued(): void {
+		\WP_Mock::userFunction( 'get_posts' )->andReturn( [] );
+
+		$monitor = new Release_Monitor(
+			$this->api_client,
+			$this->release_state,
+			new Version_Comparator(),
+			$this->queue,
+			$this->repo_settings,
+		);
+
+		$this->repo_settings->method( 'get_repositories' )->willReturn(
+			[ [ 'identifier' => 'acme/newborn' ] ]
+		);
+
+		$this->api_client->method( 'fetch_latest_eligible_release' )->willReturn(
+			$this->make_release( 'newborn@1.0.0', '2026-07-19T00:00:00Z' )
+		);
+		$this->api_client->method( 'fetch_releases' )->willReturn(
+			[ $this->make_release( 'newborn@1.0.0', '2026-07-19T00:00:00Z' ) ]
+		);
+
+		$this->release_state->method( 'get_state' )->willReturn(
+			[
+				'last_seen_tag'          => '',
+				'last_seen_published_at' => '',
+				'last_checked_at'        => 0,
+				'streams_baseline_at'    => 1700000000,
+				'is_monorepo'            => false,
+				'packages'               => [],
+			]
+		);
+
+		$enqueued = [];
+		$this->queue->method( 'enqueue' )->willReturnCallback(
+			function ( string $identifier, Release $release ) use ( &$enqueued ): void {
+				$enqueued[] = $release->tag;
+			}
+		);
+		$this->queue->method( 'dequeue_all' )->willReturn( [] );
+
+		\WP_Mock::userFunction( 'add_option' )->andReturn( true );
+		\WP_Mock::userFunction( 'delete_option' )->andReturn( true );
+		\WP_Mock::userFunction( 'update_option' )->andReturn( true );
+
+		$monitor->run();
+
+		$this->assertSame( [ 'newborn@1.0.0' ], $enqueued );
+	}
+
+	/**
+	 * The durable is_monorepo flag routes to stream monitoring even when the
+	 * LATEST release is a plain repo-wide tag (round 3): both unseen package
+	 * releases behind it are enqueued.
+	 */
+	public function test_monorepo_flag_survives_plain_latest_tag(): void {
+		\WP_Mock::userFunction( 'get_posts' )->andReturn( [] );
+
+		$monitor = new Release_Monitor(
+			$this->api_client,
+			$this->release_state,
+			new Version_Comparator(),
+			$this->queue,
+			$this->repo_settings,
+		);
+
+		$this->repo_settings->method( 'get_repositories' )->willReturn(
+			[ [ 'identifier' => 'acme/mixed' ] ]
+		);
+
+		// Latest is a plain repo-wide tag — tag-shape detection would miss it.
+		$this->api_client->method( 'fetch_latest_eligible_release' )->willReturn(
+			$this->make_release( 'v3.0.0', '2026-07-19T00:00:00Z' )
+		);
+		$this->api_client->method( 'fetch_releases' )->willReturn(
+			[
+				$this->make_release( 'v3.0.0', '2026-07-19T00:00:00Z' ),
+				$this->make_release( '@acme/core@2.0.0', '2026-07-18T12:00:00Z' ),
+				$this->make_release( '@acme/next@1.5.0', '2026-07-18T11:00:00Z' ),
+			]
+		);
+
+		$this->release_state->method( 'get_state' )->willReturn(
+			[
+				'last_seen_tag'          => 'v2.0.0',
+				'last_seen_published_at' => '2026-01-01T00:00:00Z',
+				'last_checked_at'        => 0,
+				'streams_baseline_at'    => 1700000000,
+				'is_monorepo'            => true,
+				'packages'               => [
+					''           => [
+						'last_seen_tag'          => 'v2.0.0',
+						'last_seen_published_at' => '2026-01-01T00:00:00Z',
+					],
+					'@acme/core' => [
+						'last_seen_tag'          => '@acme/core@1.9.0',
+						'last_seen_published_at' => '2026-06-01T00:00:00Z',
+					],
+					'@acme/next' => [
+						'last_seen_tag'          => '@acme/next@1.4.0',
+						'last_seen_published_at' => '2026-05-01T00:00:00Z',
+					],
+				],
+			]
+		);
+
+		$enqueued = [];
+		$this->queue->method( 'enqueue' )->willReturnCallback(
+			function ( string $identifier, Release $release ) use ( &$enqueued ): void {
+				$enqueued[] = $release->tag;
+			}
+		);
+		$this->queue->method( 'dequeue_all' )->willReturn( [] );
+
+		\WP_Mock::userFunction( 'add_option' )->andReturn( true );
+		\WP_Mock::userFunction( 'delete_option' )->andReturn( true );
+		\WP_Mock::userFunction( 'update_option' )->andReturn( true );
+
+		$monitor->run();
+
+		sort( $enqueued );
+		$this->assertSame( [ '@acme/core@2.0.0', '@acme/next@1.5.0', 'v3.0.0' ], $enqueued );
 	}
 }

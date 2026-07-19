@@ -407,20 +407,42 @@ class API_Client {
 
 		// /releases is ordered by created_at, which is NOT the same as "highest
 		// version": a backport (e.g. 1.9.6 published after 2.0.0) sorts first and
-		// would win. Pick the newest by version using the same semver-with-date
-		// fallback the monitor uses, so we don't post an older release or skip the
-		// genuine latest one.
+		// would win. A single flat reduction is also NOT valid when packages mix
+		// (peer review round 3): same-package comparisons use versions while
+		// cross-package ones use chronology, and combining the two relations in
+		// one pass is non-transitive (a January core@2.0.0 could displace the
+		// February release of another package via a March core backport). Reduce
+		// in two stages instead: highest version within each package stream,
+		// then newest by publication date among the stream winners.
 		$comparator = new Version_Comparator();
-		$latest     = $releases[0];
 
-		foreach ( array_slice( $releases, 1 ) as $candidate ) {
-			$state = [
-				'last_seen_tag'          => $latest->tag,
-				'last_seen_published_at' => $latest->published_at,
-				'last_checked_at'        => 0,
-			];
-			if ( $comparator->is_newer( $candidate, $state ) ) {
-				$latest = $candidate;
+		$groups = [];
+		foreach ( $releases as $release ) {
+			$parsed           = Tag_Pattern_Matcher::derive_package( $release->tag );
+			$key              = null === $parsed ? '' : $parsed['package'];
+			$groups[ $key ][] = $release;
+		}
+
+		$winners = [];
+		foreach ( $groups as $group ) {
+			$winner = $group[0];
+			foreach ( array_slice( $group, 1 ) as $candidate ) {
+				$state = [
+					'last_seen_tag'          => $winner->tag,
+					'last_seen_published_at' => $winner->published_at,
+					'last_checked_at'        => 0,
+				];
+				if ( $comparator->is_newer( $candidate, $state ) ) {
+					$winner = $candidate;
+				}
+			}
+			$winners[] = $winner;
+		}
+
+		$latest = $winners[0];
+		foreach ( array_slice( $winners, 1 ) as $winner ) {
+			if ( $winner->published_at > $latest->published_at ) {
+				$latest = $winner;
 			}
 		}
 

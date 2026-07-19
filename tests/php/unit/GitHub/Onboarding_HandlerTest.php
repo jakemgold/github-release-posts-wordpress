@@ -67,6 +67,14 @@ class Onboarding_HandlerTest extends TestCase {
 
 		$state = $this->createMock( Release_State::class );
 		$state->expects( $this->never() )->method( 'update_last_seen' );
+		// Monorepo add: baseline stamped WITH per-package cursors (auto-gen is
+		// suppressed, so every current release is historical), and the durable
+		// topology flag is recorded (round 3).
+		$state->expects( $this->once() )->method( 'seed_streams' )->with(
+			$this->anything(),
+			$this->callback( static fn( array $cursors ): bool => array_keys( $cursors ) === [ '@acme/core', '@acme/utils' ] )
+		);
+		$state->expects( $this->once() )->method( 'set_monorepo' )->with( $this->anything(), true );
 
 		$outcome = ( new Onboarding_Handler( $api, $state ) )->handle_add( 'acme/monorepo-' . uniqid() );
 
@@ -86,6 +94,11 @@ class Onboarding_HandlerTest extends TestCase {
 		$api->method( 'fetch_latest_eligible_release' )->willReturn( $this->release( 'v3.1.0' ) );
 
 		$state = $this->createMock( Release_State::class );
+		// Single-package add: baseline stamped with NO cursors — the pending
+		// latest release must remain generatable by the client auto-trigger
+		// or by the cron retry if that fails (round 3).
+		$state->expects( $this->once() )->method( 'seed_streams' )->with( $this->anything(), [] );
+		$state->expects( $this->once() )->method( 'set_monorepo' )->with( $this->anything(), false );
 
 		$outcome = ( new Onboarding_Handler( $api, $state ) )->handle_add( 'acme/plugin-' . uniqid() );
 

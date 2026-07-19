@@ -27,7 +27,7 @@ class Release_State {
 	 * Returns the state array for a repository, with defaults for any missing keys.
 	 *
 	 * @param string $identifier Normalised `owner/repo` identifier.
-	 * @return array{last_seen_tag: string, last_seen_published_at: string, last_checked_at: int, packages: array<string, array{last_seen_tag: string, last_seen_published_at: string}>}
+	 * @return array{last_seen_tag: string, last_seen_published_at: string, last_checked_at: int, packages: array<string, array{last_seen_tag: string, last_seen_published_at: string}>, streams_baseline_at: int, is_monorepo: bool}
 	 */
 	public function get_state( string $identifier ): array {
 		$stored = get_option( $this->option_key( $identifier ), [] );
@@ -44,7 +44,62 @@ class Release_State {
 			// repos with tag patterns, where one repo-wide cursor would drop
 			// sibling releases published between checks.
 			'packages'               => (array) ( $stored['packages'] ?? [] ),
+			// When stream monitoring was baselined for this repo (0 = never).
+			// An explicit marker: cursor-map emptiness is NOT a reliable
+			// migration signal (peer review round 3) — plain-tag posts also
+			// write a default-stream cursor, and a repo added before its
+			// first release has a legitimately empty map.
+			'streams_baseline_at'    => (int) ( $stored['streams_baseline_at'] ?? 0 ),
+			// Durable monorepo determination, set wherever the full release
+			// list is observed — one latest tag is not enough to infer
+			// repository topology.
+			'is_monorepo'            => (bool) ( $stored['is_monorepo'] ?? false ),
 		];
+	}
+
+	/**
+	 * Establishes the stream-monitoring baseline for a repository: merges the
+	 * given per-package cursors (possibly none) and stamps the baseline
+	 * marker. Called at the moments the code KNOWS current releases are
+	 * historical — onboarding, and the one-time migration of repos that
+	 * predate stream monitoring.
+	 *
+	 * @param string                                                                      $identifier Normalised `owner/repo` identifier.
+	 * @param array<string, array{last_seen_tag: string, last_seen_published_at: string}> $cursors Initial cursors keyed by package.
+	 * @return void
+	 */
+	public function seed_streams( string $identifier, array $cursors ): void {
+		$stored = get_option( $this->option_key( $identifier ), [] );
+		if ( ! is_array( $stored ) ) {
+			$stored = [];
+		}
+
+		$stored['packages']            = array_merge( (array) ( $stored['packages'] ?? [] ), $cursors );
+		$stored['streams_baseline_at'] = time();
+
+		update_option( $this->option_key( $identifier ), $stored, false );
+	}
+
+	/**
+	 * Records whether the repository is a monorepo (releases multiple
+	 * packages), as determined from a full release list.
+	 *
+	 * @param string $identifier   Normalised `owner/repo` identifier.
+	 * @param bool   $is_monorepo  Determination.
+	 * @return void
+	 */
+	public function set_monorepo( string $identifier, bool $is_monorepo ): void {
+		$stored = get_option( $this->option_key( $identifier ), [] );
+		if ( ! is_array( $stored ) ) {
+			$stored = [];
+		}
+
+		if ( (bool) ( $stored['is_monorepo'] ?? false ) === $is_monorepo ) {
+			return; // No change — skip the write.
+		}
+
+		$stored['is_monorepo'] = $is_monorepo;
+		update_option( $this->option_key( $identifier ), $stored, false );
 	}
 
 	/**

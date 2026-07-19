@@ -905,4 +905,44 @@ class API_ClientTest extends TestCase {
 		$this->assertInstanceOf( Release::class, $result );
 		$this->assertSame( '@acme/core@2.0.0', $result->tag );
 	}
+
+	/**
+	 * Non-transitivity pin (round 3): a March backport of package A must not
+	 * let January's A@2.0.0 displace February's B@1.0.0. Two-stage reduction:
+	 * highest version per stream, then chronology among stream winners.
+	 */
+	public function test_fetch_latest_eligible_release_two_stage_reduction(): void {
+		$rows = [
+			[ '@acme/a@1.0.0', '2026-03-01T00:00:00Z' ],
+			[ '@acme/b@1.0.0', '2026-02-01T00:00:00Z' ],
+			[ '@acme/a@2.0.0', '2026-01-01T00:00:00Z' ],
+		];
+		$payload = array_map(
+			static fn( array $row ): array => [
+				'tag_name'     => $row[0],
+				'name'         => $row[0],
+				'published_at' => $row[1],
+				'html_url'     => 'https://github.com/acme/mono/releases/tag/x',
+				'body'         => '',
+				'assets'       => [],
+				'draft'        => false,
+				'prerelease'   => false,
+			],
+			$rows
+		);
+		$body = json_encode( $payload );
+
+		\WP_Mock::userFunction( 'wp_remote_get' )->andReturn( $this->mock_response( 200, $body ) );
+		\WP_Mock::userFunction( 'is_wp_error' )->andReturn( false );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_response_code' )->andReturn( 200 );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_body' )->andReturn( $body );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_header' )->andReturn( '100' );
+		\WP_Mock::userFunction( 'set_transient' )->andReturn( true );
+
+		$client = new API_Client( $this->settings_mock() );
+		$result = $client->fetch_latest_eligible_release( 'acme/mono', false, '@acme/a@*, @acme/b@*' );
+
+		$this->assertInstanceOf( Release::class, $result );
+		$this->assertSame( '@acme/b@1.0.0', $result->tag );
+	}
 }
