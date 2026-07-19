@@ -66,12 +66,26 @@ class Onboarding_Handler {
 		// after adding a monorepo (the moment it is most likely to be
 		// configured), and the only-prereleases branch below reuses it.
 		// Failures are ignored — warming must never break onboarding.
-		$all_releases = $this->api_client->fetch_releases( $identifier, true );
+		$all_releases     = $this->api_client->fetch_releases( $identifier, true );
+		$packages_payload = [
+			'multi_package' => false,
+			'packages'      => [],
+		];
 		if ( is_array( $all_releases ) ) {
-			set_transient(
-				Cache_Keys::repo_packages( $identifier ),
-				Tag_Pattern_Matcher::build_packages_payload( $all_releases ),
-				15 * MINUTE_IN_SECONDS
+			$packages_payload = Tag_Pattern_Matcher::build_packages_payload( $all_releases );
+			set_transient( Cache_Keys::repo_packages( $identifier ), $packages_payload, 15 * MINUTE_IN_SECONDS );
+		}
+
+		// Monorepo nudge: the default (posts for all packages) is unchanged
+		// pre-1.2 behavior, which floods feeds with utility-package posts.
+		// The add moment is the one moment the admin is certainly looking,
+		// so surface the detection here instead of hoping they open Quick Edit.
+		$package_note = '';
+		if ( $packages_payload['multi_package'] ) {
+			$package_note = sprintf(
+				/* translators: %d: number of packages detected in the repository */
+				__( 'This repository releases %d different packages — by default, every release gets a post. Edit the repository to choose which packages.', 'auto-release-posts-for-github' ),
+				count( $packages_payload['packages'] )
 			);
 		}
 
@@ -105,7 +119,7 @@ class Onboarding_Handler {
 					'auto_trigger' => false,
 					'notice'       => [
 						'type'    => 'success',
-						'message' => __( 'Repository added. This repo only has pre-release versions (betas, release candidates, etc.). Edit the repo and turn on "Include pre-releases" to start tracking them.', 'auto-release-posts-for-github' ),
+						'message' => trim( __( 'Repository added. This repo only has pre-release versions (betas, release candidates, etc.). Edit the repo and turn on "Include pre-releases" to start tracking them.', 'auto-release-posts-for-github' ) . ' ' . $package_note ),
 						'url'     => '',
 					],
 				];
@@ -131,7 +145,7 @@ class Onboarding_Handler {
 				'auto_trigger' => false,
 				'notice'       => [
 					'type'    => 'success',
-					'message' => __( 'Repository added. A post already exists for the latest release — use "Generate post" if you want to regenerate it.', 'auto-release-posts-for-github' ),
+					'message' => trim( __( 'Repository added. A post already exists for the latest release — use "Generate post" if you want to regenerate it.', 'auto-release-posts-for-github' ) . ' ' . $package_note ),
 					'url'     => (string) get_edit_post_link( $existing->ID, 'raw' ),
 				],
 			];
@@ -148,7 +162,11 @@ class Onboarding_Handler {
 		// during AI generation.
 		return [
 			'auto_trigger' => true,
-			'notice'       => null,
+			'notice'       => '' === $package_note ? null : [
+				'type'    => 'info',
+				'message' => $package_note,
+				'url'     => '',
+			],
 		];
 	}
 }
