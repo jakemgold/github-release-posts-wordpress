@@ -1107,6 +1107,26 @@ document.addEventListener( 'DOMContentLoaded', function () {
 				radios.forEach( function ( radio ) {
 					radio.addEventListener( 'change', function () {
 						list.hidden = ! chooseMode();
+						// Entering choose mode with nothing checked (the state
+						// left behind after an uncheck-everything revert) must
+						// restore the all-checked starting point: zero checked
+						// has no valid stored form, so recompile() would
+						// instantly bounce the radio back to "all packages"
+						// and lock the user out of choose mode.
+						if ( chooseMode() ) {
+							const boxes = Array.from(
+								list.querySelectorAll( 'input[type=checkbox]' ),
+							);
+							if (
+								! boxes.some( function ( box ) {
+									return box.checked;
+								} )
+							) {
+								boxes.forEach( function ( box ) {
+									box.checked = true;
+								} );
+							}
+						}
 						recompile();
 					} );
 				} );
