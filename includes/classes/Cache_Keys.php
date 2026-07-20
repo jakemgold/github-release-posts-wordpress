@@ -23,8 +23,9 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 final class Cache_Keys {
 
-	private const RELEASE_PREFIX            = 'ghrp_rel_';
+	private const SNAPSHOT_PREFIX           = 'ghrp_snapshot_';
 	private const RELEASE_FETCH_LOCK_PREFIX = 'ghrp_rel_lock_';
+	private const DEFERRED_NOTICES          = 'ghrp_deferred_notices';
 	private const AI_RESPONSE_PREFIX        = 'ghrp_ai_resp_';
 	private const USER_REPOS_PREFIX         = 'ghrp_user_repos_';
 	private const PAT_VALIDATION_PREFIX     = 'ghrp_pat_valid_';
@@ -37,13 +38,40 @@ final class Cache_Keys {
 	private const ADMIN_NOTICE_PREFIX       = 'ghrp_admin_notice_';
 
 	/**
-	 * Per-repo GitHub release cache (transient, 15 min TTL).
+	 * Per-repo raw release snapshot cache (transient, 15 min TTL).
+	 *
+	 * Holds the bounded Release[] list from API_Client::fetch_release_snapshot().
 	 *
 	 * @param string $identifier Repository identifier (owner/repo).
 	 * @return string
 	 */
-	public static function release( string $identifier ): string {
-		return self::RELEASE_PREFIX . md5( $identifier );
+	public static function snapshot( string $identifier ): string {
+		return self::SNAPSHOT_PREFIX . md5( $identifier );
+	}
+
+	/**
+	 * Site-wide deferred admin notices (transient, long TTL).
+	 *
+	 * Written by background work with no user context — e.g. the cron retry
+	 * of a failed onboarding discovering a multi-package repository — and
+	 * rendered + cleared on the next load of the plugin's settings screen.
+	 * Stored as a map keyed by repository identifier so retries overwrite
+	 * rather than stack.
+	 *
+	 * @return string
+	 */
+	public static function deferred_notices(): string {
+		return self::DEFERRED_NOTICES;
+	}
+
+	/**
+	 * Derived package list for a repository (transient).
+	 *
+	 * @param string $identifier Repository identifier (owner/repo).
+	 * @return string
+	 */
+	public static function repo_packages( string $identifier ): string {
+		return 'ghrp_packages_' . md5( $identifier );
 	}
 
 	/**

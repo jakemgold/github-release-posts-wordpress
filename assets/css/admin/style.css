@@ -368,3 +368,36 @@
 	font-size: 18px;
 	line-height: 1;
 }
+
+/* Quick Edit: monorepo package picker (center column, above Categories). */
+.ghrp-packages-picker {
+	margin-bottom: 1em;
+}
+
+/* Mirror core's treatment of quick-edit column titles (display, margin,
+   line-height) so "Packages" top-aligns with "Categories"/"Tags" at any
+   viewport width. */
+.inline-edit-row fieldset .ghrp-packages-picker > .title {
+	display: block;
+	margin: 0.2em 0;
+	line-height: 2.5;
+}
+
+/* Core gives quick-edit labels line-height 2.5, which reads as a large gap
+   between the two radio options; tighten just this pair. */
+.inline-edit-row fieldset .ghrp-packages-mode label {
+	display: block;
+	margin: 0 0 2px;
+	line-height: 1.8;
+}
+
+/* Outranks core's `.inline-edit-row fieldset ul.cat-checklist` max-height,
+   which otherwise wins on specificity. Show about four ~26px packages before
+   scrolling — this is a secondary control and shouldn't dwarf the Categories
+   box below it. */
+.inline-edit-row fieldset ul.ghrp-package-checklist {
+	margin-top: 4px;
+	max-height: 110px;
+	min-height: 0;
+	overflow-y: auto;
+}

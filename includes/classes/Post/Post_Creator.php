@@ -13,6 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 use GitHubReleasePosts\AI\GeneratedPost;
+use GitHubReleasePosts\GitHub\Tag_Pattern_Matcher;
 use GitHubReleasePosts\AI\ReleaseData;
 use GitHubReleasePosts\GitHub\Release_Monitor;
 use GitHubReleasePosts\Plugin_Constants;
@@ -83,7 +84,8 @@ class Post_Creator {
 			$data->tag,
 			$post->title,
 			$this->global_settings->get_title_format(),
-			$data->identifier
+			$data->identifier,
+			$this->repo_has_patterns( $data->identifier )
 		);
 		$block_content  = $this->convert_html_to_blocks( $post->content );
 		$block_content .= $this->build_disclosure_block( $data );
@@ -315,17 +317,41 @@ class Post_Creator {
 	 * @param string $tag          Release tag (e.g. "v1.2.0").
 	 * @param string $ai_title     AI-generated subtitle (or full title in 'none' mode).
 	 * @param string $format       Title format: 'full', 'version', or 'none'.
-	 * @param string $identifier   Repository identifier — passed through to the filter.
+	 * @param string $identifier        Repository identifier — passed through to the filter.
+	 * @param bool   $repo_has_patterns Whether the repo has tag patterns configured
+	 *                                  (gates dash-style package display formatting).
 	 * @return string Full post title.
 	 */
-	public static function build_title( string $display_name, string $tag, string $ai_title, string $format, string $identifier ): string {
-		$tag = self::format_version_tag( $tag );
+	public static function build_title( string $display_name, string $tag, string $ai_title, string $format, string $identifier, bool $repo_has_patterns = false ): string {
+		// Monorepo package tags (e.g. "@headstartwp/core@1.6.1") read as code
+		// dumps when used verbatim — and the 'version' format's v-strip does
+		// nothing to them. When the tag parses as a package release, render
+		// the short package name + bare version ("core 1.6.1") instead; the
+		// per-repo display name still provides the project context. Plain
+		// tags are formatted exactly as before.
+		$parsed = Tag_Pattern_Matcher::derive_display_package( $tag, $repo_has_patterns );
+		if ( null !== $parsed ) {
+			$package = Tag_Pattern_Matcher::short_name( $parsed['package'] );
+			$version = self::format_version_tag( $parsed['version'] );
+			$tag     = "{$package} {$version}";
 
-		$title = match ( $format ) {
-			'none'    => $ai_title,
-			'version' => 'Version ' . ltrim( $tag, 'vV' ) . ' — ' . $ai_title,
-			default   => "{$display_name} {$tag} — {$ai_title}",
-		};
+			$title = match ( $format ) {
+				'none'    => $ai_title,
+				// "Version 1.6.1" alone is ambiguous across packages — keep
+				// the package name in the version-only format. It leads the
+				// title here, so capitalize it (npm names are ASCII-safe).
+				'version' => ucfirst( $package ) . ' ' . ltrim( $version, 'vV' ) . ' — ' . $ai_title,
+				default   => "{$display_name} {$package} {$version} — {$ai_title}",
+			};
+		} else {
+			$tag = self::format_version_tag( $tag );
+
+			$title = match ( $format ) {
+				'none'    => $ai_title,
+				'version' => 'Version ' . ltrim( $tag, 'vV' ) . ' — ' . $ai_title,
+				default   => "{$display_name} {$tag} — {$ai_title}",
+			};
+		}
 
 		/**
 		 * Filters the full post title before it is saved.
@@ -351,12 +377,64 @@ class Post_Creator {
 	 * @param string $slug_keywords AI-generated slug keywords.
 	 * @return string Sanitized slug, or empty string if no keywords.
 	 */
+	/**
+	 * Whether display formatting may treat this repo's dash-style tags as
+	 * package releases (npm-style tags always qualify).
+	 *
+	 * @param string $identifier Repository identifier.
+	 * @return bool
+	 */
+	private function repo_has_patterns( string $identifier ): bool {
+		$config = $this->repo_settings->get_repository( $identifier );
+		/** This filter is documented in includes/classes/GitHub/Release_Monitor.php */
+		$patterns = (string) apply_filters( 'ghrp_repo_tag_patterns', (string) ( $config['tag_patterns'] ?? '' ), $identifier, $config );
+		return Tag_Pattern_Matcher::has_patterns( $patterns );
+	}
+
+	/**
+	 * Builds an SEO-friendly post slug from the display name, version tag,
+	 * and AI-generated slug keywords.
+	 *
+	 * @param string $identifier    Repository identifier (owner/repo).
+	 * @param string $tag           Release tag.
+	 * @param string $slug_keywords AI-generated slug keywords.
+	 * @return string Sanitized slug, or empty string if no keywords.
+	 */
 	private function build_slug( string $identifier, string $tag, string $slug_keywords ): string {
 		if ( '' === $slug_keywords ) {
 			return '';
 		}
 
-		$display_name = $this->repo_settings->get_display_name( $identifier );
+		return self::build_release_slug(
+			$this->repo_settings->get_display_name( $identifier ),
+			$tag,
+			$slug_keywords,
+			$this->repo_has_patterns( $identifier )
+		);
+	}
+
+	/**
+	 * Builds the release post slug — shared by initial creation and editor
+	 * regeneration so both produce the same URL shape.
+	 *
+	 * Package tags contribute their short name + bare version so monorepo
+	 * slugs come out as "headstartwp-core-1-6-1-…" instead of a mush of the
+	 * raw tag's @ and / characters. Package formatting applies only when the
+	 * repo has patterns configured (see derive_display_package()).
+	 *
+	 * @param string $display_name      Repository display name.
+	 * @param string $tag               Release tag.
+	 * @param string $slug_keywords     AI-generated slug keywords.
+	 * @param bool   $repo_has_patterns Whether the repo has tag patterns configured.
+	 * @return string Sanitized slug.
+	 */
+	public static function build_release_slug( string $display_name, string $tag, string $slug_keywords, bool $repo_has_patterns ): string {
+		$parsed = Tag_Pattern_Matcher::derive_display_package( $tag, $repo_has_patterns );
+		if ( null !== $parsed ) {
+			$version  = str_replace( '.', '-', strtolower( $parsed['version'] ) );
+			$raw_slug = $display_name . '-' . Tag_Pattern_Matcher::short_name( $parsed['package'] ) . '-' . $version . '-' . $slug_keywords;
+			return sanitize_title( $raw_slug );
+		}
 
 		// Strip 'v' prefix and dots → hyphens for the version.
 		$version = strtolower( ltrim( $tag, 'vV' ) );

@@ -20,13 +20,30 @@ use GitHubReleasePosts\Settings\Repository_Settings;
 /**
  * Orchestrates the release-check cron run.
  *
- * On each run, iterates all tracked (non-paused) repos, fetches their latest
- * GitHub release, compares against stored state, and queues new releases for
- * AI generation. After detection, the queue is processed in the same run by
- * firing the ghrp_process_release action for each entry.
+ * Every repository is monitored the same way: one bounded snapshot of its
+ * most recent releases, projected to the eligible view, grouped into streams
+ * (package streams plus the '' default stream for plain repo-wide tags), one
+ * head per stream compared against that stream's own cursor. An ordinary
+ * single-package repository is simply a repository with one stream — there
+ * is no separate monorepo path and no persisted topology.
  *
- * Also provides the static find_post() deduplication helper used by both
- * the cron pipeline and the manual trigger AJAX.
+ * Before normal monitoring, each repo passes through explicit lifecycle
+ * transitions decided by stored markers (never inferred):
+ *
+ *  1. `onboarding_pending`      → rerun the full onboarding matrix (same
+ *                                 rules as add-time; see Onboarding_Handler).
+ *  2. stream_state_version == 0 → upgrade from the released pre-stream
+ *                                 plugin: baseline current heads, generate
+ *                                 nothing (no backfill burst).
+ *  3. policy hash changed       → eligibility settings changed: rebaseline
+ *                                 current heads forward-only, generate
+ *                                 nothing. Manual Generate Draft remains the
+ *                                 explicit backfill tool.
+ *
+ * After detection, the queue is processed in the same run by firing the
+ * ghrp_process_release action for each entry. Also provides the static
+ * find_post() deduplication helper used by both the cron pipeline and the
+ * manual trigger AJAX.
  */
 class Release_Monitor {
 
@@ -105,36 +122,80 @@ class Release_Monitor {
 				}
 
 				$include_prereleases = ! empty( $repo['include_prereleases'] );
-				$release             = $this->api_client->fetch_latest_eligible_release( $identifier, $include_prereleases );
+				/**
+				 * Filters the tag patterns applied to a repository's releases.
+				 *
+				 * The primary way to set patterns is the Packages picker in the
+				 * admin; this filter is the code-level override for dynamic or
+				 * uncommon needs (unrecognized tag schemes, per-environment
+				 * rules). Return a comma-separated list of fnmatch globs, or
+				 * an empty string for no filtering. The returned value must be
+				 * deterministic — it participates in the stored eligibility
+				 * policy hash, and a value that changes on every run would
+				 * rebaseline (and therefore never post) on every run.
+				 *
+				 * @param string $tag_patterns Stored comma-separated patterns.
+				 * @param string $identifier   Repository identifier (owner/repo).
+				 * @param array  $repo         Full repository configuration.
+				 */
+				$tag_patterns = (string) apply_filters( 'ghrp_repo_tag_patterns', (string) ( $repo['tag_patterns'] ?? '' ), $identifier, $repo );
 
-				if ( is_wp_error( $release ) ) {
-					if ( 'github_rate_limit_exhausted' === $release->get_error_code() ) {
+				$snapshot = $this->api_client->fetch_release_snapshot( $identifier );
+
+				if ( is_wp_error( $snapshot ) ) {
+					if ( 'github_rate_limit_exhausted' === $snapshot->get_error_code() ) {
 						// API_Client already scheduled the retry event. Stop the run.
 						$this->log( $identifier, 'rate limit exhausted — stopping run' );
 						break;
 					}
 
-					$this->log( $identifier, 'error: ' . $release->get_error_message() );
-					Publish_Workflow::record_error( $identifier, '', $release->get_error_message() );
+					$this->log( $identifier, 'error: ' . $snapshot->get_error_message() );
+					Publish_Workflow::record_error( $identifier, '', $snapshot->get_error_message() );
 					$this->state->update_last_checked( $identifier );
 					continue;
 				}
 
-				if ( null === $release ) {
-					$this->log( $identifier, 'no releases found' );
+				$state       = $this->state->get_state( $identifier );
+				$policy_hash = Release_Selector::policy_hash( $include_prereleases, $tag_patterns );
+				$eligible    = Release_Selector::monitoring_projection( $snapshot, $include_prereleases, $tag_patterns );
+
+				if ( $state['onboarding_pending'] ) {
+					// Transition: retry of a failed add. Rerun the SAME
+					// onboarding matrix the add path uses, so a repository
+					// whose first scan failed behaves exactly like one whose
+					// first scan succeeded — at most one initial post, never
+					// a one-post-per-stream burst of its existing history.
+					$streams = $this->retry_onboarding( $identifier, $snapshot, $eligible, $policy_hash );
+					// The initial release (if any) was deliberately left
+					// without a cursor: the stream check below enqueues it,
+					// or advances past it if a post already exists.
+				} elseif ( Release_State::STREAM_STATE_VERSION !== $state['stream_state_version'] ) {
+					// Transition: upgrade from the released pre-stream plugin.
+					// Baseline every current eligible head and generate
+					// nothing — the released behavior tracked only the latest
+					// release, so current heads are history, not news.
+					$this->state->complete_baseline( $identifier, $this->cursors_for_heads( $eligible ), $policy_hash );
+					$this->log( $identifier, 'upgrade: stream baseline established, no backfill' );
 					$this->state->update_last_checked( $identifier );
 					continue;
-				}
-
-				$repo_state = $this->state->get_state( $identifier );
-
-				if ( $this->comparator->is_newer( $release, $repo_state ) ) {
-					$this->queue->enqueue( $identifier, $release );
-					$this->log( $identifier, 'new release found: ' . $release->tag );
+				} elseif ( $policy_hash !== $state['policy_hash'] ) {
+					// Transition: eligibility policy changed (pre-release
+					// setting or tag patterns). Forward-only: current heads
+					// under the NEW policy become the baseline and nothing is
+					// generated this scan — newly eligible historical releases
+					// are the admin's call via Generate Draft. This also
+					// prevents a cursor written under the old policy (e.g. a
+					// pre-release version) from blocking a lower-versioned
+					// release that is now the eligible head.
+					$this->state->complete_baseline( $identifier, $this->cursors_for_heads( $eligible ), $policy_hash );
+					$this->log( $identifier, 'eligibility policy changed: rebaselined current stream heads, no backfill' );
+					$this->state->update_last_checked( $identifier );
+					continue;
 				} else {
-					$this->log( $identifier, 'no new release (last seen: ' . $repo_state['last_seen_tag'] . ')' );
+					$streams = $state['streams'];
 				}
 
+				$this->check_streams( $identifier, $eligible, $streams );
 				$this->state->update_last_checked( $identifier );
 			}
 
@@ -203,12 +264,150 @@ class Release_Monitor {
 	}
 
 	/**
+	 * Reruns the onboarding matrix for a repository whose add-time snapshot
+	 * failed (transition 2 in the lifecycle).
+	 *
+	 * Identical decision rules to Onboarding_Handler::handle_add(), driven by
+	 * the snapshot this cron run already fetched. The one difference is the
+	 * delivery of the package-choice nudge: there is no admin looking at a
+	 * redirect, so it is deferred to a site-wide notice rendered on the next
+	 * settings-screen load.
+	 *
+	 * @param string    $identifier  Repository identifier.
+	 * @param Release[] $snapshot    Raw snapshot (discovery view).
+	 * @param Release[] $eligible    Monitoring-projection releases.
+	 * @param string    $policy_hash Current eligibility policy hash.
+	 * @return array<string, array{last_seen_tag: string, last_seen_published_at: string}> The baselined stream cursors.
+	 */
+	private function retry_onboarding( string $identifier, array $snapshot, array $eligible, string $policy_hash ): array {
+		$packages_payload = Tag_Pattern_Matcher::build_packages_payload( $snapshot );
+		$ui_choice        = (bool) $packages_payload['multi_package'];
+
+		$plan = Release_Selector::onboarding_plan( $eligible, $ui_choice );
+		$this->state->complete_baseline( $identifier, $plan['cursors'], $policy_hash );
+
+		// Warm the package chooser cache while the snapshot is in hand.
+		set_transient( Cache_Keys::repo_packages( $identifier ), $packages_payload, 15 * MINUTE_IN_SECONDS );
+
+		if ( null === $plan['initial'] && $ui_choice && ! empty( $eligible ) ) {
+			$this->defer_package_notice( $identifier, count( $packages_payload['packages'] ) );
+		}
+
+		$this->log( $identifier, 'onboarding completed on retry — ' . count( $plan['cursors'] ) . ' stream(s) baselined' );
+
+		return $plan['cursors'];
+	}
+
+	/**
+	 * Stores the package-choice nudge for a repository so the next load of
+	 * the plugin's settings screen can display it. Keyed by identifier so a
+	 * repeated retry overwrites rather than stacks.
+	 *
+	 * @param string $identifier    Repository identifier.
+	 * @param int    $package_count Number of recognized packages.
+	 * @return void
+	 */
+	private function defer_package_notice( string $identifier, int $package_count ): void {
+		$notices = get_transient( Cache_Keys::deferred_notices() );
+		if ( ! is_array( $notices ) ) {
+			$notices = [];
+		}
+
+		$notices[ $identifier ] = [
+			'type'    => 'info',
+			'message' => sprintf(
+				/* translators: 1: repository identifier, 2: number of packages detected */
+				__( '%1$s releases %2$d different packages — by default, every release gets a post. Edit the repository to choose which packages.', 'auto-release-posts-for-github' ),
+				$identifier,
+				$package_count
+			),
+		];
+
+		set_transient( Cache_Keys::deferred_notices(), $notices, WEEK_IN_SECONDS );
+	}
+
+	/**
+	 * Builds baseline cursors from the current eligible stream heads.
+	 *
+	 * @param Release[] $eligible Monitoring-projection releases.
+	 * @return array<string, array{last_seen_tag: string, last_seen_published_at: string}>
+	 */
+	private function cursors_for_heads( array $eligible ): array {
+		$cursors = [];
+		foreach ( $this->comparator->select_stream_winners( $eligible ) as $stream => $winner ) {
+			$cursors[ (string) $stream ] = [
+				'last_seen_tag'          => $winner->tag,
+				'last_seen_published_at' => $winner->published_at,
+			];
+		}
+
+		return $cursors;
+	}
+
+	/**
+	 * Compares each eligible stream head against its stream cursor and
+	 * enqueues the new ones.
+	 *
+	 * One head per stream per scan: if a package published several versions
+	 * between scans, only its newest eligible version is generated (a
+	 * documented limit). A missing cursor means the head is new — the repo
+	 * was baselined with that stream deliberately omitted (pending initial
+	 * generation) or the stream appeared after the baseline. Cursors advance
+	 * in process_queue() only after a post is actually created, so failures
+	 * never skip releases.
+	 *
+	 * @param string                              $identifier Repository identifier.
+	 * @param Release[]                           $eligible   Monitoring-projection releases.
+	 * @param array<string, array<string, mixed>> $streams    Stream cursors keyed by package.
+	 * @return void
+	 */
+	private function check_streams( string $identifier, array $eligible, array $streams ): void {
+		if ( empty( $eligible ) ) {
+			$this->log( $identifier, 'no eligible releases' );
+			return;
+		}
+
+		$winners = $this->comparator->select_stream_winners( $eligible );
+
+		foreach ( $winners as $stream => $candidate ) {
+			$cursor = [
+				'last_seen_tag'          => (string) ( $streams[ $stream ]['last_seen_tag'] ?? '' ),
+				'last_seen_published_at' => (string) ( $streams[ $stream ]['last_seen_published_at'] ?? '' ),
+				'last_checked_at'        => 0,
+			];
+
+			$label = '' === $stream ? 'default stream' : $stream;
+
+			if ( ! $this->comparator->is_newer( $candidate, $cursor ) ) {
+				$this->log( $identifier, 'no new release (' . $label . ', last seen: ' . $cursor['last_seen_tag'] . ')' );
+				continue;
+			}
+
+			// Replay guard: a post may already exist for this release —
+			// manually generated, or created by the client-side onboarding
+			// auto-trigger. Re-enqueueing would burn an AI call and re-fire
+			// the publish workflow with cron context, which can silently
+			// publish a draft that was created for review. Advance the
+			// cursor instead.
+			if ( self::find_post( $identifier, $candidate->tag ) instanceof \WP_Post ) {
+				$this->state->update_stream_seen( $identifier, (string) $stream, $candidate->tag, $candidate->published_at );
+				$this->log( $identifier, 'existing post found (' . $label . '): ' . $candidate->tag . ' — cursor advanced, not re-enqueued' );
+				continue;
+			}
+
+			$this->queue->enqueue( $identifier, $candidate );
+			$this->log( $identifier, 'new release found (' . $label . '): ' . $candidate->tag );
+		}
+	}
+
+	/**
 	 * Processes all queued release entries in the current run.
 	 *
 	 * Fires the ghrp_process_release action for each entry. DOM-05/06 hooks
 	 * here to perform AI generation and post creation. After the action fires,
-	 * checks whether a post was created and, if so, updates the last-seen state
-	 * (BR-001: only the cron pipeline updates last_seen_tag).
+	 * checks whether a post was created and, if so, advances the stream cursor
+	 * and the repo-wide display cursor (BR-001: only post-creation advances
+	 * cursors).
 	 *
 	 * @return void
 	 */
@@ -238,6 +437,11 @@ class Release_Monitor {
 
 			if ( $post instanceof \WP_Post ) {
 				$this->state->update_last_seen( $identifier, $tag, $entry['published_at'] ?? '' );
+				// The stream cursor is what monitoring reads; advance it here,
+				// after creation, so a failed generation never skips a release.
+				$parsed = Tag_Pattern_Matcher::derive_package( $tag );
+				$stream = null === $parsed ? '' : $parsed['package'];
+				$this->state->update_stream_seen( $identifier, $stream, $tag, $entry['published_at'] ?? '' );
 				$this->log( $identifier, 'post created for tag ' . $tag . ' (ID ' . $post->ID . ')' );
 			} else {
 				$this->log( $identifier, 'action fired for tag ' . $tag . ' — no post created yet' );

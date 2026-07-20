@@ -29,6 +29,7 @@ class Release {
 	 * @param string  $published_at ISO 8601 publication timestamp.
 	 * @param string  $html_url     URL to the release page on GitHub.
 	 * @param array[] $assets       Array of release asset objects from the API.
+	 * @param bool    $prerelease   Whether GitHub marks this release as a pre-release.
 	 */
 	public function __construct(
 		public readonly string $tag,
@@ -37,6 +38,7 @@ class Release {
 		public readonly string $published_at,
 		public readonly string $html_url,
 		public readonly array $assets,
+		public readonly bool $prerelease = false,
 	) {}
 
 	/**
@@ -56,6 +58,7 @@ class Release {
 			published_at: (string) ( $data['published_at'] ?? '' ),
 			html_url:     (string) ( $data['html_url'] ?? '' ),
 			assets:       is_array( $data['assets'] ?? null ) ? $data['assets'] : [],
+			prerelease: ! empty( $data['prerelease'] ),
 		);
 	}
 }

@@ -520,6 +520,121 @@ class Post_CreatorTest extends TestCase {
 		$this->assertSame( 'Restricted Site Access v7.6.1 — Elementor fatal error fixed', $result );
 	}
 
+	/**
+	 * Monorepo package tags render as short package name + bare version in
+	 * the full format, instead of the raw "@scope/name@x.y.z" tag.
+	 */
+	public function test_build_title_full_format_package_tag(): void {
+		\WP_Mock::userFunction( 'apply_filters' )->andReturnUsing( fn( $tag, $value ) => $value )->byDefault();
+
+		$result = Post_Creator::build_title(
+			'HeadstartWP',
+			'@headstartwp/core@1.6.1',
+			'Faster data fetching',
+			'full',
+			'10up/headstartwp',
+			true
+		);
+
+		$this->assertSame( 'HeadstartWP core 1.6.1 — Faster data fetching', $result );
+	}
+
+	/**
+	 * Pinned compatibility (peer review round 2): an npm-style tag on a repo
+	 * WITHOUT patterns renders verbatim — package display is opt-in for every
+	 * tag style, so existing single-package repos are truly unchanged.
+	 */
+	public function test_build_title_npm_tag_without_patterns_is_unchanged(): void {
+		\WP_Mock::userFunction( 'apply_filters' )->andReturnUsing( fn( $tag, $value ) => $value )->byDefault();
+
+		$result = Post_Creator::build_title(
+			'My Package',
+			'mypackage@1.2.3',
+			'A subtitle',
+			'full',
+			'acme/mypackage'
+		);
+
+		$this->assertSame( 'My Package mypackage@1.2.3 — A subtitle', $result );
+	}
+
+	/**
+	 * The version-only format keeps the package name for monorepo tags —
+	 * "Version 1.6.1" alone is ambiguous across packages — and capitalizes
+	 * it, since it leads the title. Trailing .0 patch versions are trimmed
+	 * as with plain tags.
+	 */
+	public function test_build_title_version_format_package_tag(): void {
+		\WP_Mock::userFunction( 'apply_filters' )->andReturnUsing( fn( $tag, $value ) => $value )->byDefault();
+
+		$result = Post_Creator::build_title(
+			'HeadstartWP',
+			'@headstartwp/next@1.5.0',
+			'Simplified routing',
+			'version',
+			'10up/headstartwp',
+			true
+		);
+
+		$this->assertSame( 'Next 1.5 — Simplified routing', $result );
+	}
+
+	/**
+	 * Back-compat (peer review P2): a single-package repo tagging
+	 * "my-plugin-v1.2.3" keeps its pre-1.2 title verbatim — dash-style tags
+	 * only render as packages when the repo has patterns configured.
+	 */
+	/**
+	 * The shared slug builder produces package-aware slugs with patterns and
+	 * legacy slugs without — creation and regeneration use the same builder.
+	 */
+	public function test_build_release_slug_shapes(): void {
+		\WP_Mock::userFunction( 'sanitize_title' )->andReturnUsing(
+			static fn( $raw ) => strtolower( preg_replace( '/[^a-z0-9]+/i', '-', trim( (string) $raw ) ) )
+		);
+
+		$this->assertSame(
+			'headstartwp-core-1-6-1-faster-fetching',
+			Post_Creator::build_release_slug( 'HeadstartWP', '@headstartwp/core@1.6.1', 'faster-fetching', true )
+		);
+		$this->assertSame(
+			'my-plugin-1-2-3-nice-things',
+			Post_Creator::build_release_slug( 'My Plugin', 'v1.2.3', 'nice-things', false )
+		);
+	}
+
+	public function test_build_title_dash_tag_without_patterns_is_unchanged(): void {
+		\WP_Mock::userFunction( 'apply_filters' )->andReturnUsing( fn( $tag, $value ) => $value )->byDefault();
+
+		$result = Post_Creator::build_title(
+			'My Plugin',
+			'my-plugin-v1.2.3',
+			'A subtitle',
+			'full',
+			'acme/my-plugin'
+		);
+
+		$this->assertSame( 'My Plugin my-plugin-v1.2.3 — A subtitle', $result );
+	}
+
+	/**
+	 * With patterns configured, dash-style tags render as packages.
+	 */
+	public function test_build_title_dash_tag_with_patterns_renders_package(): void {
+		\WP_Mock::userFunction( 'apply_filters' )->andReturnUsing( fn( $tag, $value ) => $value )->byDefault();
+
+		$result = Post_Creator::build_title(
+			'Acme Suite',
+			'admin-v2.1.0',
+			'A subtitle',
+			'full',
+			'acme/suite',
+			true
+		);
+
+		$this->assertSame( 'Acme Suite admin 2.1 — A subtitle', $result );
+	}
+
 	public function test_build_title_version_format_uses_version_prefix(): void {
 		\WP_Mock::userFunction( 'apply_filters' )->andReturnUsing( fn( $tag, $value ) => $value )->byDefault();
 

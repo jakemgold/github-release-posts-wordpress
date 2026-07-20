@@ -668,6 +668,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 			display_name: dataRow.dataset.displayName || '',
 			plugin_link: dataRow.dataset.pluginLink || '',
 			tags: dataRow.dataset.tags || '',
+			tag_patterns: dataRow.dataset.tagPatterns || '',
 		};
 
 		Object.keys( fields ).forEach( function ( key ) {
@@ -750,6 +751,10 @@ document.addEventListener( 'DOMContentLoaded', function () {
 		if ( pluginLinkInput ) {
 			wirePluginLinkValidation( pluginLinkInput );
 		}
+
+		// Swap the manual tag-patterns field for the package picker when the
+		// repo turns out to be a monorepo.
+		wirePackagePicker( editRow, dataRow );
 
 		// Insert a hidden spacer + the edit row after the data row.
 		// WP Quick Edit does the same: dataRow, spacer, editRow — so
@@ -952,6 +957,169 @@ document.addEventListener( 'DOMContentLoaded', function () {
 		return /^https?:\/\//i.test( value ) || /[^/\s]+\.[^/\s]+/.test( value );
 	}
 
+	/**
+	 * Splits a comma-separated tag-pattern string into trimmed entries.
+	 *
+	 * @param {string} value Raw field value.
+	 * @returns {Array} Non-empty patterns.
+	 */
+	function parseTagPatterns( value ) {
+		return ( value || '' )
+			.split( ',' )
+			.map( function ( p ) {
+				return p.trim();
+			} )
+			.filter( Boolean );
+	}
+
+	/**
+	 * Replaces the manual tag-patterns field with a package checkbox picker
+	 * when the repository is detected as a monorepo (2+ packages derived from
+	 * its release tags). Checkboxes compile back into the same pattern field,
+	 * which remains the single submitted source of truth; the manual field
+	 * stays reachable via the "Edit tag patterns manually" link and is the
+	 * automatic fallback for single-package repos or API failures.
+	 *
+	 * @param {Element} editRow Cloned quick-edit row.
+	 * @param {Element} dataRow Data row being edited.
+	 */
+	function wirePackagePicker( editRow, dataRow ) {
+		const picker = editRow.querySelector( '.ghrp-packages-picker' );
+		const input = editRow.querySelector( '[data-field="tag_patterns"]' );
+		const list = picker ? picker.querySelector( '.ghrp-package-checklist' ) : null;
+		const radios = picker
+			? Array.from( picker.querySelectorAll( '.ghrp-packages-mode input[type=radio]' ) )
+			: [];
+		if ( ! picker || ! input || ! list || radios.length !== 2 ) {
+			return;
+		}
+
+		const repo = dataRow.dataset.repo || '';
+		// Radios need a per-row name: an unnamed pair would not be mutually
+		// exclusive, and sharing a name with the hidden template's pair would
+		// let a click here silently flip the template's default state.
+		radios.forEach( function ( radio ) {
+			radio.name = `ghrp_packages_mode_${ repo }`;
+		} );
+
+		window.ghrpFetch(
+			'GET',
+			'/repos/packages',
+			{ repo },
+			function ( response ) {
+				if (
+					! response ||
+					! response.multi_package ||
+					! Array.isArray( response.packages )
+				) {
+					// Single-package repo (or unrecognized tag scheme): no
+					// picker. Stored patterns still round-trip via the hidden
+					// field, and the ghrp_repo_tag_patterns filter remains the
+					// code-level control.
+					return;
+				}
+
+				const known = response.packages.map( function ( pkg ) {
+					return pkg.pattern;
+				} );
+				const current = parseTagPatterns( input.value );
+				const chooseMode = function () {
+					return radios[ 1 ].checked;
+				};
+
+				const recompile = function () {
+					if ( ! chooseMode() ) {
+						// "All packages" applies no filter — future packages
+						// included, identical to never configuring the feature.
+						input.value = '';
+						return;
+					}
+					const custom = parseTagPatterns( input.value ).filter( function ( p ) {
+						return known.indexOf( p ) === -1;
+					} );
+					const checkedBoxes = Array.from( list.querySelectorAll( 'input:checked' ) );
+					// Unchecking every package undoes the manual selection, so
+					// revert to the default — visibly, not just at save time.
+					if ( checkedBoxes.length === 0 && custom.length === 0 ) {
+						radios[ 0 ].checked = true;
+						radios[ 1 ].checked = false;
+						list.hidden = true;
+						input.value = '';
+						return;
+					}
+					input.value = custom
+						.concat(
+							checkedBoxes.map( function ( box ) {
+								return box.value;
+							} ),
+						)
+						.join( ', ' );
+				};
+
+				// Display short names (last path segment) unless two packages
+				// would collide; collisions keep their full name. Full package,
+				// release count, and latest tag live in the tooltip.
+				const shortCounts = {};
+				response.packages.forEach( function ( pkg ) {
+					const short = pkg.package.split( '/' ).pop();
+					shortCounts[ short ] = ( shortCounts[ short ] || 0 ) + 1;
+				} );
+
+				const sorted = response.packages.slice().sort( function ( a, b ) {
+					return a.package.localeCompare( b.package );
+				} );
+
+				list.textContent = '';
+				sorted.forEach( function ( pkg ) {
+					const short = pkg.package.split( '/' ).pop();
+					const display = shortCounts[ short ] > 1 ? pkg.package : short;
+					const i18n = ghrpAdmin.i18n || {};
+					const template =
+						pkg.count === 1
+							? i18n.packageMetaOne || '1 release · latest %2$s'
+							: i18n.packageMeta || '%1$s releases · latest %2$s';
+
+					const item = document.createElement( 'li' );
+					const label = document.createElement( 'label' );
+					label.className = 'selectit';
+					label.title = template
+						.replace( '%1$s', pkg.count )
+						.replace( '%2$s', pkg.latest_tag );
+
+					const box = document.createElement( 'input' );
+					box.type = 'checkbox';
+					box.value = pkg.pattern;
+					box.checked = current.length === 0 || current.indexOf( pkg.pattern ) !== -1;
+					box.addEventListener( 'change', recompile );
+
+					label.appendChild( box );
+					label.appendChild( document.createTextNode( ` ${ display }` ) );
+					item.appendChild( label );
+					list.appendChild( item );
+				} );
+
+				// Stored patterns mean a subset was chosen; empty means all.
+				const initialChoose = current.length > 0;
+				radios[ 0 ].checked = ! initialChoose;
+				radios[ 1 ].checked = initialChoose;
+				list.hidden = ! initialChoose;
+
+				radios.forEach( function ( radio ) {
+					radio.addEventListener( 'change', function () {
+						list.hidden = ! chooseMode();
+						recompile();
+					} );
+				} );
+
+				picker.hidden = false;
+			},
+			function () {
+				// API failure: no picker this session; stored patterns are
+				// preserved by the hidden field — never block editing.
+			},
+		);
+	}
+
 	function wirePluginLinkValidation( input ) {
 		let focusValue = '';
 
@@ -1037,7 +1205,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 		// post.tag is a git ref name that can legitimately contain characters
 		// the HTML parser would interpret (`<`, `>`, `&`, quotes). textContent
 		// + property assignment is the only escape that's actually safe here.
-		const label = post.tag ? `${ post.tag } on ${ post.date }` : post.date;
+		const label = post.tag ? `${ post.tag_label || post.tag } on ${ post.date }` : post.date;
 
 		while ( lastPostCell.firstChild ) {
 			lastPostCell.removeChild( lastPostCell.firstChild );
@@ -1393,7 +1561,8 @@ document.addEventListener( 'DOMContentLoaded', function () {
 				} else {
 					versionConflictRow.hidden = true;
 					if ( versionConfirm ) {
-						versionConfirm.textContent = ghrpAdmin.i18n.generatePost || 'Generate post';
+						versionConfirm.textContent =
+							ghrpAdmin.i18n.generateDraft || 'Generate draft';
 					}
 				}
 			}

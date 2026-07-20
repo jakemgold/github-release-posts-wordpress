@@ -19,8 +19,9 @@ if ( ! defined( 'ABSPATH' ) ) {
  * falling back to ISO 8601 publication date comparison for non-semver tags.
  * Leading `v` is stripped before semver parsing (BR-005).
  *
- * Pre-releases and draft releases are never presented by the /releases/latest
- * endpoint, so no additional filtering is required here (AC-009).
+ * Eligibility (drafts, pre-releases, tag patterns) is not this class's
+ * concern — callers compare releases that already passed
+ * Release_Selector::monitoring_projection().
  */
 class Version_Comparator {
 
@@ -44,11 +45,33 @@ class Version_Comparator {
 			return false;
 		}
 
+		// Package tags ("@acme/core@1.9.6") never parse as semver directly, so
+		// they used to fall through to date comparison — letting a later-dated
+		// backport beat a higher version, the exact case the semver branch
+		// exists to prevent. Normalize to the embedded version — but ONLY when
+		// both tags belong to the SAME package: comparing core@2.0.0 against
+		// utils@100.0.0 by version number is meaningless and would suppress
+		// lower-versioned packages indefinitely. Across different packages
+		// (or package vs. plain tag) fall through to release chronology.
+		$candidate_pkg = Tag_Pattern_Matcher::derive_package( $candidate->tag );
+		$last_pkg      = Tag_Pattern_Matcher::derive_package( $last_tag );
+
+		$candidate_tag = $candidate->tag;
+		$last_tag_norm = $last_tag;
+		if ( null !== $candidate_pkg && null !== $last_pkg && $candidate_pkg['package'] === $last_pkg['package'] ) {
+			$candidate_tag = $candidate_pkg['version'];
+			$last_tag_norm = $last_pkg['version'];
+		} elseif ( null !== $candidate_pkg || null !== $last_pkg ) {
+			// Mixed or cross-package: force the chronology branch below.
+			$candidate_tag = '';
+			$last_tag_norm = '';
+		}
+
 		// Both semver — use version_compare (AC-006, BR-005).
-		if ( $this->is_semver( $candidate->tag ) && $this->is_semver( $last_tag ) ) {
+		if ( $this->is_semver( $candidate_tag ) && $this->is_semver( $last_tag_norm ) ) {
 			return version_compare(
-				$this->strip_v( $candidate->tag ),
-				$this->strip_v( $last_tag ),
+				$this->strip_v( $candidate_tag ),
+				$this->strip_v( $last_tag_norm ),
 				'>'
 			);
 		}
@@ -64,6 +87,51 @@ class Version_Comparator {
 		}
 
 		return $candidate_date > $last_date;
+	}
+
+	/**
+	 * Groups releases into package streams and selects each stream's winner.
+	 *
+	 * The single shared selection routine (peer review round 4): onboarding
+	 * baselines, cron monitoring, and latest-release selection must all agree
+	 * on stream heads. Unclassifiable tags form the '' (default) stream —
+	 * they are monitored too, so they must be represented here even though
+	 * the package-picker UI omits them. Winners are chosen by the same
+	 * within-stream ordering is_newer() applies (semantic version for one
+	 * package, chronology otherwise) — NOT by GitHub's created_at list
+	 * order, which crowns later-created backports.
+	 *
+	 * @param Release[] $releases Releases, any order.
+	 * @return array<string, Release> Stream winners keyed by package ('' = default stream).
+	 */
+	public function select_stream_winners( array $releases ): array {
+		$groups = [];
+		foreach ( $releases as $release ) {
+			if ( ! $release instanceof Release ) {
+				continue;
+			}
+			$parsed           = Tag_Pattern_Matcher::derive_package( $release->tag );
+			$key              = null === $parsed ? '' : $parsed['package'];
+			$groups[ $key ][] = $release;
+		}
+
+		$winners = [];
+		foreach ( $groups as $key => $group ) {
+			$winner = $group[0];
+			foreach ( array_slice( $group, 1 ) as $candidate ) {
+				$state = [
+					'last_seen_tag'          => $winner->tag,
+					'last_seen_published_at' => $winner->published_at,
+					'last_checked_at'        => 0,
+				];
+				if ( $this->is_newer( $candidate, $state ) ) {
+					$winner = $candidate;
+				}
+			}
+			$winners[ $key ] = $winner;
+		}
+
+		return $winners;
 	}
 
 	/**

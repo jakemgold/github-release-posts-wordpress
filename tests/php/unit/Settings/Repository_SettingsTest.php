@@ -208,6 +208,53 @@ class Repository_SettingsTest extends TestCase {
 		$this->assertCount( 1, $result['repos'] );
 	}
 
+	/**
+	 * add_repository() rejects a path GitHub reports as nonexistent, and
+	 * nothing is saved.
+	 */
+	public function test_add_repository_rejects_nonexistent_repo(): void {
+		\WP_Mock::userFunction( 'get_option' )
+			->with( Plugin_Constants::OPTION_REPOSITORIES, [] )
+			->andReturn( [] );
+		\WP_Mock::userFunction( 'apply_filters' )
+			->with( 'ghrp_max_repositories', Repository_Settings::MAX_REPOSITORIES )
+			->andReturn( Repository_Settings::MAX_REPOSITORIES );
+		\WP_Mock::userFunction( 'update_option' )->never();
+
+		$client = $this->createMock( \GitHubReleasePosts\GitHub\API_Client::class );
+		$client->method( 'repo_exists' )->willReturn( false );
+
+		$result = ( new Repository_Settings() )->add_repository( 'owner/typo-repo', $client );
+
+		$this->assertFalse( $result['success'] );
+		$this->assertStringContainsString( 'owner/typo-repo', $result['error'] );
+		$this->assertCount( 0, $result['repos'] );
+	}
+
+	/**
+	 * A transient failure (network, rate limit) fails open: the add proceeds
+	 * rather than blocking on GitHub's availability.
+	 */
+	public function test_add_repository_fails_open_on_existence_check_error(): void {
+		\WP_Mock::userFunction( 'get_option' )
+			->with( Plugin_Constants::OPTION_REPOSITORIES, [] )
+			->andReturn( [] );
+		\WP_Mock::userFunction( 'apply_filters' )
+			->with( 'ghrp_max_repositories', Repository_Settings::MAX_REPOSITORIES )
+			->andReturn( Repository_Settings::MAX_REPOSITORIES );
+		\WP_Mock::userFunction( 'update_option' )->andReturn( true );
+		\WP_Mock::userFunction( 'get_current_user_id' )->andReturn( 1 );
+
+		$client = $this->createMock( \GitHubReleasePosts\GitHub\API_Client::class );
+		$client->method( 'repo_exists' )->willReturn( new \WP_Error( 'http_request_failed', 'timeout' ) );
+		$client->method( 'fetch_readme' )->willReturn( '' );
+
+		$result = ( new Repository_Settings() )->add_repository( 'owner/real-repo', $client );
+
+		$this->assertTrue( $result['success'] );
+		$this->assertCount( 1, $result['repos'] );
+	}
+
 	// -------------------------------------------------------------------------
 	// remove_repository()
 	// -------------------------------------------------------------------------

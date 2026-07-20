@@ -18,7 +18,9 @@ use GitHubReleasePosts\Post\Post_Creator;
 use GitHubReleasePosts\GitHub\Onboarding_Handler;
 use GitHubReleasePosts\GitHub\Release_Monitor;
 use GitHubReleasePosts\GitHub\Release_Queue;
+use GitHubReleasePosts\GitHub\Release_Selector;
 use GitHubReleasePosts\GitHub\Release_State;
+use GitHubReleasePosts\GitHub\Tag_Pattern_Matcher;
 use GitHubReleasePosts\Notification\Email_Notifier;
 use GitHubReleasePosts\Notification\Notification_Entry;
 use GitHubReleasePosts\Plugin_Constants;
@@ -186,13 +188,54 @@ class Admin_Page {
 					. '<li><strong>' . esc_html__( 'Featured Image', 'auto-release-posts-for-github' ) . '</strong> — ' . esc_html__( 'A featured image used as a fallback when the release notes do not contain any images suitable for promotion.', 'auto-release-posts-for-github' ) . '</li>'
 					. '<li><strong>' . esc_html__( 'Paused', 'auto-release-posts-for-github' ) . '</strong> — ' . esc_html__( 'Temporarily skip this repository during scheduled checks. The repo and its history are preserved; uncheck to resume monitoring.', 'auto-release-posts-for-github' ) . '</li>'
 					. '<li><strong>' . esc_html__( 'Include pre-releases', 'auto-release-posts-for-github' ) . '</strong> — ' . esc_html__( 'Generate posts for releases marked as pre-release on GitHub (betas, release candidates, etc.). Off by default; most sites only highlight stable releases.', 'auto-release-posts-for-github' ) . '</li>'
+					. '<li><strong>' . esc_html__( 'Packages / Tag patterns', 'auto-release-posts-for-github' ) . '</strong> — ' . esc_html__( 'For repositories that release multiple packages (monorepos), choose which packages get posts. See the Monorepos help tab.', 'auto-release-posts-for-github' ) . '</li>'
 					. '</ul>'
 					. '<p>' . esc_html__( 'Use the Edit row action to change any of these inline, then click Save Repositories at the bottom of the page.', 'auto-release-posts-for-github' ) . '</p>'
-					. '<h4>' . esc_html__( 'Generate Post', 'auto-release-posts-for-github' ) . '</h4>'
+					. '<h4>' . esc_html__( 'Generate Draft', 'auto-release-posts-for-github' ) . '</h4>'
 					. '<p>' . esc_html__( 'Creates a post from a GitHub release immediately, bypassing the cron schedule. If the repository has multiple releases, a picker lets you choose any historical version — useful for backfilling an archive of past releases.', 'auto-release-posts-for-github' ) . '</p>'
+					. '<p>' . esc_html__( 'Manually generated posts are always created as drafts so you can review them before publishing — even when the repository\'s Status setting is Published. The Status setting applies to posts created automatically by the scheduled check.', 'auto-release-posts-for-github' ) . '</p>'
 					. '<p>' . esc_html__( 'Posts generated for older releases are automatically backdated to one hour after the release\'s GitHub publication time, so they slot into the archive in the correct chronological order. You can adjust the date in the editor before publishing.', 'auto-release-posts-for-github' ) . '</p>'
 					. '<p>' . esc_html__( 'If a post already exists for the selected version, the picker shows an inline warning and re-generation creates a new revision while preserving the existing post date and URL slug.', 'auto-release-posts-for-github' ) . '</p>'
-					. '<p>' . esc_html__( 'After generation succeeds, a green checkmark appears next to the Generate post button — click it to jump straight to the new post in the editor.', 'auto-release-posts-for-github' ) . '</p>',
+					. '<p>' . esc_html__( 'After generation succeeds, a green checkmark appears next to the Generate draft button — click it to jump straight to the new post in the editor.', 'auto-release-posts-for-github' ) . '</p>',
+			]
+		);
+
+		$screen->add_help_tab(
+			[
+				'id'      => 'ghrp-help-monorepos',
+				'title'   => __( 'Monorepos', 'auto-release-posts-for-github' ),
+				'content' => '<h3>' . esc_html__( 'Monorepos: Repositories That Release Multiple Packages', 'auto-release-posts-for-github' ) . '</h3>'
+					. '<p>' . esc_html__( 'Some repositories release many packages from one codebase — for example, tags like "@myproject/core@1.6.1" alongside "@myproject/utilities@2.0.0". Without any configuration, the plugin considers every release post-worthy, which can fill your feed with minor utility packages.', 'auto-release-posts-for-github' ) . '</p>'
+					. '<h4>' . esc_html__( 'Choosing Packages', 'auto-release-posts-for-github' ) . '</h4>'
+					. '<p>' . esc_html__( 'When the plugin detects that a repository releases two or more packages, the Edit row shows a Packages option with two choices. "Create posts for all packages" (the default) applies no filter. "Choose which packages get posts" reveals the package list: only releases of checked packages become posts — in the scheduled check, the version picker, and manual generation alike. Hover a package to see its release count and latest version.', 'auto-release-posts-for-github' ) . '</p>'
+					. '<h4>' . esc_html__( 'When New Packages Appear Later', 'auto-release-posts-for-github' ) . '</h4>'
+					. '<p>' . esc_html__( 'If you have chosen a subset of packages and the repository later starts releasing a new package, the new package is excluded automatically — nothing unexpected shows up in your feed. It appears as a new, unchecked entry in the Packages list the next time you edit the repository; check it to start generating posts for it.', 'auto-release-posts-for-github' ) . '</p>'
+					. '<p>' . esc_html__( 'With "Create posts for all packages" selected, no filter is applied — releases of any package the repository adds in the future are eligible too. To permanently limit posts to a fixed set of packages even as new ones appear, select "Choose which packages get posts" and check every package you want: the selection is stored explicitly, so future packages stay excluded until checked.', 'auto-release-posts-for-github' ) . '</p>'
+					. '<h4>' . esc_html__( 'Tag Patterns (for Developers)', 'auto-release-posts-for-github' ) . '</h4>'
+					. '<p>' . esc_html__( 'Behind the checkboxes, the selection is stored as tag patterns — a comma-separated list of wildcard patterns matched against release tag names.', 'auto-release-posts-for-github' ) . '</p>'
+					. '<p>' . sprintf(
+						/* translators: %s: filter name wrapped in <code> tags */
+						esc_html__( 'For tagging schemes the plugin does not recognize automatically, or for dynamic rules, developers can supply patterns in code via the %s filter. It receives the stored pattern string, the repository identifier, and the full repository configuration; return a comma-separated list of patterns, or an empty string for no filtering. Note that the Packages picker reflects the stored selection only — patterns supplied by the filter apply at generation time and are not shown in the picker.', 'auto-release-posts-for-github' ),
+						'<code>ghrp_repo_tag_patterns</code>'
+					) . '</p>'
+					. '<ul>'
+					. '<li>' . esc_html__( 'A release is eligible when its tag matches ANY listed pattern. The wildcard * matches any characters; ? matches a single character; [0-9] matches a digit.', 'auto-release-posts-for-github' ) . '</li>'
+					. '<li>' . sprintf(
+						/* translators: %s: example pattern list wrapped in <code> tags */
+						esc_html__( 'Example: %s limits posts to core and next releases.', 'auto-release-posts-for-github' ),
+						'<code>@myproject/core@*, @myproject/next@*</code>'
+					) . '</li>'
+					. '<li>' . esc_html__( 'Matching is case-sensitive, since git tags are. Curly-brace lists like {core,next} are NOT supported — use one comma-separated pattern per package instead.', 'auto-release-posts-for-github' ) . '</li>'
+					. '<li>' . esc_html__( 'Patterns combine with the other eligibility rules: drafts never get posts, and pre-releases only do when Include pre-releases is on.', 'auto-release-posts-for-github' ) . '</li>'
+					. '<li>' . esc_html__( 'Leaving the field blank makes every release eligible — existing repositories are unaffected until you choose packages or add patterns.', 'auto-release-posts-for-github' ) . '</li>'
+					. '</ul>'
+					. '<h4>' . esc_html__( 'Monitoring Limits', 'auto-release-posts-for-github' ) . '</h4>'
+					. '<ul>'
+					. '<li>' . esc_html__( 'Each scheduled check inspects the repository\'s 25 most recent release records. The Packages list shows only packages represented in that window, and a package that releases very rarely may briefly disappear from the list — its selection and monitoring are unaffected.', 'auto-release-posts-for-github' ) . '</li>'
+					. '<li>' . esc_html__( 'At most one release per package is generated per scheduled check: if a package publishes several versions between checks, only its newest eligible version gets a post.', 'auto-release-posts-for-github' ) . '</li>'
+					. '<li>' . esc_html__( 'Changing Include pre-releases or the package selection is forward-only: the next check starts monitoring under the new settings but does not generate posts for older releases that just became eligible. Use Generate draft to backfill any release deliberately.', 'auto-release-posts-for-github' ) . '</li>'
+					. '<li>' . esc_html__( 'If the initial scan of a newly added repository fails, it is retried on the next scheduled check with the same behavior as a normal add — the plugin does not attempt to reconstruct releases published while the scan was failing.', 'auto-release-posts-for-github' ) . '</li>'
+					. '</ul>',
 			]
 		);
 
@@ -353,8 +396,12 @@ class Admin_Page {
 					'notImplemented'        => __( 'This feature is not yet available.', 'auto-release-posts-for-github' ),
 					'edit'                  => __( 'Edit', 'auto-release-posts-for-github' ),
 					'editLabel'             => __( 'Edit:', 'auto-release-posts-for-github' ),
+					/* translators: 1: release count, 2: latest tag name */
+					'packageMeta'           => __( '%1$s releases · latest %2$s', 'auto-release-posts-for-github' ),
+					/* translators: %2$s: latest tag name */
+					'packageMetaOne'        => __( '1 release · latest %2$s', 'auto-release-posts-for-github' ),
 					'done'                  => __( 'Done', 'auto-release-posts-for-github' ),
-					'generateDraft'         => __( 'Generate draft post', 'auto-release-posts-for-github' ),
+					'generateDraft'         => __( 'Generate draft', 'auto-release-posts-for-github' ),
 					'generatePost'          => __( 'Generate post', 'auto-release-posts-for-github' ),
 					'generating'            => __( 'Generating…', 'auto-release-posts-for-github' ),
 					'draftCreated'          => __( 'Draft created.', 'auto-release-posts-for-github' ),
@@ -450,6 +497,23 @@ class Admin_Page {
 			[
 				'methods'             => \WP_REST_Server::READABLE,
 				'callback'            => [ $this, 'rest_list_releases' ],
+				'permission_callback' => [ $this, 'rest_permission_check' ],
+				'args'                => [
+					'repo' => [
+						'required'          => true,
+						'type'              => 'string',
+						'sanitize_callback' => 'sanitize_text_field',
+					],
+				],
+			]
+		);
+
+		register_rest_route(
+			'ghrp/v1',
+			'/repos/packages',
+			[
+				'methods'             => \WP_REST_Server::READABLE,
+				'callback'            => [ $this, 'rest_list_packages' ],
 				'permission_callback' => [ $this, 'rest_permission_check' ],
 				'args'                => [
 					'repo' => [
@@ -678,7 +742,8 @@ class Admin_Page {
 				try {
 					$outcome = ( new Onboarding_Handler(
 						new API_Client( $this->global_settings ),
-						new Release_State()
+						new Release_State(),
+						$this->repo_settings
 					) )->handle_add( $added_identifier );
 
 					if ( null !== $outcome['notice'] ) {
@@ -780,6 +845,7 @@ class Admin_Page {
 			'paused'              => ! empty( $config['paused'] ),
 			'featured_image'      => absint( $config['featured_image'] ?? 0 ),
 			'include_prereleases' => ! empty( $config['include_prereleases'] ),
+			'tag_patterns'        => sanitize_text_field( wp_unslash( $config['tag_patterns'] ?? '' ) ),
 		];
 	}
 
@@ -787,16 +853,28 @@ class Admin_Page {
 	 * Builds a standard post data array for REST responses.
 	 *
 	 * @param \WP_Post $post WordPress post object.
-	 * @return array Post data with id, title, status, edit_url, tag, and date.
+	 * @return array Post data with id, title, status, edit_url, tag, tag_label, and date.
 	 */
 	private function build_post_response( \WP_Post $post ): array {
+		$tag = (string) get_post_meta( $post->ID, Plugin_Constants::META_RELEASE_TAG, true );
+
+		// Dash-style tags only display as packages when the source repo has
+		// patterns configured (see Tag_Pattern_Matcher::derive_display_package()).
+		$source_repo = (string) get_post_meta( $post->ID, Plugin_Constants::META_SOURCE_REPO, true );
+		$repo_config = $this->repo_settings->get_repository( $source_repo );
+		/** This filter is documented in includes/classes/GitHub/Release_Monitor.php */
+		$patterns = (string) apply_filters( 'ghrp_repo_tag_patterns', (string) ( $repo_config['tag_patterns'] ?? '' ), $source_repo, $repo_config );
+
 		return [
-			'id'       => $post->ID,
-			'title'    => $post->post_title,
-			'status'   => $post->post_status,
-			'edit_url' => get_edit_post_link( $post->ID, 'raw' ),
-			'tag'      => get_post_meta( $post->ID, Plugin_Constants::META_RELEASE_TAG, true ),
-			'date'     => get_the_date( 'Y/m/d', $post->ID ),
+			'id'        => $post->ID,
+			'title'     => $post->post_title,
+			'status'    => $post->post_status,
+			'edit_url'  => get_edit_post_link( $post->ID, 'raw' ),
+			'tag'       => $tag,
+			// Display form ("core 1.6.1" for package tags) — keeps the JS
+			// Last Post cell update consistent with the PHP-rendered column.
+			'tag_label' => Tag_Pattern_Matcher::display_label( $tag, Tag_Pattern_Matcher::has_patterns( $patterns ) ),
+			'date'      => get_the_date( 'Y/m/d', $post->ID ),
 		];
 	}
 
@@ -818,8 +896,10 @@ class Admin_Page {
 		// where the field is missing (pre-1.0 entries).
 		$repo                = $this->repo_settings->get_repository( $identifier );
 		$include_prereleases = ! empty( $repo['include_prereleases'] );
+		/** This filter is documented in includes/classes/GitHub/Release_Monitor.php */
+		$tag_patterns = (string) apply_filters( 'ghrp_repo_tag_patterns', (string) ( $repo['tag_patterns'] ?? '' ), $identifier, $repo );
 
-		$releases = $api_client->fetch_releases( $identifier, $include_prereleases );
+		$releases = $api_client->fetch_releases( $identifier, $include_prereleases, $tag_patterns );
 
 		if ( is_wp_error( $releases ) ) {
 			return new \WP_Error( $releases->get_error_code(), $releases->get_error_message(), [ 'status' => 400 ] );
@@ -835,7 +915,10 @@ class Admin_Page {
 			);
 		}
 
-		$latest_tag = $releases[0]->tag;
+		// Mark as latest the SAME release generation will select — GitHub's
+		// list order crowns later-created backports.
+		$latest_pick = Release_Selector::select_latest_head( $releases );
+		$latest_tag  = null !== $latest_pick ? $latest_pick->tag : $releases[0]->tag;
 
 		$payload = [];
 		foreach ( $releases as $release ) {
@@ -869,6 +952,47 @@ class Admin_Page {
 	}
 
 	/**
+	 * REST handler: lists the packages a repository releases, derived from its
+	 * release tags, with a compiled tag pattern for each.
+	 *
+	 * Backs the Quick Edit package picker for monorepos. Intentionally reads
+	 * the UNFILTERED release list (prereleases included, patterns ignored) —
+	 * the picker must show packages the current filter excludes so they can be
+	 * re-enabled.
+	 *
+	 * @param \WP_REST_Request $request REST request containing the repo identifier.
+	 * @return \WP_REST_Response|\WP_Error
+	 */
+	public function rest_list_packages( \WP_REST_Request $request ): \WP_REST_Response|\WP_Error {
+		$identifier = (string) $request->get_param( 'repo' );
+
+		// The package list drives a UI control that renders when this call
+		// returns, so an uncached GitHub round trip on every Quick Edit open
+		// is a visible delay. Package composition changes rarely — serve a
+		// short-lived cached copy (mirrors the 15-minute release cache).
+		$cache_key = Cache_Keys::repo_packages( $identifier );
+		$cached    = get_transient( $cache_key );
+		if ( is_array( $cached ) && isset( $cached['packages'] ) ) {
+			return new \WP_REST_Response( $cached, 200 );
+		}
+
+		$api_client = new API_Client( $this->global_settings );
+
+		// The bounded raw snapshot IS the discovery view: pre-releases
+		// included, patterns ignored. The chooser shows only packages
+		// represented in this window — a documented limit.
+		$releases = $api_client->fetch_release_snapshot( $identifier );
+		if ( is_wp_error( $releases ) ) {
+			return new \WP_Error( $releases->get_error_code(), $releases->get_error_message(), [ 'status' => 400 ] );
+		}
+
+		$payload = Tag_Pattern_Matcher::build_packages_payload( $releases );
+		set_transient( $cache_key, $payload, 15 * MINUTE_IN_SECONDS );
+
+		return new \WP_REST_Response( $payload, 200 );
+	}
+
+	/**
 	 * REST handler: generates a draft post for the latest release of a repository.
 	 *
 	 * Returns conflict data when a post already exists for the tag (BR-003),
@@ -887,8 +1011,20 @@ class Admin_Page {
 		$api_client   = new API_Client( $this->global_settings );
 
 		// Resolve the latest release first — used for the is_latest flag and as
-		// the default when no tag was specified.
-		$latest_release = $api_client->fetch_latest_release( $identifier );
+		// the default when no tag was specified. Must honor the repo's tag
+		// patterns: the plain /releases/latest lookup would return the newest
+		// release of ANY package in a monorepo, so "Generate post" could draft
+		// a package the site never publishes. Delegates to the fast cached
+		// endpoint when no patterns are set.
+		$repo_config = $this->repo_settings->get_repository( (string) $identifier );
+		/** This filter is documented in includes/classes/GitHub/Release_Monitor.php */
+		$tag_patterns = (string) apply_filters( 'ghrp_repo_tag_patterns', (string) ( $repo_config['tag_patterns'] ?? '' ), (string) $identifier, $repo_config );
+		// Same eligibility inputs as the version picker (round 5): the picker
+		// honors Include pre-releases, so generation must too — otherwise a
+		// pre-release-only repo lists releases it can never generate, and the
+		// two surfaces disagree about which release is latest.
+		$include_prereleases = ! empty( $repo_config['include_prereleases'] );
+		$latest_release      = $api_client->fetch_latest_eligible_release( (string) $identifier, $include_prereleases, $tag_patterns );
 
 		if ( is_wp_error( $latest_release ) ) {
 			return new \WP_Error( $latest_release->get_error_code(), $latest_release->get_error_message(), [ 'status' => 400 ] );
@@ -902,12 +1038,35 @@ class Admin_Page {
 			$release   = $latest_release;
 			$is_latest = true;
 		} else {
+			// The browser picker only offers eligible releases, but the REST
+			// endpoint is authoritative: an explicitly submitted tag must satisfy
+			// the repository's package selection too (peer review round 3), or a
+			// direct request could draft an unchecked package.
+			if ( ! Tag_Pattern_Matcher::matches( $selected_tag, $tag_patterns ) ) {
+				return new \WP_Error(
+					'ghrp_tag_not_selected',
+					__( 'This release belongs to a package that is not selected for posts. Adjust the repository\'s package selection to generate it.', 'auto-release-posts-for-github' ),
+					[ 'status' => 400 ]
+				);
+			}
+
 			$release = $api_client->fetch_release_by_tag( $identifier, $selected_tag );
 			if ( is_wp_error( $release ) ) {
 				return new \WP_Error( $release->get_error_code(), $release->get_error_message(), [ 'status' => 400 ] );
 			}
 			if ( null === $release ) {
 				return new \WP_Error( 'ghrp_no_release', __( 'The selected release was not found on GitHub.', 'auto-release-posts-for-github' ), [ 'status' => 404 ] );
+			}
+			// Enforce the pre-release rule on explicit tags too (round 5) —
+			// the picker filters, but the endpoint is authoritative. GitHub
+			// drafts are inherently excluded here: they have no tag ref, so
+			// the tags endpoint cannot return them.
+			if ( $release->prerelease && ! $include_prereleases ) {
+				return new \WP_Error(
+					'ghrp_prerelease_not_enabled',
+					__( 'This is a pre-release. Turn on "Include pre-releases" for this repository to generate posts for it.', 'auto-release-posts-for-github' ),
+					[ 'status' => 400 ]
+				);
 			}
 			$is_latest = false;
 		}
@@ -986,11 +1145,18 @@ class Admin_Page {
 			// its successful generations; this closes the same gap for
 			// client-initiated generation.
 			if ( $is_latest ) {
-				( new Release_State() )->update_last_seen(
+				$state = new Release_State();
+				$state->update_last_seen(
 					$identifier,
 					$release->tag,
 					$release->published_at
 				);
+				// Monitoring reads per-stream cursors, not the repo-wide one —
+				// advance the matching stream too so the next scheduled check
+				// doesn't re-enqueue this release (the replay would re-fire
+				// the publish workflow).
+				$parsed = Tag_Pattern_Matcher::derive_package( $release->tag );
+				$state->update_stream_seen( $identifier, null === $parsed ? '' : $parsed['package'], $release->tag, $release->published_at );
 			}
 			return new \WP_REST_Response(
 				[
@@ -1332,12 +1498,16 @@ class Admin_Page {
 		// previously hardcoded the 'full' format, doubling project name + version
 		// for sites with 'none' selected).
 		$display_name = $this->repo_settings->get_display_name( $identifier );
-		$full_title   = Post_Creator::build_title(
+		$repo_config  = $this->repo_settings->get_repository( $identifier );
+		/** This filter is documented in includes/classes/GitHub/Release_Monitor.php */
+		$patterns   = (string) apply_filters( 'ghrp_repo_tag_patterns', (string) ( $repo_config['tag_patterns'] ?? '' ), $identifier, $repo_config );
+		$full_title = Post_Creator::build_title(
 			$display_name,
 			$data->tag,
 			$result->title,
 			$this->global_settings->get_title_format(),
-			$identifier
+			$identifier,
+			Tag_Pattern_Matcher::has_patterns( $patterns )
 		);
 
 		// Convert HTML to blocks and update the existing post (creates a revision).
@@ -1356,11 +1526,16 @@ class Admin_Page {
 			$update_args['post_excerpt'] = wp_kses_post( $result->excerpt );
 		}
 
-		// Only update the slug if the post is not yet published (preserve live URLs).
+		// Only update the slug if the post is not yet published (preserve live
+		// URLs). Uses the same package-aware builder as initial creation so
+		// regenerating a draft cannot change its URL shape (peer review P2).
 		if ( '' !== $result->slug_keywords && ! Post_Status::has_permalink( $post->post_status ) ) {
-			$version                  = strtolower( ltrim( $data->tag, 'vV' ) );
-			$version                  = str_replace( '.', '-', $version );
-			$update_args['post_name'] = sanitize_title( $display_name . '-' . $version . '-' . $result->slug_keywords );
+			$update_args['post_name'] = Post_Creator::build_release_slug(
+				$display_name,
+				$data->tag,
+				$result->slug_keywords,
+				Tag_Pattern_Matcher::has_patterns( $patterns )
+			);
 		}
 
 		$update_result = wp_update_post( $update_args, true );

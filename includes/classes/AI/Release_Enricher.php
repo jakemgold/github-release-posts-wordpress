@@ -14,6 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 use GitHubReleasePosts\GitHub\API_Client;
 use GitHubReleasePosts\GitHub\Release_State;
+use GitHubReleasePosts\GitHub\Tag_Pattern_Matcher;
 use GitHubReleasePosts\Settings\Global_Settings;
 
 /**
@@ -128,11 +129,20 @@ class Release_Enricher {
 			return $body;
 		}
 
-		// Get the previous tag from stored release state.
+		// Get the previous tag from stored release state. For a package-style
+		// tag, prefer the SAME stream's cursor — the repo-wide last_seen may
+		// belong to a different package, and comparing across unrelated tags
+		// yields a meaningless commit range.
 		$state        = ( new Release_State() )->get_state( $data->identifier );
 		$previous_tag = $state['last_seen_tag'];
 
-		if ( '' === $previous_tag ) {
+		$parsed = Tag_Pattern_Matcher::derive_package( $data->tag );
+		$stream = null === $parsed ? '' : $parsed['package'];
+		if ( isset( $state['streams'][ $stream ]['last_seen_tag'] ) && '' !== (string) $state['streams'][ $stream ]['last_seen_tag'] ) {
+			$previous_tag = (string) $state['streams'][ $stream ]['last_seen_tag'];
+		}
+
+		if ( '' === $previous_tag || $previous_tag === $data->tag ) {
 			return $body; // First release tracked — nothing to compare against.
 		}
 

@@ -43,6 +43,7 @@ You can also generate a post on demand at any time from the Repositories tab.
 * Idempotency — the same release never creates duplicate posts
 * Optional project link support — enter a URL or WordPress.org slug for download CTAs
 * Optional pre-release tracking per repository — track stable releases by default, or opt in to include betas, release candidates, and other pre-release versions
+* Monorepo support — per-repository tag patterns limit posts to selected packages (e.g. `@headstartwp/core@*, @headstartwp/next@*`) when one repository releases many packages
 
 **For developers:**
 
@@ -157,6 +158,17 @@ Both source and build outputs ship with the plugin, so the source is available l
 **Bundled npm packages used at build time** (development only — not shipped at runtime): `@10up/scripts` (which itself bundles Webpack, ESLint, Babel, and the build-time-only `wp-prettier` and `eslint-plugin-jsdoc` overrides). All declared in `package.json` and `package-lock.json`. None of these end up in the distributed plugin.
 
 == Changelog ==
+
+= 1.2.0 =
+
+**New: monorepo support (tag patterns)**
+
+* When a repository releases multiple packages (a monorepo), the Edit row now shows a Packages option — create posts for all packages, or choose exactly which ones get posts; unchosen packages are skipped, in the scheduled monitor, the version picker, and manual generation alike. Selections are stored as tag patterns (a comma-separated list of wildcard patterns matched against release tags, e.g. `@headstartwp/core@*, @headstartwp/next@*`); developers can override or supply patterns in code with the new `ghrp_repo_tag_patterns` filter. When a newly added repository is detected as a monorepo, a notice says so and points to the package chooser — and the usual automatic first-post generation is skipped so packages can be chosen first (the scheduled check resumes normal generation afterward).
+* Post titles and slugs understand package releases: a monorepo tag like `@headstartwp/core@1.6.1` now renders as "core 1.6.1" in title prefixes (e.g. "HeadstartWP core 1.6.1 — …") and produces clean slugs, instead of embedding the raw tag. The version-only title format keeps the package name so titles stay unambiguous across packages. Single-package repositories are unchanged.
+* Every repository is now monitored per release stream: package releases are tracked per package, plain repository-wide tags form their own stream, and an ordinary single-package repository is simply a repository with one stream. When several packages release between scheduled checks (common for coordinated monorepo releases), every new release gets a post — previously only the single newest across the whole repository was processed and sibling releases could be skipped permanently. Monitoring inspects one bounded snapshot of the repository's 25 most recent release records per check; within it, version comparison understands package tags within a package's own release stream, at most one release per stream is generated per check (a package publishing several versions between checks gets its newest), and releases that already have a post (for example, manually generated drafts) are never re-processed. The version picker's "latest" marker always matches the release automatic generation would choose, and manual generation honors the repository's "Include pre-releases" setting exactly like the version picker (pre-release-only projects can generate their releases when opted in, and explicit pre-release requests are refused when not). The first check after upgrading records the current state without generating, so no burst of posts appears. Changing "Include pre-releases" or the package selection is forward-only: the next check starts monitoring under the new settings without generating newly eligible older releases — backfilling stays a deliberate manual action via Generate draft. If the initial scan of a newly added repository fails (network hiccup, rate limit), the add is retried automatically on the next scheduled check with the same at-most-one-initial-post behavior as a normal add.
+* Package-style display formatting for titles, slugs, and the Last Post column applies only when the repository has packages configured — for every tag style. Repositories without configured packages keep their existing titles, slugs, and labels byte-for-byte after upgrading.
+* The repository table's generate button is now labeled "Generate draft" and the version picker explains that manually generated posts are always drafts for review — the Status setting applies to posts created by the scheduled check. (This was always the behavior; the labeling now says so.)
+* Adding a repository now verifies it exists on GitHub, so a mistyped path is rejected with a helpful message instead of being silently tracked forever. (Private repositories need a Personal Access Token with access configured first.) Matching is case-sensitive; existing repositories are unaffected until packages are chosen. Full details in the Help tab.
 
 = 1.1.2 =
 

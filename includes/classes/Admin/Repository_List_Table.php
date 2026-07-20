@@ -17,6 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 use GitHubReleasePosts\Plugin_Constants;
 use GitHubReleasePosts\Post\Post_Status;
+use GitHubReleasePosts\GitHub\Tag_Pattern_Matcher;
 use GitHubReleasePosts\Settings\Repository_Settings;
 
 // WP_List_Table is not loaded automatically in all contexts.
@@ -160,6 +161,7 @@ class Repository_List_Table extends \WP_List_Table {
 		echo ' data-repo="' . esc_attr( $identifier ) . '"';
 		echo ' data-display-name="' . esc_attr( $item['display_name'] ?? $identifier ) . '"';
 		echo ' data-plugin-link="' . esc_attr( $item['plugin_link'] ?? '' ) . '"';
+		echo ' data-tag-patterns="' . esc_attr( $item['tag_patterns'] ?? '' ) . '"';
 		echo ' data-post-status="' . esc_attr( ! empty( $item['post_status'] ) ? $item['post_status'] : 'draft' ) . '"';
 		// array_values() forces a JSON array even if the stored categories have
 		// non-sequential keys (from older saves), so the inline editor always
@@ -260,8 +262,13 @@ class Repository_List_Table extends \WP_List_Table {
 			return '—';
 		}
 
-		$data  = $this->last_posts[ $identifier ];
-		$label = $data['tag'] ? $data['tag'] . ' ' . __( 'on', 'auto-release-posts-for-github' ) . ' ' . $data['date'] : $data['date'];
+		$data = $this->last_posts[ $identifier ];
+		// Package tags ("@headstartwp/core@1.6.1") render as "core 1.6.1".
+		$tag_label = Tag_Pattern_Matcher::display_label(
+			(string) $data['tag'],
+			Tag_Pattern_Matcher::has_patterns( (string) ( $item['tag_patterns'] ?? '' ) )
+		);
+		$label     = $data['tag'] ? $tag_label . ' ' . __( 'on', 'auto-release-posts-for-github' ) . ' ' . $data['date'] : $data['date'];
 
 		// Show post status for non-published posts. Pulled from WP's status
 		// registry so custom statuses (Edit Flow's "Pitch", etc.) render too.
@@ -312,7 +319,7 @@ class Repository_List_Table extends \WP_List_Table {
 			return sprintf(
 				'<button type="button" class="button button-small" disabled aria-label="%s">%s</button>',
 				esc_attr__( 'No AI connector configured. Set one up under Settings → Connectors.', 'auto-release-posts-for-github' ),
-				esc_html__( 'Generate post', 'auto-release-posts-for-github' )
+				esc_html__( 'Generate draft', 'auto-release-posts-for-github' )
 			);
 		}
 
@@ -322,7 +329,7 @@ class Repository_List_Table extends \WP_List_Table {
 			'<span class="ghrp-generate-status" aria-live="polite"></span>',
 			esc_attr( $identifier ),
 			esc_attr__( 'Generate a draft post from the latest release version', 'auto-release-posts-for-github' ),
-			esc_html__( 'Generate post', 'auto-release-posts-for-github' )
+			esc_html__( 'Generate draft', 'auto-release-posts-for-github' )
 		);
 	}
 
@@ -358,6 +365,9 @@ class Repository_List_Table extends \WP_List_Table {
 										<span class="ghrp-plugin-link-status" aria-live="polite"></span>
 									</span>
 								</label>
+
+								<?php // Written by the Packages picker; round-trips stored patterns untouched when the picker doesn't render. ?>
+								<input type="hidden" data-field="tag_patterns">
 
 								<label>
 									<span class="title"><?php echo esc_html__( 'Status', 'auto-release-posts-for-github' ); ?></span>
@@ -411,6 +421,21 @@ class Repository_List_Table extends \WP_List_Table {
 
 						<fieldset class="inline-edit-col-center inline-edit-categories">
 							<div class="inline-edit-col">
+								<div class="ghrp-packages-picker" hidden>
+									<span class="title"><?php echo esc_html__( 'Packages', 'auto-release-posts-for-github' ); ?></span>
+									<div class="ghrp-packages-mode">
+										<label>
+											<input type="radio" value="all" checked>
+											<?php echo esc_html__( 'Create posts for all packages', 'auto-release-posts-for-github' ); ?>
+										</label>
+										<label>
+											<input type="radio" value="choose">
+											<?php echo esc_html__( 'Choose which packages get posts', 'auto-release-posts-for-github' ); ?>
+										</label>
+									</div>
+									<ul class="cat-checklist ghrp-package-checklist" hidden></ul>
+								</div>
+
 								<span class="title inline-edit-categories-label"><?php echo esc_html__( 'Categories', 'auto-release-posts-for-github' ); ?></span>
 								<input type="hidden" name="" value="0" class="ghrp-tpl-cat-hidden">
 								<ul class="cat-checklist category-checklist ghrp-tpl-categories">

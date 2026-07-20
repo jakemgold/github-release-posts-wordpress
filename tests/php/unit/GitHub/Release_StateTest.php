@@ -182,4 +182,108 @@ class Release_StateTest extends TestCase {
 
 		$this->assertNotSame( $key_a, $key_b );
 	}
+
+	// -------------------------------------------------------------------------
+	// mark_onboarding_pending()
+	// -------------------------------------------------------------------------
+
+	/**
+	 * mark_onboarding_pending() persists the flag in one write, with every
+	 * other lifecycle marker still at its default.
+	 *
+	 * @covers Release_State::mark_onboarding_pending
+	 */
+	public function test_mark_onboarding_pending_sets_only_the_flag(): void {
+		\WP_Mock::userFunction( 'get_option' )
+			->once()
+			->with( $this->option_key( 'owner/repo' ), [] )
+			->andReturn( [] );
+
+		\WP_Mock::userFunction( 'update_option' )
+			->once()
+			->with(
+				$this->option_key( 'owner/repo' ),
+				\WP_Mock\Functions::type( 'array' ),
+				false
+			)
+			->andReturnUsing( function ( $key, $data ) {
+				$this->assertTrue( $data['onboarding_pending'] );
+				$this->assertSame( 0, $data['stream_state_version'] );
+				$this->assertSame( 0, $data['streams_baseline_at'] );
+				$this->assertSame( [], $data['streams'] );
+				return true;
+			} );
+
+		$this->state->mark_onboarding_pending( 'owner/repo' );
+	}
+
+	// -------------------------------------------------------------------------
+	// complete_baseline()
+	// -------------------------------------------------------------------------
+
+	/**
+	 * complete_baseline() performs ONE canonical update_option() that
+	 * REPLACES the stream map, stamps the baseline and policy hash, resolves
+	 * pending onboarding, marks the schema current, preserves the legacy
+	 * display fields — and drops keys left over from unreleased review
+	 * iterations of this feature.
+	 *
+	 * @covers Release_State::complete_baseline
+	 */
+	public function test_complete_baseline_writes_one_canonical_transition(): void {
+		$stored = [
+			'last_seen_tag'          => 'v8.0.0',
+			'last_seen_published_at' => '2026-01-01T00:00:00Z',
+			'last_checked_at'        => 1234567890,
+			'onboarding_pending'     => true,
+			// Stale cursor map that must be REPLACED, not merged.
+			'streams'                => [
+				'@acme/old' => [
+					'last_seen_tag'          => '@acme/old@1.0.0',
+					'last_seen_published_at' => '2025-01-01T00:00:00Z',
+				],
+			],
+			// Branch-only keys from unreleased iterations — must be dropped.
+			'tracking_started_at'    => 1700000000,
+			'is_monorepo'            => true,
+			'topology_checked_at'    => 1700000000,
+		];
+
+		$cursors = [
+			'@acme/core' => [
+				'last_seen_tag'          => '@acme/core@2.0.0',
+				'last_seen_published_at' => '2026-07-18T00:00:00Z',
+			],
+		];
+
+		\WP_Mock::userFunction( 'get_option' )
+			->once()
+			->with( $this->option_key( 'owner/repo' ), [] )
+			->andReturn( $stored );
+
+		\WP_Mock::userFunction( 'update_option' )
+			->once()
+			->with(
+				$this->option_key( 'owner/repo' ),
+				\WP_Mock\Functions::type( 'array' ),
+				false
+			)
+			->andReturnUsing( function ( $key, $data ) use ( $cursors ) {
+				$this->assertSame( $cursors, $data['streams'] );
+				$this->assertSame( Release_State::STREAM_STATE_VERSION, $data['stream_state_version'] );
+				$this->assertSame( 'hash-abc', $data['policy_hash'] );
+				$this->assertFalse( $data['onboarding_pending'] );
+				$this->assertGreaterThan( 0, $data['streams_baseline_at'] );
+				// Legacy display fields survive the transition.
+				$this->assertSame( 'v8.0.0', $data['last_seen_tag'] );
+				$this->assertSame( 1234567890, $data['last_checked_at'] );
+				// Unreleased-iteration keys are gone after the canonical write.
+				$this->assertArrayNotHasKey( 'tracking_started_at', $data );
+				$this->assertArrayNotHasKey( 'is_monorepo', $data );
+				$this->assertArrayNotHasKey( 'topology_checked_at', $data );
+				return true;
+			} );
+
+		$this->state->complete_baseline( 'owner/repo', $cursors, 'hash-abc' );
+	}
 }

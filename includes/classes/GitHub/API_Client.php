@@ -40,18 +40,39 @@ class API_Client {
 	) {}
 
 	/**
-	 * Fetches the latest release for a GitHub repository.
+	 * Maximum release records inspected per repository.
 	 *
-	 * Accepts both `owner/repo` and `https://github.com/owner/repo` formats (BR-002).
-	 * Uses `/releases/latest`, which natively excludes drafts and pre-releases (BR-006).
-	 * Responses are cached in a 15-minute transient (AC-005).
+	 * The monitoring window is deliberately bounded: the plugin examines at
+	 * most this many of the repository's most recent release records and
+	 * does not paginate. This is a documented product limit (see the
+	 * Monorepos help tab), not an implementation shortcut.
+	 */
+	const SNAPSHOT_LIMIT = 25;
+
+	/**
+	 * Fetches the raw release snapshot for a repository.
+	 *
+	 * One bounded `GET /releases` call drives everything: package discovery,
+	 * content eligibility, baselines, latest selection, and monitoring. The
+	 * snapshot is RAW by design — GitHub drafts are skipped (they never
+	 * become posts), but pre-releases are retained and tag patterns are NOT
+	 * applied; callers project the view they need via Release_Selector /
+	 * Tag_Pattern_Matcher::build_packages_payload(). Filtering here would
+	 * bake one policy into a cache shared by surfaces with different needs.
+	 *
+	 * Accepts both `owner/repo` and full GitHub URL formats (BR-002).
+	 * Responses are cached in a 15-minute transient (AC-005) guarded by a
+	 * stampede lock, since button-click surfaces (Generate draft, Quick Edit)
+	 * hit this on demand. The window is fixed at SNAPSHOT_LIMIT records —
+	 * deliberately not a parameter, because the transient and lock keys are
+	 * per-repository and a variable limit would let differently-sized
+	 * snapshots alias each other in cache.
 	 *
 	 * @param string $identifier Repository identifier (`owner/repo` or full GitHub URL).
-	 * @return Release|null|\WP_Error Release on success; null if no releases exist;
-	 *                                WP_Error on network failure, HTTP error, or invalid input.
+	 * @return Release[]|\WP_Error Releases newest-first ([] when the repo has
+	 *                            none); WP_Error on network/HTTP failure.
 	 */
-	public function fetch_latest_release( string $identifier ): Release|null|\WP_Error {
-		// Normalise input to owner/repo.
+	public function fetch_release_snapshot( string $identifier ): array|\WP_Error {
 		try {
 			$identifier = $this->normalize_identifier( $identifier );
 		} catch ( \InvalidArgumentException $e ) {
@@ -59,9 +80,9 @@ class API_Client {
 		}
 
 		// Return cached result if available.
-		$cache_key = Cache_Keys::release( $identifier );
+		$cache_key = Cache_Keys::snapshot( $identifier );
 		$cached    = get_transient( $cache_key );
-		if ( $cached instanceof Release ) {
+		if ( is_array( $cached ) ) {
 			return $cached;
 		}
 
@@ -78,16 +99,15 @@ class API_Client {
 			for ( $attempt = 0; $attempt < 3; $attempt++ ) {
 				usleep( 250000 );
 				$cached = get_transient( $cache_key );
-				if ( $cached instanceof Release ) {
+				if ( is_array( $cached ) ) {
 					return $cached;
 				}
 			}
 		}
 
 		try {
-			// Build request.
 			[ $owner, $repo ] = explode( '/', $identifier, 2 );
-			$url              = sprintf( '%s/repos/%s/%s/releases/latest', self::API_BASE, $owner, $repo );
+			$url              = sprintf( '%s/repos/%s/%s/releases?per_page=%d', self::API_BASE, $owner, $repo, self::SNAPSHOT_LIMIT );
 			$args             = $this->build_request_args();
 
 			// Make HTTP call (BR-004).
@@ -106,9 +126,10 @@ class API_Client {
 			$code = (int) wp_remote_retrieve_response_code( $response );
 
 			if ( 404 === $code ) {
-				// Repo has no releases, or does not exist (BR-001: private repos rejected upstream).
-				// Treat as "no release found" rather than a hard error (AC-003).
-				return null;
+				// Repo has no releases, or does not exist (BR-001: private repos
+				// rejected upstream). Treat as "no releases" rather than a hard
+				// error (AC-003).
+				return [];
 			}
 
 			if ( 403 === $code ) {
@@ -130,9 +151,7 @@ class API_Client {
 				);
 			}
 
-			// Parse JSON body.
-			$body = wp_remote_retrieve_body( $response );
-			$data = json_decode( $body, true );
+			$data = json_decode( wp_remote_retrieve_body( $response ), true );
 
 			if ( ! is_array( $data ) ) {
 				return new \WP_Error(
@@ -141,12 +160,24 @@ class API_Client {
 				);
 			}
 
-			$release = Release::from_api_response( $data );
+			$snapshot = [];
+			foreach ( $data as $entry ) {
+				if ( ! is_array( $entry ) ) {
+					continue;
+				}
+				// GitHub drafts never become blog posts; everything else —
+				// including pre-releases — stays in the raw snapshot.
+				if ( ! empty( $entry['draft'] ) ) {
+					continue;
+				}
+				$snapshot[] = Release::from_api_response( $entry );
+			}
 
-			// Cache successful result for 15 minutes (AC-005).
-			set_transient( $cache_key, $release, 15 * MINUTE_IN_SECONDS );
+			// Cache for 15 minutes (AC-005). An empty list is a valid,
+			// cacheable answer for a repository with no releases yet.
+			set_transient( $cache_key, $snapshot, 15 * MINUTE_IN_SECONDS );
 
-			return $release;
+			return $snapshot;
 		} finally {
 			if ( $owns_lock ) {
 				wp_cache_delete( $lock_key );
@@ -238,18 +269,77 @@ class API_Client {
 	}
 
 	/**
+	 * Checks whether a repository exists (and is visible to current credentials).
+	 *
+	 * Needed because the release endpoints 404 identically for a nonexistent
+	 * repo and a real repo with zero releases (AC-003 treats those 404s as
+	 * "no releases"), so existence must be asked of `GET /repos/{owner}/{repo}`
+	 * directly. GitHub masks private repos the current credentials cannot see
+	 * as 404, so `false` means "nonexistent or not visible", not provably
+	 * nonexistent.
+	 *
+	 * @param string $identifier Repository identifier (owner/repo or full URL).
+	 * @return bool|\WP_Error True if visible, false on 404, WP_Error on
+	 *                        network/HTTP/rate-limit failures.
+	 */
+	public function repo_exists( string $identifier ): bool|\WP_Error {
+		try {
+			$identifier = $this->normalize_identifier( $identifier );
+		} catch ( \InvalidArgumentException $e ) {
+			return new \WP_Error( 'github_invalid_identifier', $e->getMessage() );
+		}
+
+		[ $owner, $repo ] = explode( '/', $identifier, 2 );
+		$url              = sprintf( '%s/repos/%s/%s', self::API_BASE, $owner, $repo );
+
+		$response = wp_remote_get( $url, $this->build_request_args() );
+		if ( is_wp_error( $response ) ) {
+			return $response;
+		}
+
+		$rate_limit = $this->handle_rate_limit( $response );
+		if ( is_wp_error( $rate_limit ) ) {
+			return $rate_limit;
+		}
+
+		$code = (int) wp_remote_retrieve_response_code( $response );
+		if ( 200 === $code ) {
+			return true;
+		}
+		if ( 404 === $code ) {
+			return false;
+		}
+
+		return new \WP_Error(
+			'github_http_error',
+			sprintf(
+				/* translators: %d: HTTP status code */
+				__( 'GitHub API returned HTTP %d.', 'auto-release-posts-for-github' ),
+				$code
+			)
+		);
+	}
+
+	/**
 	 * Fetches a list of releases for a repository (latest first, capped at 100).
 	 *
-	 * Used by the manual "Generate post" flow to let admins pick an older release.
+	 * Used ONLY by the manual "Generate post" version picker, which goes
+	 * deeper than the bounded monitoring snapshot so admins can backfill an
+	 * archive of older releases. Monitoring, onboarding, and the package
+	 * chooser use fetch_release_snapshot() instead.
+	 *
 	 * Drafts are always excluded. Pre-releases are excluded by default; pass
 	 * `$include_prereleases = true` to include them (used when a repo has the
 	 * Include pre-releases option turned on).
 	 *
 	 * @param string $identifier          Repository identifier (owner/repo or full URL).
 	 * @param bool   $include_prereleases When true, pre-release versions are included.
+	 * @param string $tag_patterns        Optional comma-separated glob patterns; when
+	 *                                    non-empty, only releases whose tag matches one
+	 *                                    are returned (monorepo package selection).
 	 * @return Release[]|\WP_Error Releases in newest-first order, or WP_Error on failure.
 	 */
-	public function fetch_releases( string $identifier, bool $include_prereleases = false ): array|\WP_Error {
+	public function fetch_releases( string $identifier, bool $include_prereleases = false, string $tag_patterns = '' ): array|\WP_Error {
 		try {
 			$identifier = $this->normalize_identifier( $identifier );
 		} catch ( \InvalidArgumentException $e ) {
@@ -303,6 +393,13 @@ class API_Client {
 			if ( ! $include_prereleases && ! empty( $entry['prerelease'] ) ) {
 				continue;
 			}
+			// Monorepo package selection: with patterns set, only matching tags
+			// are eligible. Lives here, beside the draft/prerelease checks, so
+			// every consumer (cron monitor, version picker, manual generation)
+			// inherits the same eligibility rules.
+			if ( ! Tag_Pattern_Matcher::matches( (string) ( $entry['tag_name'] ?? '' ), $tag_patterns ) ) {
+				continue;
+			}
 			$releases[] = Release::from_api_response( $entry );
 		}
 
@@ -310,54 +407,29 @@ class API_Client {
 	}
 
 	/**
-	 * Fetches the latest release eligible for post generation, honoring a
-	 * repo's pre-release preference.
+	 * Fetches the latest release eligible for post generation under a repo's
+	 * policy (pre-release preference + tag patterns).
 	 *
-	 * When pre-releases are excluded (the default), this delegates to
-	 * `fetch_latest_release()` which uses GitHub's `/releases/latest` endpoint
-	 * (fast, cached). When pre-releases are included, it falls back to
-	 * `/releases` and returns the newest non-draft entry — uncached, since
-	 * the cache key for `/releases/latest` would otherwise alias the two views.
+	 * One cached snapshot, projected to the eligible view, reduced by the
+	 * shared two-stage rule (Release_Selector::select_latest_head()) so this
+	 * surface crowns the SAME release as the version picker and onboarding.
 	 *
 	 * @param string $identifier          Repository identifier (owner/repo or full URL).
 	 * @param bool   $include_prereleases When true, pre-releases are eligible.
+	 * @param string $tag_patterns        Optional comma-separated glob patterns for
+	 *                                    monorepo package selection.
 	 * @return Release|null|\WP_Error Release on success; null if no eligible release exists;
 	 *                                WP_Error on network or HTTP failure.
 	 */
-	public function fetch_latest_eligible_release( string $identifier, bool $include_prereleases ): Release|null|\WP_Error {
-		if ( ! $include_prereleases ) {
-			return $this->fetch_latest_release( $identifier );
+	public function fetch_latest_eligible_release( string $identifier, bool $include_prereleases, string $tag_patterns = '' ): Release|null|\WP_Error {
+		$snapshot = $this->fetch_release_snapshot( $identifier );
+		if ( is_wp_error( $snapshot ) ) {
+			return $snapshot;
 		}
 
-		$releases = $this->fetch_releases( $identifier, true );
-		if ( is_wp_error( $releases ) ) {
-			return $releases;
-		}
-
-		if ( empty( $releases ) ) {
-			return null;
-		}
-
-		// /releases is ordered by created_at, which is NOT the same as "highest
-		// version": a backport (e.g. 1.9.6 published after 2.0.0) sorts first and
-		// would win. Pick the newest by version using the same semver-with-date
-		// fallback the monitor uses, so we don't post an older release or skip the
-		// genuine latest one.
-		$comparator = new Version_Comparator();
-		$latest     = $releases[0];
-
-		foreach ( array_slice( $releases, 1 ) as $candidate ) {
-			$state = [
-				'last_seen_tag'          => $latest->tag,
-				'last_seen_published_at' => $latest->published_at,
-				'last_checked_at'        => 0,
-			];
-			if ( $comparator->is_newer( $candidate, $state ) ) {
-				$latest = $candidate;
-			}
-		}
-
-		return $latest;
+		return Release_Selector::select_latest_head(
+			Release_Selector::monitoring_projection( $snapshot, $include_prereleases, $tag_patterns )
+		);
 	}
 
 	/**
