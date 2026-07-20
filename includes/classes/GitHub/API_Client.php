@@ -63,21 +63,21 @@ class API_Client {
 	 * Accepts both `owner/repo` and full GitHub URL formats (BR-002).
 	 * Responses are cached in a 15-minute transient (AC-005) guarded by a
 	 * stampede lock, since button-click surfaces (Generate draft, Quick Edit)
-	 * hit this on demand.
+	 * hit this on demand. The window is fixed at SNAPSHOT_LIMIT records —
+	 * deliberately not a parameter, because the transient and lock keys are
+	 * per-repository and a variable limit would let differently-sized
+	 * snapshots alias each other in cache.
 	 *
 	 * @param string $identifier Repository identifier (`owner/repo` or full GitHub URL).
-	 * @param int    $limit      Maximum records to request (1–100).
 	 * @return Release[]|\WP_Error Releases newest-first ([] when the repo has
 	 *                            none); WP_Error on network/HTTP failure.
 	 */
-	public function fetch_release_snapshot( string $identifier, int $limit = self::SNAPSHOT_LIMIT ): array|\WP_Error {
+	public function fetch_release_snapshot( string $identifier ): array|\WP_Error {
 		try {
 			$identifier = $this->normalize_identifier( $identifier );
 		} catch ( \InvalidArgumentException $e ) {
 			return new \WP_Error( 'github_invalid_identifier', $e->getMessage() );
 		}
-
-		$limit = max( 1, min( 100, $limit ) );
 
 		// Return cached result if available.
 		$cache_key = Cache_Keys::snapshot( $identifier );
@@ -107,7 +107,7 @@ class API_Client {
 
 		try {
 			[ $owner, $repo ] = explode( '/', $identifier, 2 );
-			$url              = sprintf( '%s/repos/%s/%s/releases?per_page=%d', self::API_BASE, $owner, $repo, $limit );
+			$url              = sprintf( '%s/repos/%s/%s/releases?per_page=%d', self::API_BASE, $owner, $repo, self::SNAPSHOT_LIMIT );
 			$args             = $this->build_request_args();
 
 			// Make HTTP call (BR-004).

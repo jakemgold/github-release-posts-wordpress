@@ -776,6 +776,62 @@ class Release_MonitorTest extends TestCase {
 		$this->assertSame( Release_Selector::policy_hash( false, '' ), $captured_hash );
 	}
 
+	/**
+	 * REGRESSION (round 8): the same pattern SET in a different order is the
+	 * same policy. The stored hash was computed from one ordering; the repo
+	 * config now supplies the reverse (the picker re-serializes checkboxes
+	 * in snapshot order, which shifts as releases publish). The monitor must
+	 * NOT take the policy transition — a false rebaseline here would swallow
+	 * the pending core release — and must enqueue the genuinely new head.
+	 */
+	public function test_reordered_equivalent_patterns_do_not_rebaseline(): void {
+		\WP_Mock::userFunction( 'get_posts' )->andReturn( [] );
+		$monitor = $this->real_comparator_monitor();
+
+		$this->repo_settings->method( 'get_repositories' )->willReturn(
+			[
+				[
+					'identifier'   => 'acme/reordered',
+					'tag_patterns' => '@acme/next@*, @acme/core@*',
+				],
+			]
+		);
+
+		$this->api_client->method( 'fetch_release_snapshot' )->willReturn(
+			[
+				$this->make_release( '@acme/core@2.0.0', '2026-07-18T12:00:00Z' ),
+				$this->make_release( '@acme/next@1.4.0', '2026-05-01T00:00:00Z' ),
+			]
+		);
+
+		$this->release_state->method( 'get_state' )->willReturn(
+			$this->base_state(
+				[
+					'policy_hash' => Release_Selector::policy_hash( false, '@acme/core@*, @acme/next@*' ),
+					'streams'     => [
+						'@acme/core' => [
+							'last_seen_tag'          => '@acme/core@1.9.0',
+							'last_seen_published_at' => '2026-06-01T00:00:00Z',
+						],
+						'@acme/next' => [
+							'last_seen_tag'          => '@acme/next@1.4.0',
+							'last_seen_published_at' => '2026-05-01T00:00:00Z',
+						],
+					],
+				]
+			)
+		);
+
+		$this->release_state->expects( $this->never() )->method( 'complete_baseline' );
+
+		$enqueued = &$this->capture_enqueues();
+		$this->mock_run_plumbing();
+
+		$monitor->run();
+
+		$this->assertSame( [ '@acme/core@2.0.0' ], $enqueued );
+	}
+
 	// -------------------------------------------------------------------------
 	// Transition: retry of failed onboarding (onboarding_pending)
 	// -------------------------------------------------------------------------

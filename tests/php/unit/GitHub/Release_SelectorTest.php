@@ -111,6 +111,23 @@ class Release_SelectorTest extends TestCase {
 		);
 	}
 
+	public function test_policy_hash_ignores_order_and_duplicates(): void {
+		// Patterns are an OR-set: reordering or repeating entries changes no
+		// eligibility outcome, so it must not read as a policy change — a
+		// false policy transition rebaselines and can swallow a pending
+		// release. The picker re-serializes checkboxes in snapshot order,
+		// which shifts as releases publish, so equivalent reorderings occur
+		// from a plain re-save.
+		$canonical = Release_Selector::policy_hash( false, '@acme/core@*, @acme/next@*' );
+
+		$this->assertSame( $canonical, Release_Selector::policy_hash( false, '@acme/next@*, @acme/core@*' ) );
+		$this->assertSame( $canonical, Release_Selector::policy_hash( false, '@acme/core@*, @acme/next@*, @acme/core@*' ) );
+
+		// Case stays significant — git tags are case-sensitive, so these are
+		// genuinely different policies.
+		$this->assertNotSame( $canonical, Release_Selector::policy_hash( false, '@acme/CORE@*, @acme/next@*' ) );
+	}
+
 	public function test_policy_hash_changes_with_policy(): void {
 		$base = Release_Selector::policy_hash( false, '' );
 

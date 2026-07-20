@@ -104,9 +104,15 @@ final class Release_Selector {
 	 * blocking a lower-versioned stable release after pre-releases are
 	 * turned off).
 	 *
-	 * Patterns are normalized through Tag_Pattern_Matcher::parse() so
-	 * insignificant formatting differences (spacing, empty segments) do not
-	 * read as policy changes.
+	 * Patterns are an OR-set — matching is unaffected by their order or by
+	 * duplicate entries — so the hash is computed over the CANONICAL set:
+	 * parsed (trimmed, empties dropped), deduplicated, and sorted. Without
+	 * this, re-saving an unchanged package selection could reorder the
+	 * stored string (the picker compiles checkboxes in snapshot order,
+	 * which shifts as releases publish) and a semantically identical policy
+	 * would read as a change — and a false rebaseline can swallow a release
+	 * that was pending generation. Pattern text itself stays case-sensitive,
+	 * as git tags are.
 	 *
 	 * @param bool   $include_prereleases Repository pre-release setting.
 	 * @param string $tag_patterns        Effective tag patterns (after the
@@ -114,7 +120,10 @@ final class Release_Selector {
 	 * @return string
 	 */
 	public static function policy_hash( bool $include_prereleases, string $tag_patterns ): string {
-		return md5( ( $include_prereleases ? '1' : '0' ) . '|' . implode( ',', Tag_Pattern_Matcher::parse( $tag_patterns ) ) );
+		$patterns = array_values( array_unique( Tag_Pattern_Matcher::parse( $tag_patterns ) ) );
+		sort( $patterns, SORT_STRING );
+
+		return md5( ( $include_prereleases ? '1' : '0' ) . '|' . implode( ',', $patterns ) );
 	}
 
 	/**
