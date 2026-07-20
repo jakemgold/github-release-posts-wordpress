@@ -17,6 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 use GitHubReleasePosts\Plugin_Constants;
 use GitHubReleasePosts\Post\Post_Status;
+use GitHubReleasePosts\GitHub\Release_State;
 use GitHubReleasePosts\GitHub\Tag_Pattern_Matcher;
 use GitHubReleasePosts\Settings\Repository_Settings;
 
@@ -263,10 +264,12 @@ class Repository_List_Table extends \WP_List_Table {
 		}
 
 		$data = $this->last_posts[ $identifier ];
-		// Package tags ("@headstartwp/core@1.6.1") render as "core 1.6.1".
+		// Package tags ("@headstartwp/core@1.6.1") render as "core 1.6.1"
+		// whenever the repo uses package naming (packages chosen, or a
+		// multi-package topology observed).
 		$tag_label = Tag_Pattern_Matcher::display_label(
 			(string) $data['tag'],
-			Tag_Pattern_Matcher::has_patterns( (string) ( $item['tag_patterns'] ?? '' ) )
+			( new Release_State() )->uses_package_naming( $identifier, (string) ( $item['tag_patterns'] ?? '' ) )
 		);
 		$label     = $data['tag'] ? $tag_label . ' ' . __( 'on', 'auto-release-posts-for-github' ) . ' ' . $data['date'] : $data['date'];
 

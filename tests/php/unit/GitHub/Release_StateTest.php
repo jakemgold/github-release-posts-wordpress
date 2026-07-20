@@ -218,6 +218,48 @@ class Release_StateTest extends TestCase {
 	}
 
 	// -------------------------------------------------------------------------
+	// mark_multi_package() / uses_package_naming()
+	// -------------------------------------------------------------------------
+
+	/**
+	 * mark_multi_package() persists the display-only observation exactly once:
+	 * a second call against already-marked state performs no write (sticky).
+	 *
+	 * @covers Release_State::mark_multi_package
+	 */
+	public function test_mark_multi_package_writes_once_and_sticks(): void {
+		\WP_Mock::userFunction( 'get_option' )
+			->andReturnValues( [ [], [ 'multi_package_observed' => true ] ] );
+
+		\WP_Mock::userFunction( 'update_option' )
+			->once()
+			->andReturnUsing( function ( $key, $data ) {
+				$this->assertTrue( $data['multi_package_observed'] );
+				return true;
+			} );
+
+		$this->state->mark_multi_package( 'owner/repo' );
+		$this->state->mark_multi_package( 'owner/repo' );
+	}
+
+	/**
+	 * uses_package_naming() honors either signal: configured patterns opt in
+	 * without any observation, and an observed multi-package topology opts in
+	 * without patterns. Neither signal means raw naming.
+	 *
+	 * @covers Release_State::uses_package_naming
+	 */
+	public function test_uses_package_naming_honors_both_signals(): void {
+		\WP_Mock::userFunction( 'get_option' )
+			->andReturnValues( [ [], [ 'multi_package_observed' => true ] ] );
+
+		$this->assertFalse( $this->state->uses_package_naming( 'owner/repo', '' ) );
+		// Patterns short-circuit — no state read.
+		$this->assertTrue( $this->state->uses_package_naming( 'owner/repo', '@acme/core@*' ) );
+		$this->assertTrue( $this->state->uses_package_naming( 'owner/repo', '' ) );
+	}
+
+	// -------------------------------------------------------------------------
 	// complete_baseline()
 	// -------------------------------------------------------------------------
 
@@ -243,6 +285,8 @@ class Release_StateTest extends TestCase {
 					'last_seen_published_at' => '2025-01-01T00:00:00Z',
 				],
 			],
+			// Display-only observation — must SURVIVE the transition.
+			'multi_package_observed' => true,
 			// Branch-only keys from unreleased iterations — must be dropped.
 			'tracking_started_at'    => 1700000000,
 			'is_monorepo'            => true,
@@ -277,6 +321,8 @@ class Release_StateTest extends TestCase {
 				// Legacy display fields survive the transition.
 				$this->assertSame( 'v8.0.0', $data['last_seen_tag'] );
 				$this->assertSame( 1234567890, $data['last_checked_at'] );
+				// The display-only naming observation survives too.
+				$this->assertTrue( $data['multi_package_observed'] );
 				// Unreleased-iteration keys are gone after the canonical write.
 				$this->assertArrayNotHasKey( 'tracking_started_at', $data );
 				$this->assertArrayNotHasKey( 'is_monorepo', $data );

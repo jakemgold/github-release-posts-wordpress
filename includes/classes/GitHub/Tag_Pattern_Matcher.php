@@ -106,14 +106,14 @@ final class Tag_Pattern_Matcher {
 	 *
 	 * Package-style tags are also legitimate single-package conventions
 	 * (`myplugin@1.2.3`, `my-plugin-v1.2.3`), so display formatting only
-	 * engages when the repository actually has tag patterns configured —
-	 * otherwise existing repositories would see changed titles and slugs
-	 * after upgrading (peer review P2, both rounds). Eligibility matching
-	 * is unaffected; this gate is display-only.
+	 * engages when the repository uses package naming — packages chosen, or
+	 * a multi-package topology observed by the plugin (see
+	 * Release_State::uses_package_naming()). Otherwise single-package
+	 * repositories would see changed titles and slugs after upgrading.
+	 * Eligibility matching is unaffected; this gate is display-only.
 	 *
 	 * @param string $tag              Release tag name.
-	 * @param bool   $package_display  Whether the repo opted into package display
-	 *                                 (i.e. has tag patterns configured).
+	 * @param bool   $package_display  Whether the repo uses package naming.
 	 * @return array{package: string, pattern: string, version: string}|null
 	 */
 	public static function derive_display_package( string $tag, bool $package_display = false ): ?array {
@@ -130,7 +130,7 @@ final class Tag_Pattern_Matcher {
 	 * is returned verbatim.
 	 *
 	 * @param string $tag             Release tag name.
-	 * @param bool   $package_display Whether the repo opted into package display.
+	 * @param bool   $package_display Whether the repo uses package naming.
 	 * @return string
 	 */
 	public static function display_label( string $tag, bool $package_display = false ): string {

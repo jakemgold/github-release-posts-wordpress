@@ -138,6 +138,9 @@ class Onboarding_HandlerTest extends TestCase {
 			Release_Selector::policy_hash( false, '' )
 		);
 		$state->expects( $this->never() )->method( 'update_last_seen' );
+		// The multi-package observation is persisted at add time so package
+		// naming engages without the admin ever opening the chooser.
+		$state->expects( $this->once() )->method( 'mark_multi_package' );
 
 		$outcome = $this->handler( $api, $state )->handle_add( 'acme/monorepo-' . uniqid() );
 
@@ -160,6 +163,9 @@ class Onboarding_HandlerTest extends TestCase {
 		$state = $this->createMock( Release_State::class );
 		$state->expects( $this->once() )->method( 'complete_baseline' )->with( $this->anything(), [], $this->anything() );
 		$state->expects( $this->never() )->method( 'update_last_seen' );
+		// One recognized package is not a multi-package topology — the naming
+		// observation must NOT be recorded for single-stream repositories.
+		$state->expects( $this->never() )->method( 'mark_multi_package' );
 
 		$outcome = $this->handler( $api, $state )->handle_add( 'acme/plugin-' . uniqid() );
 
@@ -189,6 +195,9 @@ class Onboarding_HandlerTest extends TestCase {
 				$seeded = $cursors;
 			}
 		);
+		// Mixed one-package-plus-plain is stream-monitored but not
+		// multi-PACKAGE — the naming observation stays unset.
+		$state->expects( $this->never() )->method( 'mark_multi_package' );
 
 		$outcome = $this->handler( $api, $state )->handle_add( 'acme/mixed-' . uniqid() );
 

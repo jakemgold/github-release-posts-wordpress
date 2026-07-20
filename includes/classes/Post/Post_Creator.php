@@ -16,6 +16,7 @@ use GitHubReleasePosts\AI\GeneratedPost;
 use GitHubReleasePosts\GitHub\Tag_Pattern_Matcher;
 use GitHubReleasePosts\AI\ReleaseData;
 use GitHubReleasePosts\GitHub\Release_Monitor;
+use GitHubReleasePosts\GitHub\Release_State;
 use GitHubReleasePosts\Plugin_Constants;
 use GitHubReleasePosts\Settings\Global_Settings;
 use GitHubReleasePosts\Settings\Repository_Settings;
@@ -85,7 +86,7 @@ class Post_Creator {
 			$post->title,
 			$this->global_settings->get_title_format(),
 			$data->identifier,
-			$this->repo_has_patterns( $data->identifier )
+			$this->repo_uses_package_naming( $data->identifier )
 		);
 		$block_content  = $this->convert_html_to_blocks( $post->content );
 		$block_content .= $this->build_disclosure_block( $data );
@@ -318,18 +319,18 @@ class Post_Creator {
 	 * @param string $ai_title     AI-generated subtitle (or full title in 'none' mode).
 	 * @param string $format       Title format: 'full', 'version', or 'none'.
 	 * @param string $identifier        Repository identifier — passed through to the filter.
-	 * @param bool   $repo_has_patterns Whether the repo has tag patterns configured
+	 * @param bool   $package_naming Whether the repo uses package naming (packages chosen or multi-package topology observed)
 	 *                                  (gates dash-style package display formatting).
 	 * @return string Full post title.
 	 */
-	public static function build_title( string $display_name, string $tag, string $ai_title, string $format, string $identifier, bool $repo_has_patterns = false ): string {
+	public static function build_title( string $display_name, string $tag, string $ai_title, string $format, string $identifier, bool $package_naming = false ): string {
 		// Monorepo package tags (e.g. "@headstartwp/core@1.6.1") read as code
 		// dumps when used verbatim — and the 'version' format's v-strip does
 		// nothing to them. When the tag parses as a package release, render
 		// the short package name + bare version ("core 1.6.1") instead; the
 		// per-repo display name still provides the project context. Plain
 		// tags are formatted exactly as before.
-		$parsed = Tag_Pattern_Matcher::derive_display_package( $tag, $repo_has_patterns );
+		$parsed = Tag_Pattern_Matcher::derive_display_package( $tag, $package_naming );
 		if ( null !== $parsed ) {
 			$package = Tag_Pattern_Matcher::short_name( $parsed['package'] );
 			$version = self::format_version_tag( $parsed['version'] );
@@ -378,17 +379,19 @@ class Post_Creator {
 	 * @return string Sanitized slug, or empty string if no keywords.
 	 */
 	/**
-	 * Whether display formatting may treat this repo's dash-style tags as
-	 * package releases (npm-style tags always qualify).
+	 * Whether title/slug formatting may treat this repo's tags as package
+	 * releases: packages chosen (or patterns supplied via filter), or a
+	 * multi-package topology observed by the plugin. Single-package repos
+	 * using package-shaped tags match neither signal and keep raw naming.
 	 *
 	 * @param string $identifier Repository identifier.
 	 * @return bool
 	 */
-	private function repo_has_patterns( string $identifier ): bool {
+	private function repo_uses_package_naming( string $identifier ): bool {
 		$config = $this->repo_settings->get_repository( $identifier );
 		/** This filter is documented in includes/classes/GitHub/Release_Monitor.php */
 		$patterns = (string) apply_filters( 'ghrp_repo_tag_patterns', (string) ( $config['tag_patterns'] ?? '' ), $identifier, $config );
-		return Tag_Pattern_Matcher::has_patterns( $patterns );
+		return ( new Release_State() )->uses_package_naming( $identifier, $patterns );
 	}
 
 	/**
@@ -409,7 +412,7 @@ class Post_Creator {
 			$this->repo_settings->get_display_name( $identifier ),
 			$tag,
 			$slug_keywords,
-			$this->repo_has_patterns( $identifier )
+			$this->repo_uses_package_naming( $identifier )
 		);
 	}
 
@@ -420,16 +423,16 @@ class Post_Creator {
 	 * Package tags contribute their short name + bare version so monorepo
 	 * slugs come out as "headstartwp-core-1-6-1-…" instead of a mush of the
 	 * raw tag's @ and / characters. Package formatting applies only when the
-	 * repo has patterns configured (see derive_display_package()).
+	 * repo uses package naming (see repo_uses_package_naming()).
 	 *
 	 * @param string $display_name      Repository display name.
 	 * @param string $tag               Release tag.
 	 * @param string $slug_keywords     AI-generated slug keywords.
-	 * @param bool   $repo_has_patterns Whether the repo has tag patterns configured.
+	 * @param bool   $package_naming Whether the repo uses package naming (packages chosen or multi-package topology observed).
 	 * @return string Sanitized slug.
 	 */
-	public static function build_release_slug( string $display_name, string $tag, string $slug_keywords, bool $repo_has_patterns ): string {
-		$parsed = Tag_Pattern_Matcher::derive_display_package( $tag, $repo_has_patterns );
+	public static function build_release_slug( string $display_name, string $tag, string $slug_keywords, bool $package_naming ): string {
+		$parsed = Tag_Pattern_Matcher::derive_display_package( $tag, $package_naming );
 		if ( null !== $parsed ) {
 			$version  = str_replace( '.', '-', strtolower( $parsed['version'] ) );
 			$raw_slug = $display_name . '-' . Tag_Pattern_Matcher::short_name( $parsed['package'] ) . '-' . $version . '-' . $slug_keywords;

@@ -208,6 +208,8 @@ class Admin_Page {
 					. '<p>' . esc_html__( 'Some repositories release many packages from one codebase — for example, tags like "@myproject/core@1.6.1" alongside "@myproject/utilities@2.0.0". Without any configuration, the plugin considers every release post-worthy, which can fill your feed with minor utility packages.', 'auto-release-posts-for-github' ) . '</p>'
 					. '<h4>' . esc_html__( 'Choosing Packages', 'auto-release-posts-for-github' ) . '</h4>'
 					. '<p>' . esc_html__( 'When the plugin detects that a repository releases two or more packages, the Edit row shows a Packages option with two choices. "Create posts for all packages" (the default) applies no filter. "Choose which packages get posts" reveals the package list: only releases of checked packages become posts — in the scheduled check, the version picker, and manual generation alike. Hover a package to see its release count and latest version.', 'auto-release-posts-for-github' ) . '</p>'
+					. '<h4>' . esc_html__( 'Package Naming', 'auto-release-posts-for-github' ) . '</h4>'
+					. '<p>' . esc_html__( 'Once the plugin has seen that a repository releases multiple packages, post titles, URL slugs, and admin labels use readable package naming — "core 1.6.1" instead of the raw release tag. This needs no configuration. Repositories that release a single package always keep their raw tag naming, even when their tags look like package tags, and existing posts are never renamed.', 'auto-release-posts-for-github' ) . '</p>'
 					. '<h4>' . esc_html__( 'When New Packages Appear Later', 'auto-release-posts-for-github' ) . '</h4>'
 					. '<p>' . esc_html__( 'If you have chosen a subset of packages and the repository later starts releasing a new package, the new package is excluded automatically — nothing unexpected shows up in your feed. It appears as a new, unchecked entry in the Packages list the next time you edit the repository; check it to start generating posts for it.', 'auto-release-posts-for-github' ) . '</p>'
 					. '<p>' . esc_html__( 'With "Create posts for all packages" selected, no filter is applied — releases of any package the repository adds in the future are eligible too. To permanently limit posts to a fixed set of packages even as new ones appear, select "Choose which packages get posts" and check every package you want: the selection is stored explicitly, so future packages stay excluded until checked.', 'auto-release-posts-for-github' ) . '</p>'
@@ -873,7 +875,7 @@ class Admin_Page {
 			'tag'       => $tag,
 			// Display form ("core 1.6.1" for package tags) — keeps the JS
 			// Last Post cell update consistent with the PHP-rendered column.
-			'tag_label' => Tag_Pattern_Matcher::display_label( $tag, Tag_Pattern_Matcher::has_patterns( $patterns ) ),
+			'tag_label' => Tag_Pattern_Matcher::display_label( $tag, ( new Release_State() )->uses_package_naming( $source_repo, $patterns ) ),
 			'date'      => get_the_date( 'Y/m/d', $post->ID ),
 		];
 	}
@@ -925,7 +927,7 @@ class Admin_Page {
 		// (patterns configured). This list shows packages side by side, so
 		// collision handling is this caller's job (see display_label()):
 		// two packages sharing a short name keep their full names.
-		$package_display   = Tag_Pattern_Matcher::has_patterns( $tag_patterns );
+		$package_display   = ( new Release_State() )->uses_package_naming( $identifier, $tag_patterns );
 		$packages_by_short = [];
 		foreach ( $releases as $release ) {
 			$derived = Tag_Pattern_Matcher::derive_display_package( $release->tag, $package_display );
@@ -999,6 +1001,12 @@ class Admin_Page {
 		$cache_key = Cache_Keys::repo_packages( $identifier );
 		$cached    = get_transient( $cache_key );
 		if ( is_array( $cached ) && isset( $cached['packages'] ) ) {
+			// Keep the display-only naming marker fresh from whichever
+			// surface observes the topology first (sticky; cheap no-op
+			// once set).
+			if ( ! empty( $cached['multi_package'] ) ) {
+				( new Release_State() )->mark_multi_package( $identifier );
+			}
 			return new \WP_REST_Response( $cached, 200 );
 		}
 
@@ -1014,6 +1022,10 @@ class Admin_Page {
 
 		$payload = Tag_Pattern_Matcher::build_packages_payload( $releases );
 		set_transient( $cache_key, $payload, 15 * MINUTE_IN_SECONDS );
+
+		if ( ! empty( $payload['multi_package'] ) ) {
+			( new Release_State() )->mark_multi_package( $identifier );
+		}
 
 		return new \WP_REST_Response( $payload, 200 );
 	}
@@ -1526,14 +1538,15 @@ class Admin_Page {
 		$display_name = $this->repo_settings->get_display_name( $identifier );
 		$repo_config  = $this->repo_settings->get_repository( $identifier );
 		/** This filter is documented in includes/classes/GitHub/Release_Monitor.php */
-		$patterns   = (string) apply_filters( 'ghrp_repo_tag_patterns', (string) ( $repo_config['tag_patterns'] ?? '' ), $identifier, $repo_config );
-		$full_title = Post_Creator::build_title(
+		$patterns       = (string) apply_filters( 'ghrp_repo_tag_patterns', (string) ( $repo_config['tag_patterns'] ?? '' ), $identifier, $repo_config );
+		$package_naming = ( new Release_State() )->uses_package_naming( $identifier, $patterns );
+		$full_title     = Post_Creator::build_title(
 			$display_name,
 			$data->tag,
 			$result->title,
 			$this->global_settings->get_title_format(),
 			$identifier,
-			Tag_Pattern_Matcher::has_patterns( $patterns )
+			$package_naming
 		);
 
 		// Convert HTML to blocks and update the existing post (creates a revision).
@@ -1560,7 +1573,7 @@ class Admin_Page {
 				$display_name,
 				$data->tag,
 				$result->slug_keywords,
-				Tag_Pattern_Matcher::has_patterns( $patterns )
+				$package_naming
 			);
 		}
 
