@@ -15,16 +15,20 @@ use PHPUnit\Framework\TestCase;
  */
 class Cache_KeysTest extends TestCase {
 
-	public function test_release_uses_md5_of_identifier(): void {
-		$this->assertSame( 'ghrp_rel_' . md5( 'owner/repo' ), Cache_Keys::release( 'owner/repo' ) );
+	public function test_snapshot_uses_md5_of_identifier(): void {
+		$this->assertSame( 'ghrp_snapshot_' . md5( 'owner/repo' ), Cache_Keys::snapshot( 'owner/repo' ) );
 	}
 
-	public function test_release_fetch_lock_is_distinct_from_release_cache(): void {
-		$cache = Cache_Keys::release( 'owner/repo' );
+	public function test_release_fetch_lock_is_distinct_from_snapshot_cache(): void {
+		$cache = Cache_Keys::snapshot( 'owner/repo' );
 		$lock  = Cache_Keys::release_fetch_lock( 'owner/repo' );
 
 		$this->assertNotSame( $cache, $lock );
 		$this->assertStringStartsWith( 'ghrp_rel_lock_', $lock );
+	}
+
+	public function test_deferred_notices_key_is_prefixed(): void {
+		$this->assertSame( 'ghrp_deferred_notices', Cache_Keys::deferred_notices() );
 	}
 
 	public function test_ai_response_combines_identifier_and_tag(): void {

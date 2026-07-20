@@ -19,8 +19,9 @@ if ( ! defined( 'ABSPATH' ) ) {
  * falling back to ISO 8601 publication date comparison for non-semver tags.
  * Leading `v` is stripped before semver parsing (BR-005).
  *
- * Pre-releases and draft releases are never presented by the /releases/latest
- * endpoint, so no additional filtering is required here (AC-009).
+ * Eligibility (drafts, pre-releases, tag patterns) is not this class's
+ * concern — callers compare releases that already passed
+ * Release_Selector::monitoring_projection().
  */
 class Version_Comparator {
 
@@ -86,21 +87,6 @@ class Version_Comparator {
 		}
 
 		return $candidate_date > $last_date;
-	}
-
-	/**
-	 * The single topology predicate (peer review round 5): a repository is
-	 * stream-monitored when its releases form two or more streams — package
-	 * streams AND the default (plain-tag) stream both count, because the
-	 * monitor routes them all. The package-picker payload's multi_package
-	 * value is a narrower UI notion (2+ recognized packages) and must not be
-	 * used as monitoring topology.
-	 *
-	 * @param Release[] $releases Releases, any order.
-	 * @return bool
-	 */
-	public function is_multi_stream( array $releases ): bool {
-		return count( $this->select_stream_winners( $releases ) ) >= 2;
 	}
 
 	/**

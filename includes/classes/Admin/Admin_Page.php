@@ -18,9 +18,9 @@ use GitHubReleasePosts\Post\Post_Creator;
 use GitHubReleasePosts\GitHub\Onboarding_Handler;
 use GitHubReleasePosts\GitHub\Release_Monitor;
 use GitHubReleasePosts\GitHub\Release_Queue;
+use GitHubReleasePosts\GitHub\Release_Selector;
 use GitHubReleasePosts\GitHub\Release_State;
 use GitHubReleasePosts\GitHub\Tag_Pattern_Matcher;
-use GitHubReleasePosts\GitHub\Version_Comparator;
 use GitHubReleasePosts\Notification\Email_Notifier;
 use GitHubReleasePosts\Notification\Notification_Entry;
 use GitHubReleasePosts\Plugin_Constants;
@@ -228,6 +228,13 @@ class Admin_Page {
 					. '<li>' . esc_html__( 'Matching is case-sensitive, since git tags are. Curly-brace lists like {core,next} are NOT supported — use one comma-separated pattern per package instead.', 'auto-release-posts-for-github' ) . '</li>'
 					. '<li>' . esc_html__( 'Patterns combine with the other eligibility rules: drafts never get posts, and pre-releases only do when Include pre-releases is on.', 'auto-release-posts-for-github' ) . '</li>'
 					. '<li>' . esc_html__( 'Leaving the field blank makes every release eligible — existing repositories are unaffected until you choose packages or add patterns.', 'auto-release-posts-for-github' ) . '</li>'
+					. '</ul>'
+					. '<h4>' . esc_html__( 'Monitoring Limits', 'auto-release-posts-for-github' ) . '</h4>'
+					. '<ul>'
+					. '<li>' . esc_html__( 'Each scheduled check inspects the repository\'s 25 most recent release records. The Packages list shows only packages represented in that window, and a package that releases very rarely may briefly disappear from the list — its selection and monitoring are unaffected.', 'auto-release-posts-for-github' ) . '</li>'
+					. '<li>' . esc_html__( 'At most one release per package is generated per scheduled check: if a package publishes several versions between checks, only its newest eligible version gets a post.', 'auto-release-posts-for-github' ) . '</li>'
+					. '<li>' . esc_html__( 'Changing Include pre-releases or the package selection is forward-only: the next check starts monitoring under the new settings but does not generate posts for older releases that just became eligible. Use Generate draft to backfill any release deliberately.', 'auto-release-posts-for-github' ) . '</li>'
+					. '<li>' . esc_html__( 'If the initial scan of a newly added repository fails, it is retried on the next scheduled check with the same behavior as a normal add — the plugin does not attempt to reconstruct releases published while the scan was failing.', 'auto-release-posts-for-github' ) . '</li>'
 					. '</ul>',
 			]
 		);
@@ -735,7 +742,8 @@ class Admin_Page {
 				try {
 					$outcome = ( new Onboarding_Handler(
 						new API_Client( $this->global_settings ),
-						new Release_State()
+						new Release_State(),
+						$this->repo_settings
 					) )->handle_add( $added_identifier );
 
 					if ( null !== $outcome['notice'] ) {
@@ -908,8 +916,8 @@ class Admin_Page {
 		}
 
 		// Mark as latest the SAME release generation will select — GitHub's
-		// list order crowns later-created backports (round 4).
-		$latest_pick = API_Client::pick_latest_eligible( $releases );
+		// list order crowns later-created backports.
+		$latest_pick = Release_Selector::select_latest_head( $releases );
 		$latest_tag  = null !== $latest_pick ? $latest_pick->tag : $releases[0]->tag;
 
 		$payload = [];
@@ -970,20 +978,16 @@ class Admin_Page {
 
 		$api_client = new API_Client( $this->global_settings );
 
-		$releases = $api_client->fetch_releases( $identifier, true, '' );
+		// The bounded raw snapshot IS the discovery view: pre-releases
+		// included, patterns ignored. The chooser shows only packages
+		// represented in this window — a documented limit.
+		$releases = $api_client->fetch_release_snapshot( $identifier );
 		if ( is_wp_error( $releases ) ) {
 			return new \WP_Error( $releases->get_error_code(), $releases->get_error_message(), [ 'status' => 400 ] );
 		}
 
 		$payload = Tag_Pattern_Matcher::build_packages_payload( $releases );
 		set_transient( $cache_key, $payload, 15 * MINUTE_IN_SECONDS );
-
-		// Keep the durable topology flag fresh — the monitor relies on it when
-		// the latest release is a plain repo-wide tag (round 3). Uses the
-		// shared stream predicate, NOT the payload's UI-only multi_package:
-		// writing the narrower value here could downgrade a monitor-confirmed
-		// determination and stamp it fresh for a week (round 5).
-		( new Release_State() )->set_monorepo( $identifier, ( new Version_Comparator() )->is_multi_stream( $releases ) );
 
 		return new \WP_REST_Response( $payload, 200 );
 	}
@@ -1147,12 +1151,12 @@ class Admin_Page {
 					$release->tag,
 					$release->published_at
 				);
-				// Patterned/monorepo monitoring reads per-package cursors, not
-				// the repo-wide one — advance the matching stream too so the
-				// next scheduled check doesn't re-enqueue this release (peer
-				// review P1: the replay re-fires the publish workflow).
+				// Monitoring reads per-stream cursors, not the repo-wide one —
+				// advance the matching stream too so the next scheduled check
+				// doesn't re-enqueue this release (the replay would re-fire
+				// the publish workflow).
 				$parsed = Tag_Pattern_Matcher::derive_package( $release->tag );
-				$state->update_package_seen( $identifier, null === $parsed ? '' : $parsed['package'], $release->tag, $release->published_at );
+				$state->update_stream_seen( $identifier, null === $parsed ? '' : $parsed['package'], $release->tag, $release->published_at );
 			}
 			return new \WP_REST_Response(
 				[

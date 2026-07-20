@@ -10,6 +10,7 @@ namespace GitHubReleasePosts\Tests\GitHub;
 use GitHubReleasePosts\Cache_Keys;
 use GitHubReleasePosts\GitHub\API_Client;
 use GitHubReleasePosts\GitHub\Release;
+use GitHubReleasePosts\GitHub\Release_Selector;
 use GitHubReleasePosts\Plugin_Constants;
 use GitHubReleasePosts\Settings\Global_Settings;
 use WP_Mock\Tools\TestCase;
@@ -41,7 +42,7 @@ class API_ClientTest extends TestCase {
 	// -------------------------------------------------------------------------
 
 	/**
-	 * Returns a minimal valid GitHub /releases/latest response payload.
+	 * Returns a minimal valid GitHub release entry payload.
 	 *
 	 * @return array<string, mixed>
 	 */
@@ -54,6 +55,15 @@ class API_ClientTest extends TestCase {
 			'html_url'     => 'https://github.com/10up/plugin/releases/tag/v1.2.3',
 			'assets'       => [],
 		];
+	}
+
+	/**
+	 * Returns a one-entry /releases list body containing the valid payload.
+	 *
+	 * @return string JSON body.
+	 */
+	private function valid_snapshot_body(): string {
+		return json_encode( [ $this->valid_release_payload() ] );
 	}
 
 	/**
@@ -87,14 +97,23 @@ class API_ClientTest extends TestCase {
 	}
 
 	// -------------------------------------------------------------------------
-	// AC-001: Returns Release for valid public owner/repo
+	// AC-001: Snapshot returns the release list for a valid public owner/repo
 	// -------------------------------------------------------------------------
 
 	/**
-	 * @covers API_Client::fetch_latest_release
+	 * The raw snapshot maps entries to Release objects, SKIPS GitHub drafts,
+	 * and RETAINS pre-releases (with the flag) — eligibility filtering is the
+	 * projections' job, not the fetch's.
+	 *
+	 * @covers API_Client::fetch_release_snapshot
 	 */
-	public function test_returns_release_for_valid_repo(): void {
-		$body = json_encode( $this->valid_release_payload() );
+	public function test_snapshot_returns_release_list_skipping_drafts(): void {
+		$payload = [
+			array_merge( $this->valid_release_payload(), [ 'tag_name' => 'v1.4.0-draft', 'draft' => true ] ),
+			array_merge( $this->valid_release_payload(), [ 'tag_name' => 'v1.3.0-rc1', 'prerelease' => true ] ),
+			$this->valid_release_payload(),
+		];
+		$body    = json_encode( $payload );
 
 		\WP_Mock::userFunction( 'get_transient' )->andReturn( false );
 		\WP_Mock::userFunction( 'wp_remote_get' )->andReturn( $this->mock_response( 200, $body ) );
@@ -104,12 +123,15 @@ class API_ClientTest extends TestCase {
 		\WP_Mock::userFunction( 'wp_remote_retrieve_header' )->andReturn( '100' );
 		\WP_Mock::userFunction( 'set_transient' )->andReturn( true );
 
-		$client  = new API_Client( $this->settings_mock() );
-		$release = $client->fetch_latest_release( '10up/plugin' );
+		$client   = new API_Client( $this->settings_mock() );
+		$snapshot = $client->fetch_release_snapshot( '10up/plugin' );
 
-		$this->assertInstanceOf( Release::class, $release );
-		$this->assertSame( 'v1.2.3', $release->tag );
-		$this->assertSame( 'Version 1.2.3', $release->name );
+		$this->assertIsArray( $snapshot );
+		$this->assertCount( 2, $snapshot );
+		$this->assertSame( 'v1.3.0-rc1', $snapshot[0]->tag );
+		$this->assertTrue( $snapshot[0]->prerelease );
+		$this->assertSame( 'v1.2.3', $snapshot[1]->tag );
+		$this->assertFalse( $snapshot[1]->prerelease );
 	}
 
 	// -------------------------------------------------------------------------
@@ -117,17 +139,18 @@ class API_ClientTest extends TestCase {
 	// -------------------------------------------------------------------------
 
 	/**
-	 * A full GitHub URL is normalised and fetched as owner/repo.
+	 * A full GitHub URL is normalised and fetched as owner/repo, against the
+	 * bounded snapshot endpoint.
 	 *
-	 * @covers API_Client::fetch_latest_release
+	 * @covers API_Client::fetch_release_snapshot
 	 */
-	public function test_normalises_full_github_url(): void {
-		$body = json_encode( $this->valid_release_payload() );
+	public function test_snapshot_normalises_full_github_url(): void {
+		$body = $this->valid_snapshot_body();
 
 		\WP_Mock::userFunction( 'get_transient' )->andReturn( false );
 		\WP_Mock::userFunction( 'wp_remote_get' )
 			->with(
-				'https://api.github.com/repos/10up/plugin/releases/latest',
+				'https://api.github.com/repos/10up/plugin/releases?per_page=25',
 				\WP_Mock\Functions::type( 'array' )
 			)
 			->andReturn( $this->mock_response( 200, $body ) );
@@ -137,22 +160,23 @@ class API_ClientTest extends TestCase {
 		\WP_Mock::userFunction( 'wp_remote_retrieve_header' )->andReturn( '100' );
 		\WP_Mock::userFunction( 'set_transient' )->andReturn( true );
 
-		$client  = new API_Client( $this->settings_mock() );
-		$release = $client->fetch_latest_release( 'https://github.com/10up/plugin' );
+		$client   = new API_Client( $this->settings_mock() );
+		$snapshot = $client->fetch_release_snapshot( 'https://github.com/10up/plugin' );
 
-		$this->assertInstanceOf( Release::class, $release );
+		$this->assertIsArray( $snapshot );
+		$this->assertSame( 'v1.2.3', $snapshot[0]->tag );
 	}
 
 	// -------------------------------------------------------------------------
-	// AC-003: 404 returns null (no releases)
+	// AC-003: 404 returns an empty list (no releases)
 	// -------------------------------------------------------------------------
 
 	/**
-	 * HTTP 404 returns null — not a WP_Error.
+	 * HTTP 404 returns [] — not a WP_Error.
 	 *
-	 * @covers API_Client::fetch_latest_release
+	 * @covers API_Client::fetch_release_snapshot
 	 */
-	public function test_returns_null_for_404(): void {
+	public function test_snapshot_returns_empty_list_for_404(): void {
 		\WP_Mock::userFunction( 'get_transient' )->andReturn( false );
 		\WP_Mock::userFunction( 'wp_remote_get' )->andReturn( $this->mock_response( 404 ) );
 		\WP_Mock::userFunction( 'is_wp_error' )->andReturn( false );
@@ -160,9 +184,9 @@ class API_ClientTest extends TestCase {
 		\WP_Mock::userFunction( 'wp_remote_retrieve_header' )->andReturn( '100' );
 
 		$client = new API_Client( $this->settings_mock() );
-		$result = $client->fetch_latest_release( '10up/plugin-with-no-releases' );
+		$result = $client->fetch_release_snapshot( '10up/plugin-with-no-releases' );
 
-		$this->assertNull( $result );
+		$this->assertSame( [], $result );
 	}
 
 	// -------------------------------------------------------------------------
@@ -172,9 +196,9 @@ class API_ClientTest extends TestCase {
 	/**
 	 * HTTP 403 (private/auth issue) returns WP_Error.
 	 *
-	 * @covers API_Client::fetch_latest_release
+	 * @covers API_Client::fetch_release_snapshot
 	 */
-	public function test_returns_wp_error_for_403(): void {
+	public function test_snapshot_returns_wp_error_for_403(): void {
 		\WP_Mock::userFunction( 'get_transient' )->andReturn( false );
 		\WP_Mock::userFunction( 'wp_remote_get' )->andReturn( $this->mock_response( 403 ) );
 		\WP_Mock::userFunction( 'is_wp_error' )->andReturn( false );
@@ -183,7 +207,7 @@ class API_ClientTest extends TestCase {
 		\WP_Mock::userFunction( '__' )->andReturnArg( 0 );
 
 		$client = new API_Client( $this->settings_mock() );
-		$result = $client->fetch_latest_release( '10up/private-plugin' );
+		$result = $client->fetch_release_snapshot( '10up/private-plugin' );
 
 		$this->assertInstanceOf( \WP_Error::class, $result );
 		$this->assertSame( 'github_forbidden', $result->get_error_code() );
@@ -194,24 +218,24 @@ class API_ClientTest extends TestCase {
 	// -------------------------------------------------------------------------
 
 	/**
-	 * A cached Release is returned without making a second HTTP call.
+	 * A cached snapshot is returned without making a second HTTP call.
 	 *
-	 * @covers API_Client::fetch_latest_release
+	 * @covers API_Client::fetch_release_snapshot
 	 */
-	public function test_uses_cached_transient_on_second_call(): void {
-		$cached_release = Release::from_api_response( $this->valid_release_payload() );
+	public function test_snapshot_uses_cached_transient_on_second_call(): void {
+		$cached_snapshot = [ Release::from_api_response( $this->valid_release_payload() ) ];
 
 		\WP_Mock::userFunction( 'get_transient' )
-			->with( Cache_Keys::release( '10up/plugin' ) )
-			->andReturn( $cached_release );
+			->with( Cache_Keys::snapshot( '10up/plugin' ) )
+			->andReturn( $cached_snapshot );
 
 		// wp_remote_get must NOT be called.
 		\WP_Mock::userFunction( 'wp_remote_get' )->never();
 
 		$client = new API_Client( $this->settings_mock() );
-		$result = $client->fetch_latest_release( '10up/plugin' );
+		$result = $client->fetch_release_snapshot( '10up/plugin' );
 
-		$this->assertSame( $cached_release, $result );
+		$this->assertSame( $cached_snapshot, $result );
 	}
 
 	// -------------------------------------------------------------------------
@@ -221,17 +245,13 @@ class API_ClientTest extends TestCase {
 	/**
 	 * When a PAT is set, the Authorization: Bearer header is included.
 	 *
-	 * @covers API_Client::fetch_latest_release
+	 * @covers API_Client::fetch_release_snapshot
 	 */
 	public function test_includes_authorization_header_when_pat_set(): void {
-		$body = json_encode( $this->valid_release_payload() );
+		$body = $this->valid_snapshot_body();
 
 		\WP_Mock::userFunction( 'get_transient' )->andReturn( false );
 		\WP_Mock::userFunction( 'wp_remote_get' )
-			->with(
-				\WP_Mock\Functions::anyOf( 'https://api.github.com/repos/10up/plugin/releases/latest' ),
-				\WP_Mock\Functions::type( 'array' )
-			)
 			->andReturnUsing(
 				function ( string $url, array $args ) use ( $body ) {
 					$this->assertArrayHasKey( 'Authorization', $args['headers'] );
@@ -248,7 +268,7 @@ class API_ClientTest extends TestCase {
 		\WP_Mock::userFunction( 'set_transient' )->andReturn( true );
 
 		$client = new API_Client( $this->settings_mock( 'ghp_test_token' ) );
-		$client->fetch_latest_release( '10up/plugin' );
+		$client->fetch_release_snapshot( '10up/plugin' );
 	}
 
 	// -------------------------------------------------------------------------
@@ -258,10 +278,10 @@ class API_ClientTest extends TestCase {
 	/**
 	 * When no PAT is set, the Authorization header is absent.
 	 *
-	 * @covers API_Client::fetch_latest_release
+	 * @covers API_Client::fetch_release_snapshot
 	 */
 	public function test_no_authorization_header_when_pat_empty(): void {
-		$body = json_encode( $this->valid_release_payload() );
+		$body = $this->valid_snapshot_body();
 
 		\WP_Mock::userFunction( 'get_transient' )->andReturn( false );
 		\WP_Mock::userFunction( 'wp_remote_get' )
@@ -278,7 +298,7 @@ class API_ClientTest extends TestCase {
 		\WP_Mock::userFunction( 'set_transient' )->andReturn( true );
 
 		$client = new API_Client( $this->settings_mock( '' ) );
-		$client->fetch_latest_release( '10up/plugin' );
+		$client->fetch_release_snapshot( '10up/plugin' );
 	}
 
 	// -------------------------------------------------------------------------
@@ -288,7 +308,7 @@ class API_ClientTest extends TestCase {
 	/**
 	 * WP_Error messages do not contain the PAT value.
 	 *
-	 * @covers API_Client::fetch_latest_release
+	 * @covers API_Client::fetch_release_snapshot
 	 */
 	public function test_pat_not_in_error_messages(): void {
 		\WP_Mock::userFunction( 'get_transient' )->andReturn( false );
@@ -300,7 +320,7 @@ class API_ClientTest extends TestCase {
 
 		$secret_pat = 'ghp_super_secret_token_12345';
 		$client     = new API_Client( $this->settings_mock( $secret_pat ) );
-		$result     = $client->fetch_latest_release( '10up/private-plugin' );
+		$result     = $client->fetch_release_snapshot( '10up/private-plugin' );
 
 		$this->assertInstanceOf( \WP_Error::class, $result );
 		$this->assertStringNotContainsString( $secret_pat, $result->get_error_message() );
@@ -313,10 +333,10 @@ class API_ClientTest extends TestCase {
 	/**
 	 * X-RateLimit-Remaining header is stored in a transient after each response.
 	 *
-	 * @covers API_Client::fetch_latest_release
+	 * @covers API_Client::fetch_release_snapshot
 	 */
 	public function test_stores_rate_limit_remaining_header(): void {
-		$body             = json_encode( $this->valid_release_payload() );
+		$body             = $this->valid_snapshot_body();
 		$rate_limit_saved = false;
 
 		\WP_Mock::userFunction( 'get_transient' )->andReturn( false );
@@ -337,7 +357,7 @@ class API_ClientTest extends TestCase {
 			);
 
 		$client = new API_Client( $this->settings_mock() );
-		$client->fetch_latest_release( '10up/plugin' );
+		$client->fetch_release_snapshot( '10up/plugin' );
 
 		$this->assertTrue( $rate_limit_saved, 'Rate limit remaining should be saved to transient' );
 	}
@@ -350,12 +370,12 @@ class API_ClientTest extends TestCase {
 	 * When X-RateLimit-Remaining is 0 on a successful (200) response, a one-time
 	 * retry is still scheduled — but the response is used, not discarded. GitHub
 	 * reports the remaining count *after* serving the request, so the call that
-	 * consumes the last token still carries the release we asked for.
+	 * consumes the last token still carries the releases we asked for.
 	 *
-	 * @covers API_Client::fetch_latest_release
+	 * @covers API_Client::fetch_release_snapshot
 	 */
 	public function test_schedules_retry_on_rate_limit_exhaustion(): void {
-		$body = json_encode( $this->valid_release_payload() );
+		$body = $this->valid_snapshot_body();
 
 		\WP_Mock::userFunction( 'get_transient' )->andReturn( false );
 		\WP_Mock::userFunction( 'wp_remote_get' )->andReturn( $this->mock_response( 200, $body ) );
@@ -378,12 +398,12 @@ class API_ClientTest extends TestCase {
 		\WP_Mock::userFunction( '__' )->andReturnArg( 0 );
 
 		$client = new API_Client( $this->settings_mock() );
-		$result = $client->fetch_latest_release( '10up/plugin' );
+		$result = $client->fetch_release_snapshot( '10up/plugin' );
 
 		// The retry is scheduled (asserted via ->once() above), yet the successful
 		// response is returned rather than thrown away.
-		$this->assertInstanceOf( Release::class, $result );
-		$this->assertSame( 'v1.2.3', $result->tag );
+		$this->assertIsArray( $result );
+		$this->assertSame( 'v1.2.3', $result[0]->tag );
 	}
 
 	// -------------------------------------------------------------------------
@@ -394,7 +414,7 @@ class API_ClientTest extends TestCase {
 	 * A genuine rate-limit rejection (a 403 with zero remaining) returns a
 	 * WP_Error — and never throws an exception.
 	 *
-	 * @covers API_Client::fetch_latest_release
+	 * @covers API_Client::fetch_release_snapshot
 	 */
 	public function test_rate_limit_exhaustion_returns_wp_error_not_exception(): void {
 		\WP_Mock::userFunction( 'get_transient' )->andReturn( false );
@@ -409,7 +429,7 @@ class API_ClientTest extends TestCase {
 
 		try {
 			$client = new API_Client( $this->settings_mock() );
-			$result = $client->fetch_latest_release( '10up/plugin' );
+			$result = $client->fetch_release_snapshot( '10up/plugin' );
 			$this->assertInstanceOf( \WP_Error::class, $result );
 			$this->assertSame( 'github_rate_limit_exhausted', $result->get_error_code() );
 		} catch ( \Throwable $e ) {
@@ -426,22 +446,24 @@ class API_ClientTest extends TestCase {
 	 * transient appears on retry, the contender should return that value
 	 * without firing its own wp_remote_get.
 	 *
-	 * @covers API_Client::fetch_latest_release
+	 * @covers API_Client::fetch_release_snapshot
 	 */
 	public function test_contended_fetch_returns_winner_cached_value(): void {
-		$release = new Release(
-			tag:          'v9.9.9',
-			name:         'Cached',
-			body:         '',
-			html_url:     'https://github.com/10up/plugin/releases/tag/v9.9.9',
-			published_at: '2026-04-01T00:00:00Z',
-			assets:       [],
-		);
+		$snapshot = [
+			new Release(
+				tag:          'v9.9.9',
+				name:         'Cached',
+				body:         '',
+				html_url:     'https://github.com/10up/plugin/releases/tag/v9.9.9',
+				published_at: '2026-04-01T00:00:00Z',
+				assets:       [],
+			),
+		];
 
 		// First get_transient (pre-lock): miss.
 		// Second get_transient (post-sleep, lock holder finished): hit.
 		\WP_Mock::userFunction( 'get_transient' )
-			->andReturnValues( [ false, $release ] );
+			->andReturnValues( [ false, $snapshot ] );
 
 		\WP_Mock::userFunction( 'wp_cache_add' )->once()->andReturn( false );
 
@@ -452,14 +474,14 @@ class API_ClientTest extends TestCase {
 		\WP_Mock::userFunction( 'wp_cache_delete' )->never();
 
 		$client = new API_Client( $this->settings_mock() );
-		$result = $client->fetch_latest_release( '10up/plugin' );
+		$result = $client->fetch_release_snapshot( '10up/plugin' );
 
-		$this->assertInstanceOf( Release::class, $result );
-		$this->assertSame( 'v9.9.9', $result->tag );
+		$this->assertIsArray( $result );
+		$this->assertSame( 'v9.9.9', $result[0]->tag );
 	}
 
 	// -------------------------------------------------------------------------
-	// fetch_releases() — list endpoint
+	// fetch_releases() — deep list for the version picker
 	// -------------------------------------------------------------------------
 
 	/**
@@ -564,6 +586,7 @@ class API_ClientTest extends TestCase {
 		];
 		$body = json_encode( $payload );
 
+		\WP_Mock::userFunction( 'get_transient' )->andReturn( false );
 		\WP_Mock::userFunction( 'wp_remote_get' )->andReturn( $this->mock_response( 200, $body ) );
 		\WP_Mock::userFunction( 'is_wp_error' )->andReturn( false );
 		\WP_Mock::userFunction( 'wp_remote_retrieve_response_code' )->andReturn( 200 );
@@ -803,19 +826,19 @@ class API_ClientTest extends TestCase {
 	}
 
 	/**
-	 * With patterns set, the latest-eligible lookup must use the paginated
-	 * /releases list (the /releases/latest endpoint cannot honor patterns and
-	 * would return e.g. an epio-search release) and pick the newest matching
-	 * entry — @headstartwp/core@1.6.1 per the fixture.
+	 * The latest-eligible lookup runs against the bounded snapshot endpoint
+	 * and honors patterns via the monitoring projection — for the fixture it
+	 * must pick @headstartwp/core@1.6.1, not e.g. an epio-search release.
 	 *
 	 * @covers API_Client::fetch_latest_eligible_release
 	 */
-	public function test_fetch_latest_eligible_release_with_patterns_uses_list_endpoint(): void {
+	public function test_fetch_latest_eligible_release_honors_patterns_via_snapshot(): void {
 		$body = json_encode( $this->headstartwp_fixture() );
 
+		\WP_Mock::userFunction( 'get_transient' )->andReturn( false );
 		\WP_Mock::userFunction( 'wp_remote_get' )
 			->with(
-				'https://api.github.com/repos/10up/headstartwp/releases?per_page=100',
+				'https://api.github.com/repos/10up/headstartwp/releases?per_page=25',
 				\WP_Mock\Functions::type( 'array' )
 			)
 			->andReturn( $this->mock_response( 200, $body ) );
@@ -833,19 +856,18 @@ class API_ClientTest extends TestCase {
 	}
 
 	/**
-	 * Without patterns (and without the prerelease opt-in) the fast, cached
-	 * /releases/latest endpoint is still used — byte-for-byte the pre-feature
-	 * behavior.
+	 * Without patterns (and without the prerelease opt-in) the same snapshot
+	 * path serves the request — blank-ish pattern input is normalized away.
 	 *
 	 * @covers API_Client::fetch_latest_eligible_release
 	 */
-	public function test_fetch_latest_eligible_release_without_patterns_uses_latest_endpoint(): void {
-		$body = json_encode( $this->valid_release_payload() );
+	public function test_fetch_latest_eligible_release_without_patterns_uses_snapshot(): void {
+		$body = $this->valid_snapshot_body();
 
 		\WP_Mock::userFunction( 'get_transient' )->andReturn( false );
 		\WP_Mock::userFunction( 'wp_remote_get' )
 			->with(
-				'https://api.github.com/repos/10up/plugin/releases/latest',
+				'https://api.github.com/repos/10up/plugin/releases?per_page=25',
 				\WP_Mock\Functions::type( 'array' )
 			)
 			->andReturn( $this->mock_response( 200, $body ) );
@@ -864,8 +886,8 @@ class API_ClientTest extends TestCase {
 
 	/**
 	 * Latest-eligible across multiple package patterns ranks by chronology,
-	 * never by unrelated version numbers (peer review round 2): utils@100
-	 * must not beat a newer core@2.0.0.
+	 * never by unrelated version numbers: utils@100 must not beat a newer
+	 * core@2.0.0.
 	 */
 	public function test_fetch_latest_eligible_release_cross_package_uses_chronology(): void {
 		$payload = [
@@ -892,6 +914,7 @@ class API_ClientTest extends TestCase {
 		];
 		$body = json_encode( $payload );
 
+		\WP_Mock::userFunction( 'get_transient' )->andReturn( false );
 		\WP_Mock::userFunction( 'wp_remote_get' )->andReturn( $this->mock_response( 200, $body ) );
 		\WP_Mock::userFunction( 'is_wp_error' )->andReturn( false );
 		\WP_Mock::userFunction( 'wp_remote_retrieve_response_code' )->andReturn( 200 );
@@ -907,8 +930,8 @@ class API_ClientTest extends TestCase {
 	}
 
 	/**
-	 * Non-transitivity pin (round 3): a March backport of package A must not
-	 * let January's A@2.0.0 displace February's B@1.0.0. Two-stage reduction:
+	 * Non-transitivity pin: a March backport of package A must not let
+	 * January's A@2.0.0 displace February's B@1.0.0. Two-stage reduction:
 	 * highest version per stream, then chronology among stream winners.
 	 */
 	public function test_fetch_latest_eligible_release_two_stage_reduction(): void {
@@ -932,6 +955,7 @@ class API_ClientTest extends TestCase {
 		);
 		$body = json_encode( $payload );
 
+		\WP_Mock::userFunction( 'get_transient' )->andReturn( false );
 		\WP_Mock::userFunction( 'wp_remote_get' )->andReturn( $this->mock_response( 200, $body ) );
 		\WP_Mock::userFunction( 'is_wp_error' )->andReturn( false );
 		\WP_Mock::userFunction( 'wp_remote_retrieve_response_code' )->andReturn( 200 );
@@ -947,18 +971,18 @@ class API_ClientTest extends TestCase {
 	}
 
 	/**
-	 * pick_latest_eligible() is the shared selector the version picker's
-	 * latest_tag now uses — for the pinned non-transitive sequence it must
-	 * agree with generation's choice (round 4).
+	 * Release_Selector::select_latest_head() is the shared selector the
+	 * version picker's latest_tag uses — for the pinned non-transitive
+	 * sequence it must agree with generation's choice.
 	 */
-	public function test_pick_latest_eligible_matches_generation_choice(): void {
+	public function test_select_latest_head_matches_generation_choice(): void {
 		$releases = [
 			new Release( tag: '@acme/a@1.0.0', name: '', body: '', html_url: 'https://github.com/x/y/releases/tag/a', published_at: '2026-03-01T00:00:00Z', assets: [] ),
 			new Release( tag: '@acme/b@1.0.0', name: '', body: '', html_url: 'https://github.com/x/y/releases/tag/b', published_at: '2026-02-01T00:00:00Z', assets: [] ),
 			new Release( tag: '@acme/a@2.0.0', name: '', body: '', html_url: 'https://github.com/x/y/releases/tag/c', published_at: '2026-01-01T00:00:00Z', assets: [] ),
 		];
 
-		$picked = API_Client::pick_latest_eligible( $releases );
+		$picked = Release_Selector::select_latest_head( $releases );
 
 		$this->assertInstanceOf( Release::class, $picked );
 		$this->assertSame( '@acme/b@1.0.0', $picked->tag );

@@ -13,16 +13,21 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 use GitHubReleasePosts\Cache_Keys;
+use GitHubReleasePosts\Settings\Repository_Settings;
 
 /**
- * Runs the server-side bookkeeping for a newly added repository.
+ * Runs the fresh-add lifecycle transition for a newly added repository.
  *
- * Fetches the latest release (so the cron has something to compare against),
- * records it as last-seen (so the cron won't double-process it once the
- * client-side auto-generate completes), and returns a decision payload
- * telling the form handler what notice to surface and whether to include
- * the `?ghrp_just_added=<identifier>` query arg on the redirect that
- * triggers the JS auto-generate flow.
+ * One raw release snapshot drives everything: package discovery (warming the
+ * Quick Edit chooser cache), content eligibility, the stream baseline, and
+ * the initial-generation decision. There is no second "latest release"
+ * request — a single snapshot, projected twice, keeps every decision
+ * consistent with what the monitor will later observe.
+ *
+ * If the snapshot fails, the repository stays `onboarding_pending` and the
+ * cron reruns this same transition (via Release_Monitor) until a snapshot
+ * succeeds — failed and successful onboarding converge on identical
+ * behavior instead of drifting into inferred lifecycle states.
  *
  * AI post generation itself is deferred to the client — the admin gets a
  * fast redirect and the post is generated via the same REST endpoint the
@@ -33,30 +38,34 @@ class Onboarding_Handler {
 	/**
 	 * Constructor.
 	 *
-	 * @param API_Client    $api_client GitHub HTTP client.
-	 * @param Release_State $state      Per-repo state storage.
+	 * @param API_Client          $api_client    GitHub HTTP client.
+	 * @param Release_State       $state         Per-repo state storage.
+	 * @param Repository_Settings $repo_settings Tracked repository configuration.
 	 */
 	public function __construct(
 		private readonly API_Client $api_client,
 		private readonly Release_State $state,
+		private readonly Repository_Settings $repo_settings,
 	) {}
 
 	/**
 	 * Decides what to do after a newly added repository.
 	 *
 	 * Possible outcomes:
-	 *  - Latest release fetched, no existing post → auto-trigger generation
-	 *    on the client; no admin notice (the inline spinner speaks for itself).
-	 *    EXCEPT for monorepos (2+ packages detected): auto-generation is
-	 *    suppressed so the admin can choose packages first — otherwise the
-	 *    repo-wide latest release (possibly a utility package the site never
-	 *    wants) would be drafted while the nudge notice tells them to choose.
-	 *  - Latest release fetched, post already exists → no auto-trigger;
-	 *    show an info notice linking to the existing post.
-	 *  - No releases yet → no auto-trigger; show a success notice explaining
-	 *    cron will pick up the first release.
-	 *  - Fetch failed (network / rate limit / private repo without PAT) →
-	 *    no auto-trigger; show a warning notice; cron will retry.
+	 *  - Snapshot failed → repository stays onboarding-pending; warning
+	 *    notice; the cron retries the full onboarding transition.
+	 *  - No eligible releases → empty ready baseline; success notice
+	 *    explaining the first release will generate (with pre-release and
+	 *    pattern-filtered variants).
+	 *  - Package choice available (2+ recognized packages) → all current
+	 *    stream heads baselined; generation suppressed; info notice nudging
+	 *    the admin to choose packages.
+	 *  - Single or mixed topology → all stream heads baselined EXCEPT the
+	 *    latest release's stream; client auto-triggers generation of that
+	 *    release (crash-safe: if the client fails, the absent cursor lets
+	 *    cron generate it).
+	 *  - Latest release already has a post → cursors advanced; info notice
+	 *    linking to the existing post.
 	 *
 	 * @param string $identifier Normalised `owner/repo` identifier.
 	 * @return array{
@@ -65,78 +74,56 @@ class Onboarding_Handler {
 	 * }
 	 */
 	public function handle_add( string $identifier ): array {
-		// Tracking begins NOW — stamped before any API call so no failure
-		// sequence can make this new repository look like pre-feature legacy
-		// history to the monitor (round 6).
-		$this->state->mark_tracking_started( $identifier );
+		// Persisted BEFORE the API call: until a full snapshot succeeds, the
+		// repository is explicitly mid-onboarding — never mistakable for
+		// pre-feature legacy state or a completed baseline.
+		$this->state->mark_onboarding_pending( $identifier );
 
-		// Fetch the full release list once up front: it warms the package
-		// cache so the Quick Edit Packages picker renders instantly right
-		// after adding a monorepo (the moment it is most likely to be
-		// configured), and the only-prereleases branch below reuses it.
-		// Failures are ignored — warming must never break onboarding.
-		$all_releases     = $this->api_client->fetch_releases( $identifier, true );
-		$packages_payload = [
-			'multi_package' => false,
-			'packages'      => [],
-		];
-		$multi_stream     = false;
-		$ui_choice        = false;
-		if ( is_array( $all_releases ) ) {
-			$packages_payload = Tag_Pattern_Matcher::build_packages_payload( $all_releases );
-			set_transient( Cache_Keys::repo_packages( $identifier ), $packages_payload, 15 * MINUTE_IN_SECONDS );
+		$snapshot = $this->api_client->fetch_release_snapshot( $identifier );
 
-			// One topology predicate everywhere monitoring state is written
-			// (round 5): the picker payload's multi_package is a UI notion
-			// (2+ recognized packages) and undercounts repos that mix one
-			// package stream with plain repo-wide tags — the monitor routes
-			// those through streams too, so onboarding must agree.
-			$comparator   = new Version_Comparator();
-			$multi_stream = $comparator->is_multi_stream( $all_releases );
-
-			// Suppressing the initial draft is only justified when the admin
-			// is actually offered a package choice — and the Packages picker
-			// renders only for 2+ RECOGNIZED packages (the payload's UI
-			// notion). A repo mixing one package stream with plain tags is
-			// stream-MONITORED but not package-CHOOSABLE (round 6): it keeps
-			// main's initial latest-draft behavior. Its non-latest streams
-			// are still baselined so the first cron doesn't burst; the
-			// latest release's own stream stays unseeded so the client
-			// auto-trigger — or the cron, if that fails — can generate it.
-			$ui_choice = $multi_stream && $packages_payload['multi_package'];
-
-			$cursors = [];
-			if ( $multi_stream ) {
-				$winners = $comparator->select_stream_winners( $all_releases );
-				$latest  = API_Client::pick_latest_eligible( $all_releases );
-
-				$latest_stream = null;
-				if ( null !== $latest && ! $ui_choice ) {
-					$parsed        = Tag_Pattern_Matcher::derive_package( $latest->tag );
-					$latest_stream = null === $parsed ? '' : $parsed['package'];
-				}
-
-				foreach ( $winners as $stream => $winner ) {
-					if ( ! $ui_choice && (string) $stream === (string) $latest_stream ) {
-						continue; // Pending for auto-generation / cron retry.
-					}
-					$cursors[ (string) $stream ] = [
-						'last_seen_tag'          => $winner->tag,
-						'last_seen_published_at' => $winner->published_at,
-					];
-				}
-			}
-			$this->state->set_monorepo( $identifier, $multi_stream );
-			// Baseline only on a successfully observed list (round 5): an
-			// empty baseline after a FAILED list fetch would make a later
-			// topology discovery treat every current stream winner as new —
-			// a one-post-per-package burst. With no baseline, the next cron
-			// routes by actual topology: single-stream repos enqueue the
-			// pending latest (the cron-retry promise holds because only
-			// multi-stream repos ever enter the seeding branch), and
-			// multi-stream repos run the one-time seeding — correct for both.
-			$this->state->seed_streams( $identifier, $cursors );
+		if ( is_wp_error( $snapshot ) ) {
+			return [
+				'auto_trigger' => false,
+				'notice'       => [
+					'type'    => 'warning',
+					'message' => sprintf(
+						/* translators: %s: error message from GitHub API */
+						__( 'Repository added, but the initial release scan failed: %s It will be retried on the next scheduled run.', 'auto-release-posts-for-github' ),
+						$snapshot->get_error_message()
+					),
+					'url'     => '',
+				],
+			];
 		}
+
+		// DISCOVERY projection: full snapshot, pre-releases included, patterns
+		// ignored — warms the Quick Edit package chooser so it renders
+		// instantly at the moment the repo is most likely to be configured.
+		$packages_payload = Tag_Pattern_Matcher::build_packages_payload( $snapshot );
+		set_transient( Cache_Keys::repo_packages( $identifier ), $packages_payload, 15 * MINUTE_IN_SECONDS );
+
+		// Generation is only suppressed when the admin is actually offered a
+		// package choice, and the chooser renders exactly when the payload
+		// recognizes 2+ named packages.
+		$ui_choice = (bool) $packages_payload['multi_package'];
+
+		// MONITORING projection: the repository's real eligibility policy.
+		// Cursors are built from this view only — seeding from the
+		// pre-release-inclusive discovery list would pin cursors at
+		// pre-release versions and swallow later stable releases.
+		$repo_config         = $this->repo_settings->get_repository( $identifier );
+		$include_prereleases = ! empty( $repo_config['include_prereleases'] );
+		/** This filter is documented in includes/classes/GitHub/Release_Monitor.php */
+		$tag_patterns = (string) apply_filters( 'ghrp_repo_tag_patterns', (string) ( $repo_config['tag_patterns'] ?? '' ), $identifier, $repo_config );
+
+		$eligible = Release_Selector::monitoring_projection( $snapshot, $include_prereleases, $tag_patterns );
+		$plan     = Release_Selector::onboarding_plan( $eligible, $ui_choice );
+
+		$this->state->complete_baseline(
+			$identifier,
+			$plan['cursors'],
+			Release_Selector::policy_hash( $include_prereleases, $tag_patterns )
+		);
 
 		// Monorepo nudge: the default (posts for all packages) is unchanged
 		// pre-1.2 behavior, which floods feeds with utility-package posts.
@@ -151,37 +138,49 @@ class Onboarding_Handler {
 			);
 		}
 
-		// New repos default to excluding pre-releases (see Repository_Settings
-		// defaults). We still surface a helpful notice if the repo turns out to
-		// have only pre-releases — see the null branch below.
-		$release = $this->api_client->fetch_latest_eligible_release( $identifier, false );
+		if ( null === $plan['initial'] ) {
+			// Package choice available: every current head is baselined; the
+			// admin picks packages before anything is drafted. The daily cron
+			// generates future releases with whatever patterns are set by then.
+			if ( $ui_choice && ! empty( $eligible ) ) {
+				return [
+					'auto_trigger' => false,
+					'notice'       => [
+						'type'    => 'info',
+						'message' => $package_note . ' ' . __( 'Automatic generation was skipped so you can choose first.', 'auto-release-posts-for-github' ),
+						'url'     => '',
+					],
+				];
+			}
 
-		if ( is_wp_error( $release ) ) {
-			return [
-				'auto_trigger' => false,
-				'notice'       => [
-					'type'    => 'warning',
-					'message' => sprintf(
-						/* translators: %s: error message from GitHub API */
-						__( 'Repository added, but the initial release check failed: %s It will be retried on the next scheduled run.', 'auto-release-posts-for-github' ),
-						$release->get_error_message()
-					),
-					'url'     => '',
-				],
-			];
-		}
+			// No eligible releases. Distinguish why, so the notice is honest.
+			$has_stable = false;
+			foreach ( $snapshot as $release ) {
+				if ( ! $release->prerelease ) {
+					$has_stable = true;
+					break;
+				}
+			}
 
-		if ( null === $release ) {
-			// No stable release. Before saying "no releases yet," check whether
-			// the repo has pre-releases — this is a common case for projects in
-			// beta lifecycle, and the "no releases" notice would be misleading.
-			$prereleases = is_array( $all_releases ) ? $all_releases : [];
-			if ( count( $prereleases ) > 0 ) {
+			if ( ! empty( $snapshot ) && ! $has_stable ) {
 				return [
 					'auto_trigger' => false,
 					'notice'       => [
 						'type'    => 'success',
 						'message' => trim( __( 'Repository added. This repo only has pre-release versions (betas, release candidates, etc.). Edit the repo and turn on "Include pre-releases" to start tracking them.', 'auto-release-posts-for-github' ) . ' ' . $package_note ),
+						'url'     => '',
+					],
+				];
+			}
+
+			if ( ! empty( $snapshot ) ) {
+				// Stable releases exist but the effective tag patterns exclude
+				// them all (a code-level filter can apply at add time).
+				return [
+					'auto_trigger' => false,
+					'notice'       => [
+						'type'    => 'success',
+						'message' => __( 'Repository added. No recent releases match the configured tag patterns — a draft will be generated automatically when a matching release is published.', 'auto-release-posts-for-github' ),
 						'url'     => '',
 					],
 				];
@@ -197,47 +196,36 @@ class Onboarding_Handler {
 			];
 		}
 
+		$release = $plan['initial'];
+
 		$existing = Release_Monitor::find_post( $identifier, $release->tag );
 		if ( $existing instanceof \WP_Post ) {
-			// A post already exists for the latest tag — record last_seen so
-			// the cron doesn't re-process. Safe here because there is no
-			// in-flight generation that might fail.
+			// A post already exists for the initial release — advance both the
+			// display cursor and the stream cursor so the cron doesn't
+			// re-process. Safe here because there is no in-flight generation
+			// that might fail.
 			$this->state->update_last_seen( $identifier, $release->tag, $release->published_at );
+			$parsed = Tag_Pattern_Matcher::derive_package( $release->tag );
+			$this->state->update_stream_seen( $identifier, null === $parsed ? '' : $parsed['package'], $release->tag, $release->published_at );
+
 			return [
 				'auto_trigger' => false,
 				'notice'       => [
 					'type'    => 'success',
-					'message' => trim( __( 'Repository added. A post already exists for the latest release — use "Generate post" if you want to regenerate it.', 'auto-release-posts-for-github' ) . ' ' . $package_note ),
+					'message' => __( 'Repository added. A post already exists for the latest release — use "Generate post" if you want to regenerate it.', 'auto-release-posts-for-github' ),
 					'url'     => (string) get_edit_post_link( $existing->ID, 'raw' ),
 				],
 			];
 		}
 
-		// Monorepo: do NOT auto-generate. The repo-wide latest release may
-		// belong to a package the site never wants posts for — drafting it
-		// while the nudge says "choose packages" would be contradictory.
-		// The daily cron still generates later with whatever patterns are
-		// set by then; this suppression buys the admin the window to choose.
-		if ( '' !== $package_note ) {
-			return [
-				'auto_trigger' => false,
-				'notice'       => [
-					'type'    => 'info',
-					'message' => $package_note . ' ' . __( 'Automatic generation was skipped so you can choose first.', 'auto-release-posts-for-github' ),
-					'url'     => '',
-				],
-			];
-		}
-
-		// Happy path: client will trigger generation via the inline UI.
-		// Deliberately do NOT pre-record last_seen here — if the client-side
-		// auto-generate fails (browser close, JS error, AI provider down)
-		// before a post is created, the cron must be free to pick up the
-		// slack on its next run. The cron's own pipeline records last_seen
-		// after successful post creation (Release_Monitor::process_queue()),
-		// and Post_Creator's idempotency check via find_post() prevents
-		// double-creation when the cron and client race in the narrow window
-		// during AI generation.
+		// Happy path: client will trigger generation via the inline UI. The
+		// initial release's stream cursor was deliberately OMITTED from the
+		// baseline — if the client-side auto-generate fails (browser close,
+		// JS error, AI provider down) before a post is created, the absent
+		// cursor lets the cron generate it on the next run. The cron's own
+		// pipeline advances cursors after successful post creation, and
+		// find_post() idempotency prevents double-creation when the cron and
+		// client race in the narrow window during AI generation.
 		return [
 			'auto_trigger' => true,
 			'notice'       => null,

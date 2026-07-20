@@ -12,6 +12,7 @@ use GitHubReleasePosts\GitHub\API_Client;
 use GitHubReleasePosts\GitHub\Release;
 use GitHubReleasePosts\GitHub\Release_Monitor;
 use GitHubReleasePosts\GitHub\Release_Queue;
+use GitHubReleasePosts\GitHub\Release_Selector;
 use GitHubReleasePosts\GitHub\Release_State;
 use GitHubReleasePosts\GitHub\Version_Comparator;
 use GitHubReleasePosts\Plugin_Constants;
@@ -19,7 +20,9 @@ use GitHubReleasePosts\Settings\Repository_Settings;
 use WP_Mock\Tools\TestCase;
 
 /**
- * Covers the release-check cron run, queue processing, and find_post().
+ * Covers the universal stream monitor: normal per-stream checks, the three
+ * lifecycle transitions (pending onboarding retry, released-version upgrade,
+ * policy change), queue processing, and find_post().
  */
 class Release_MonitorTest extends TestCase {
 
@@ -48,7 +51,7 @@ class Release_MonitorTest extends TestCase {
 			$this->repo_settings,
 		);
 
-		// The cron lock now takes a direct $wpdb query on the options table's
+		// The cron lock takes a direct $wpdb query on the options table's
 		// unique index. Provide a mock that reports the lock as acquired.
 		global $wpdb;
 		$wpdb          = \Mockery::mock( 'wpdb' );
@@ -61,6 +64,8 @@ class Release_MonitorTest extends TestCase {
 		$wpdb->shouldReceive( 'query' )->andReturn( 1 );
 
 		\WP_Mock::userFunction( 'wp_cache_delete' )->andReturn( true );
+		\WP_Mock::userFunction( 'set_transient' )->andReturn( true )->byDefault();
+		\WP_Mock::userFunction( 'get_transient' )->andReturn( false )->byDefault();
 	}
 
 	public function tearDown(): void {
@@ -73,7 +78,7 @@ class Release_MonitorTest extends TestCase {
 	// Helpers
 	// -------------------------------------------------------------------------
 
-	private function make_release( string $tag, string $published_at = '2026-01-01T00:00:00Z' ): Release {
+	private function make_release( string $tag, string $published_at = '2026-01-01T00:00:00Z', bool $prerelease = false ): Release {
 		return new Release(
 			tag:          $tag,
 			name:         $tag,
@@ -81,11 +86,76 @@ class Release_MonitorTest extends TestCase {
 			published_at: $published_at,
 			html_url:     'https://github.com/owner/repo/releases/tag/' . $tag,
 			assets:       [],
+			prerelease:   $prerelease,
 		);
 	}
 
+	/**
+	 * Canonical post-baseline state for a no-patterns, no-prereleases repo.
+	 * Overrides let each test express exactly the lifecycle it exercises.
+	 *
+	 * @param array $overrides Keys to replace.
+	 * @return array
+	 */
+	private function base_state( array $overrides = [] ): array {
+		return array_merge(
+			[
+				'last_seen_tag'          => '',
+				'last_seen_published_at' => '',
+				'last_checked_at'        => 0,
+				'stream_state_version'   => Release_State::STREAM_STATE_VERSION,
+				'onboarding_pending'     => false,
+				'streams_baseline_at'    => 1700000000,
+				'policy_hash'            => Release_Selector::policy_hash( false, '' ),
+				'streams'                => [],
+			],
+			$overrides
+		);
+	}
+
+	/**
+	 * Builds a monitor wired with the REAL comparator so stream grouping and
+	 * version normalization are exercised end to end.
+	 *
+	 * @return Release_Monitor
+	 */
+	private function real_comparator_monitor(): Release_Monitor {
+		return new Release_Monitor(
+			$this->api_client,
+			$this->release_state,
+			new Version_Comparator(),
+			$this->queue,
+			$this->repo_settings,
+		);
+	}
+
+	/**
+	 * Registers the standard lock/option mocks used by full run() tests.
+	 */
+	private function mock_run_plumbing(): void {
+		\WP_Mock::userFunction( 'add_option' )->andReturn( true );
+		\WP_Mock::userFunction( 'delete_option' )->andReturn( true );
+		\WP_Mock::userFunction( 'update_option' )->andReturn( true );
+	}
+
+	/**
+	 * Captures every enqueued tag into the returned array (by reference).
+	 *
+	 * @return array<int, string>
+	 */
+	private function &capture_enqueues(): array {
+		$enqueued = [];
+		$this->queue->method( 'enqueue' )->willReturnCallback(
+			function ( string $identifier, Release $release ) use ( &$enqueued ): void {
+				$enqueued[] = $release->tag;
+			}
+		);
+		$this->queue->method( 'dequeue_all' )->willReturn( [] );
+		return $enqueued;
+	}
+
 	// -------------------------------------------------------------------------
-	// run() — records last_run_at at start (BR-004)
+	// run() — plumbing (BR-004, AC-025, AC-031)
 	// -------------------------------------------------------------------------
 
 	/**
@@ -97,8 +167,6 @@ class Release_MonitorTest extends TestCase {
 		$this->repo_settings->method( 'get_repositories' )->willReturn( [] );
 		$this->queue->method( 'dequeue_all' )->willReturn( [] );
 
-		// Concurrency lock mocks.
-		\WP_Mock::userFunction( 'add_option' )->with( Cache_Keys::cron_lock(), \WP_Mock\Functions::type( 'int' ), '', false )->andReturn( true );
 		\WP_Mock::userFunction( 'delete_option' )->with( Cache_Keys::cron_lock() )->andReturn( true );
 
 		$recorded_at = null;
@@ -117,10 +185,6 @@ class Release_MonitorTest extends TestCase {
 		$this->assertGreaterThan( 0, $recorded_at );
 	}
 
-	// -------------------------------------------------------------------------
-	// run() — paused repo skipping (AC-025, BR-004)
-	// -------------------------------------------------------------------------
-
 	/**
 	 * Paused repos do not trigger an API call (AC-025, BR-004).
 	 *
@@ -131,24 +195,15 @@ class Release_MonitorTest extends TestCase {
 			[ [ 'identifier' => 'owner/repo', 'paused' => true ] ]
 		);
 
-		$this->api_client->expects( $this->never() )->method( 'fetch_latest_eligible_release' );
+		$this->api_client->expects( $this->never() )->method( 'fetch_release_snapshot' );
 		$this->queue->expects( $this->never() )->method( 'enqueue' );
 
 		// dequeue_all() must still be called to process any previously queued items.
 		$this->queue->method( 'dequeue_all' )->willReturn( [] );
-
-		// Concurrency lock mocks.
-		\WP_Mock::userFunction( 'add_option' )->with( Cache_Keys::cron_lock(), \WP_Mock\Functions::type( 'int' ), '', false )->andReturn( true );
-		\WP_Mock::userFunction( 'delete_option' )->with( Cache_Keys::cron_lock() )->andReturn( true );
-
-		\WP_Mock::userFunction( 'update_option' )->andReturn( true );
+		$this->mock_run_plumbing();
 
 		$this->monitor->run();
 	}
-
-	// -------------------------------------------------------------------------
-	// run() — rate limit exhausted stops the loop
-	// -------------------------------------------------------------------------
 
 	/**
 	 * Rate-limit WP_Error stops processing further repos (AC-031).
@@ -167,106 +222,12 @@ class Release_MonitorTest extends TestCase {
 
 		// First repo hits rate limit — second should never be fetched.
 		$this->api_client->expects( $this->once() )
-			->method( 'fetch_latest_eligible_release' )
+			->method( 'fetch_release_snapshot' )
 			->with( 'owner/repo-a' )
 			->willReturn( $rate_limit_error );
 
 		$this->queue->method( 'dequeue_all' )->willReturn( [] );
-
-		// Concurrency lock mocks.
-		\WP_Mock::userFunction( 'add_option' )->with( Cache_Keys::cron_lock(), \WP_Mock\Functions::type( 'int' ), '', false )->andReturn( true );
-		\WP_Mock::userFunction( 'delete_option' )->with( Cache_Keys::cron_lock() )->andReturn( true );
-
-		\WP_Mock::userFunction( 'update_option' )->andReturn( true );
-
-		$this->monitor->run();
-	}
-
-	// -------------------------------------------------------------------------
-	// run() — new release enqueued
-	// -------------------------------------------------------------------------
-
-	/**
-	 * A new release is enqueued and last_checked is updated.
-	 *
-	 * @covers Release_Monitor::run
-	 */
-	public function test_run_enqueues_new_release(): void {
-		$release = $this->make_release( 'v1.1.0' );
-		$state   = [
-			'last_seen_tag'          => 'v1.0.0',
-			'last_seen_published_at' => '',
-			'last_checked_at'        => 0,
-			'packages'               => [],
-			'streams_baseline_at'    => 1700000000,
-			'tracking_started_at'    => 0,
-			'is_monorepo'            => false,
-			'topology_checked_at'    => time(),
-		];
-
-		$this->repo_settings->method( 'get_repositories' )->willReturn(
-			[ [ 'identifier' => 'owner/repo' ] ]
-		);
-		$this->api_client->method( 'fetch_latest_eligible_release' )->willReturn( $release );
-		$this->release_state->method( 'get_state' )->willReturn( $state );
-		$this->comparator->method( 'is_newer' )->willReturn( true );
-
-		$this->queue->expects( $this->once() )
-			->method( 'enqueue' )
-			->with( 'owner/repo', $release );
-
-		$this->release_state->expects( $this->once() )
-			->method( 'update_last_checked' )
-			->with( 'owner/repo' );
-
-		$this->queue->method( 'dequeue_all' )->willReturn( [] );
-
-		// Concurrency lock mocks.
-		\WP_Mock::userFunction( 'add_option' )->with( Cache_Keys::cron_lock(), \WP_Mock\Functions::type( 'int' ), '', false )->andReturn( true );
-		\WP_Mock::userFunction( 'delete_option' )->with( Cache_Keys::cron_lock() )->andReturn( true );
-
-		\WP_Mock::userFunction( 'update_option' )->andReturn( true );
-
-		$this->monitor->run();
-	}
-
-	// -------------------------------------------------------------------------
-	// run() — no new release skips enqueue
-	// -------------------------------------------------------------------------
-
-	/**
-	 * When there is no new release, the queue is not touched.
-	 *
-	 * @covers Release_Monitor::run
-	 */
-	public function test_run_does_not_enqueue_when_no_new_release(): void {
-		$release = $this->make_release( 'v1.0.0' );
-		$state   = [
-			'last_seen_tag'          => 'v1.0.0',
-			'last_seen_published_at' => '',
-			'last_checked_at'        => 0,
-			'packages'               => [],
-			'streams_baseline_at'    => 1700000000,
-			'tracking_started_at'    => 0,
-			'is_monorepo'            => false,
-			'topology_checked_at'    => time(),
-		];
-
-		$this->repo_settings->method( 'get_repositories' )->willReturn(
-			[ [ 'identifier' => 'owner/repo' ] ]
-		);
-		$this->api_client->method( 'fetch_latest_eligible_release' )->willReturn( $release );
-		$this->release_state->method( 'get_state' )->willReturn( $state );
-		$this->comparator->method( 'is_newer' )->willReturn( false );
-
-		$this->queue->expects( $this->never() )->method( 'enqueue' );
-		$this->queue->method( 'dequeue_all' )->willReturn( [] );
-
-		// Concurrency lock mocks.
-		\WP_Mock::userFunction( 'add_option' )->with( Cache_Keys::cron_lock(), \WP_Mock\Functions::type( 'int' ), '', false )->andReturn( true );
-		\WP_Mock::userFunction( 'delete_option' )->with( Cache_Keys::cron_lock() )->andReturn( true );
-
-		\WP_Mock::userFunction( 'update_option' )->andReturn( true );
+		$this->mock_run_plumbing();
 
 		$this->monitor->run();
 	}
@@ -303,14 +264,7 @@ class Release_MonitorTest extends TestCase {
 		// The no-post-created branch records an error for the admin notice
 		// (Publish_Workflow::record_error → transient read/write).
 		\WP_Mock::userFunction( '__' )->andReturnArg( 0 );
-		\WP_Mock::userFunction( 'get_transient' )->andReturn( false );
-		\WP_Mock::userFunction( 'set_transient' )->andReturn( true );
-
-		// Concurrency lock mocks.
-		\WP_Mock::userFunction( 'add_option' )->with( Cache_Keys::cron_lock(), \WP_Mock\Functions::type( 'int' ), '', false )->andReturn( true );
-		\WP_Mock::userFunction( 'delete_option' )->with( Cache_Keys::cron_lock() )->andReturn( true );
-
-		\WP_Mock::userFunction( 'update_option' )->andReturn( true );
+		$this->mock_run_plumbing();
 
 		$this->monitor->run();
 
@@ -318,11 +272,12 @@ class Release_MonitorTest extends TestCase {
 	}
 
 	/**
-	 * last_seen state is updated only when a post is created (BR-001).
+	 * Both the repo-wide display cursor and the stream cursor advance only
+	 * when a post was actually created (BR-001).
 	 *
 	 * @covers Release_Monitor::run
 	 */
-	public function test_run_updates_last_seen_only_when_post_created(): void {
+	public function test_run_updates_cursors_only_when_post_created(): void {
 		$this->repo_settings->method( 'get_repositories' )->willReturn( [] );
 
 		$entry = [
@@ -351,11 +306,11 @@ class Release_MonitorTest extends TestCase {
 			->method( 'update_last_seen' )
 			->with( 'owner/repo', 'v2.0.0', '2026-03-21T00:00:00Z' );
 
-		// Concurrency lock mocks.
-		\WP_Mock::userFunction( 'add_option' )->with( Cache_Keys::cron_lock(), \WP_Mock\Functions::type( 'int' ), '', false )->andReturn( true );
-		\WP_Mock::userFunction( 'delete_option' )->with( Cache_Keys::cron_lock() )->andReturn( true );
+		$this->release_state->expects( $this->once() )
+			->method( 'update_stream_seen' )
+			->with( 'owner/repo', '', 'v2.0.0', '2026-03-21T00:00:00Z' );
 
-		\WP_Mock::userFunction( 'update_option' )->andReturn( true );
+		$this->mock_run_plumbing();
 
 		$this->monitor->run();
 	}
@@ -420,79 +375,63 @@ class Release_MonitorTest extends TestCase {
 	}
 
 	// -------------------------------------------------------------------------
-	// run() — per-package streams for patterned monorepos (peer review P1)
+	// Normal monitoring — universal per-stream checks
 	// -------------------------------------------------------------------------
 
 	/**
-	 * Two selected packages both released between checks: BOTH are enqueued.
-	 * The previous single-cursor model enqueued only the newer one and
-	 * silently dropped its sibling forever. Uses the real Version_Comparator
-	 * so package tags exercise the semver normalization end to end.
+	 * Two selected packages both released between checks: BOTH are enqueued,
+	 * and a matching policy hash means NO rebaseline happens. The old
+	 * single-cursor model enqueued only the newer one and silently dropped
+	 * its sibling forever.
 	 */
-	public function test_patterned_run_enqueues_sibling_package_releases(): void {
+	public function test_normal_run_enqueues_sibling_stream_releases(): void {
 		\WP_Mock::userFunction( 'get_posts' )->andReturn( [] );
-		$monitor = new Release_Monitor(
-			$this->api_client,
-			$this->release_state,
-			new Version_Comparator(),
-			$this->queue,
-			$this->repo_settings,
-		);
+		$monitor  = $this->real_comparator_monitor();
+		$patterns = '@acme/core@*, @acme/next@*';
 
 		$this->repo_settings->method( 'get_repositories' )->willReturn(
 			[
 				[
 					'identifier'   => 'acme/mono',
-					'tag_patterns' => '@acme/core@*, @acme/next@*',
+					'tag_patterns' => $patterns,
 				],
 			]
 		);
 
 		// Coordinated release day: both packages shipped since the last check,
-		// plus an older core release that must not win its stream.
-		$this->api_client->method( 'fetch_releases' )->willReturn(
+		// an older core release that must not win its stream, and a plain tag
+		// the patterns exclude from monitoring entirely.
+		$this->api_client->method( 'fetch_release_snapshot' )->willReturn(
 			[
 				$this->make_release( '@acme/core@2.0.0', '2026-07-18T12:00:00Z' ),
 				$this->make_release( '@acme/next@1.5.0', '2026-07-18T11:00:00Z' ),
 				$this->make_release( '@acme/core@1.9.0', '2026-06-01T00:00:00Z' ),
+				$this->make_release( 'v0.5.0', '2025-01-01T00:00:00Z' ),
 			]
 		);
-		$this->api_client->expects( $this->never() )->method( 'fetch_latest_eligible_release' );
 
 		$this->release_state->method( 'get_state' )->willReturn(
-			[
-				'last_seen_tag'          => '@acme/core@1.9.0',
-				'last_seen_published_at' => '2026-06-01T00:00:00Z',
-				'last_checked_at'        => 0,
-				'streams_baseline_at'    => 1700000000,
-			'tracking_started_at'    => 0,
-				'tracking_started_at'    => 0,
-				'is_monorepo'            => true,
-				'topology_checked_at'    => time(),
-				'packages'               => [
-					'@acme/core' => [
-						'last_seen_tag'          => '@acme/core@1.9.0',
-						'last_seen_published_at' => '2026-06-01T00:00:00Z',
+			$this->base_state(
+				[
+					'policy_hash' => Release_Selector::policy_hash( false, $patterns ),
+					'streams'     => [
+						'@acme/core' => [
+							'last_seen_tag'          => '@acme/core@1.9.0',
+							'last_seen_published_at' => '2026-06-01T00:00:00Z',
+						],
+						'@acme/next' => [
+							'last_seen_tag'          => '@acme/next@1.4.0',
+							'last_seen_published_at' => '2026-05-01T00:00:00Z',
+						],
 					],
-					'@acme/next' => [
-						'last_seen_tag'          => '@acme/next@1.4.0',
-						'last_seen_published_at' => '2026-05-01T00:00:00Z',
-					],
-				],
-			]
+				]
+			)
 		);
 
-		$enqueued = [];
-		$this->queue->method( 'enqueue' )->willReturnCallback(
-			function ( string $identifier, Release $release ) use ( &$enqueued ): void {
-				$enqueued[] = $release->tag;
-			}
-		);
-		$this->queue->method( 'dequeue_all' )->willReturn( [] );
+		$this->release_state->expects( $this->never() )->method( 'complete_baseline' );
 
-		\WP_Mock::userFunction( 'add_option' )->andReturn( true );
-		\WP_Mock::userFunction( 'delete_option' )->andReturn( true );
-		\WP_Mock::userFunction( 'update_option' )->andReturn( true );
+		$enqueued = &$this->capture_enqueues();
+		$this->mock_run_plumbing();
 
 		$monitor->run();
 
@@ -501,29 +440,24 @@ class Release_MonitorTest extends TestCase {
 	}
 
 	/**
-	 * A package with no releases since its cursor is not re-enqueued, even
+	 * A stream with no releases since its cursor is not re-enqueued, even
 	 * when its sibling has a new release.
 	 */
-	public function test_patterned_run_skips_stream_with_no_new_release(): void {
+	public function test_stream_with_no_new_release_is_skipped(): void {
 		\WP_Mock::userFunction( 'get_posts' )->andReturn( [] );
-		$monitor = new Release_Monitor(
-			$this->api_client,
-			$this->release_state,
-			new Version_Comparator(),
-			$this->queue,
-			$this->repo_settings,
-		);
+		$monitor  = $this->real_comparator_monitor();
+		$patterns = '@acme/core@*, @acme/next@*';
 
 		$this->repo_settings->method( 'get_repositories' )->willReturn(
 			[
 				[
 					'identifier'   => 'acme/mono',
-					'tag_patterns' => '@acme/core@*, @acme/next@*',
+					'tag_patterns' => $patterns,
 				],
 			]
 		);
 
-		$this->api_client->method( 'fetch_releases' )->willReturn(
+		$this->api_client->method( 'fetch_release_snapshot' )->willReturn(
 			[
 				$this->make_release( '@acme/core@2.0.0', '2026-07-18T12:00:00Z' ),
 				$this->make_release( '@acme/next@1.4.0', '2026-05-01T00:00:00Z' ),
@@ -531,39 +465,25 @@ class Release_MonitorTest extends TestCase {
 		);
 
 		$this->release_state->method( 'get_state' )->willReturn(
-			[
-				'last_seen_tag'          => '',
-				'last_seen_published_at' => '',
-				'last_checked_at'        => 0,
-				'streams_baseline_at'    => 1700000000,
-			'tracking_started_at'    => 0,
-				'tracking_started_at'    => 0,
-				'is_monorepo'            => true,
-				'topology_checked_at'    => time(),
-				'packages'               => [
-					'@acme/core' => [
-						'last_seen_tag'          => '@acme/core@1.9.0',
-						'last_seen_published_at' => '2026-06-01T00:00:00Z',
+			$this->base_state(
+				[
+					'policy_hash' => Release_Selector::policy_hash( false, $patterns ),
+					'streams'     => [
+						'@acme/core' => [
+							'last_seen_tag'          => '@acme/core@1.9.0',
+							'last_seen_published_at' => '2026-06-01T00:00:00Z',
+						],
+						'@acme/next' => [
+							'last_seen_tag'          => '@acme/next@1.4.0',
+							'last_seen_published_at' => '2026-05-01T00:00:00Z',
+						],
 					],
-					'@acme/next' => [
-						'last_seen_tag'          => '@acme/next@1.4.0',
-						'last_seen_published_at' => '2026-05-01T00:00:00Z',
-					],
-				],
-			]
+				]
+			)
 		);
 
-		$enqueued = [];
-		$this->queue->method( 'enqueue' )->willReturnCallback(
-			function ( string $identifier, Release $release ) use ( &$enqueued ): void {
-				$enqueued[] = $release->tag;
-			}
-		);
-		$this->queue->method( 'dequeue_all' )->willReturn( [] );
-
-		\WP_Mock::userFunction( 'add_option' )->andReturn( true );
-		\WP_Mock::userFunction( 'delete_option' )->andReturn( true );
-		\WP_Mock::userFunction( 'update_option' )->andReturn( true );
+		$enqueued = &$this->capture_enqueues();
+		$this->mock_run_plumbing();
 
 		$monitor->run();
 
@@ -571,302 +491,19 @@ class Release_MonitorTest extends TestCase {
 	}
 
 	/**
-	 * The default all-packages mode (no patterns) must ALSO monitor per
-	 * stream: a monorepo is detected from its latest release's tag shape,
-	 * and coordinated sibling releases are both enqueued (peer review
-	 * round 2, P1).
+	 * No patterns, no persisted topology: a repository mixing plain tags with
+	 * package streams is monitored per stream by the ONE universal algorithm —
+	 * all three new heads are enqueued in a single check.
 	 */
-	public function test_unfiltered_monorepo_enqueues_sibling_releases(): void {
+	public function test_universal_monitor_enqueues_all_new_stream_heads(): void {
 		\WP_Mock::userFunction( 'get_posts' )->andReturn( [] );
-
-		$monitor = new Release_Monitor(
-			$this->api_client,
-			$this->release_state,
-			new Version_Comparator(),
-			$this->queue,
-			$this->repo_settings,
-		);
-
-		$this->repo_settings->method( 'get_repositories' )->willReturn(
-			[ [ 'identifier' => 'acme/unfiltered' ] ]
-		);
-
-		// Fast path returns the repo-wide latest — a package tag, so the
-		// monitor switches to streams and fetches the full list.
-		$this->api_client->method( 'fetch_latest_eligible_release' )->willReturn(
-			$this->make_release( '@acme/core@2.0.0', '2026-07-18T12:00:00Z' )
-		);
-		$this->api_client->method( 'fetch_releases' )->willReturn(
-			[
-				$this->make_release( '@acme/core@2.0.0', '2026-07-18T12:00:00Z' ),
-				$this->make_release( '@acme/next@1.5.0', '2026-07-18T11:00:00Z' ),
-			]
-		);
-
-		$this->release_state->method( 'get_state' )->willReturn(
-			[
-				'last_seen_tag'          => '@acme/core@1.9.0',
-				'last_seen_published_at' => '2026-06-01T00:00:00Z',
-				'last_checked_at'        => 0,
-				'streams_baseline_at'    => 1700000000,
-			'tracking_started_at'    => 0,
-				'tracking_started_at'    => 0,
-				'is_monorepo'            => true,
-				'topology_checked_at'    => time(),
-				'packages'               => [
-					'@acme/core' => [
-						'last_seen_tag'          => '@acme/core@1.9.0',
-						'last_seen_published_at' => '2026-06-01T00:00:00Z',
-					],
-					'@acme/next' => [
-						'last_seen_tag'          => '@acme/next@1.4.0',
-						'last_seen_published_at' => '2026-05-01T00:00:00Z',
-					],
-				],
-			]
-		);
-
-		$enqueued = [];
-		$this->queue->method( 'enqueue' )->willReturnCallback(
-			function ( string $identifier, Release $release ) use ( &$enqueued ): void {
-				$enqueued[] = $release->tag;
-			}
-		);
-		$this->queue->method( 'dequeue_all' )->willReturn( [] );
-
-		\WP_Mock::userFunction( 'add_option' )->andReturn( true );
-		\WP_Mock::userFunction( 'delete_option' )->andReturn( true );
-		\WP_Mock::userFunction( 'update_option' )->andReturn( true );
-
-		$monitor->run();
-
-		sort( $enqueued );
-		$this->assertSame( [ '@acme/core@2.0.0', '@acme/next@1.5.0' ], $enqueued );
-	}
-
-	/**
-	 * The first streamed run seeds cursors without generating — no
-	 * one-post-per-package burst on upgrade or pattern configuration.
-	 */
-	public function test_first_streamed_run_seeds_without_enqueueing(): void {
-		$monitor = new Release_Monitor(
-			$this->api_client,
-			$this->release_state,
-			new Version_Comparator(),
-			$this->queue,
-			$this->repo_settings,
-		);
-
-		$this->repo_settings->method( 'get_repositories' )->willReturn(
-			[
-				[
-					'identifier'   => 'acme/mono-seed',
-					'tag_patterns' => '@acme/core@*, @acme/next@*',
-				],
-			]
-		);
-
-		$this->api_client->method( 'fetch_releases' )->willReturn(
-			[
-				$this->make_release( '@acme/core@2.0.0', '2026-07-18T12:00:00Z' ),
-				$this->make_release( '@acme/next@1.5.0', '2026-07-18T11:00:00Z' ),
-			]
-		);
-
-		// No baseline marker: this repo predates stream monitoring. An
-		// unrelated default-stream cursor is present and must NOT disable
-		// migration seeding (round 3 — emptiness is not the signal).
-		$this->release_state->method( 'get_state' )->willReturn(
-			[
-				'last_seen_tag'          => '@acme/core@1.0.0',
-				'last_seen_published_at' => '2026-01-01T00:00:00Z',
-				'last_checked_at'        => 0,
-				'streams_baseline_at'    => 0,
-				'tracking_started_at'    => 0,
-				'is_monorepo'            => true,
-				'packages'               => [
-					'' => [
-						'last_seen_tag'          => 'v0.9.0',
-						'last_seen_published_at' => '2025-01-01T00:00:00Z',
-					],
-				],
-			]
-		);
-
-		$seeded = null;
-		$this->release_state->method( 'seed_streams' )->willReturnCallback(
-			function ( string $identifier, array $cursors ) use ( &$seeded ): void {
-				$seeded = $cursors;
-			}
-		);
-
-		$this->queue->expects( $this->never() )->method( 'enqueue' );
-		$this->queue->method( 'dequeue_all' )->willReturn( [] );
-
-		\WP_Mock::userFunction( 'add_option' )->andReturn( true );
-		\WP_Mock::userFunction( 'delete_option' )->andReturn( true );
-		\WP_Mock::userFunction( 'update_option' )->andReturn( true );
-
-		$monitor->run();
-
-		$this->assertSame(
-			[ '@acme/core', '@acme/next' ],
-			array_keys( $seeded )
-		);
-		$this->assertSame( '@acme/core@2.0.0', $seeded['@acme/core']['last_seen_tag'] );
-	}
-
-	/**
-	 * Replay guard: a stream candidate that already has a post (manual
-	 * generation, pre-existing content) advances its cursor and is NOT
-	 * re-enqueued — re-enqueueing burned an AI call and could publish a
-	 * review draft via the cron's publish workflow (peer review round 2).
-	 */
-	public function test_stream_candidate_with_existing_post_is_not_reenqueued(): void {
-		\WP_Mock::userFunction( 'get_posts' )->andReturn( [ new \WP_Post( [ 'ID' => 77 ] ) ] );
-
-		$monitor = new Release_Monitor(
-			$this->api_client,
-			$this->release_state,
-			new Version_Comparator(),
-			$this->queue,
-			$this->repo_settings,
-		);
-
-		$this->repo_settings->method( 'get_repositories' )->willReturn(
-			[
-				[
-					'identifier'   => 'acme/mono-replay',
-					'tag_patterns' => '@acme/core@*',
-				],
-			]
-		);
-
-		$this->api_client->method( 'fetch_releases' )->willReturn(
-			[ $this->make_release( '@acme/core@3.0.0', '2026-07-18T12:00:00Z' ) ]
-		);
-
-		$this->release_state->method( 'get_state' )->willReturn(
-			[
-				'last_seen_tag'          => '',
-				'last_seen_published_at' => '',
-				'last_checked_at'        => 0,
-				'streams_baseline_at'    => 1700000000,
-			'tracking_started_at'    => 0,
-				'tracking_started_at'    => 0,
-				'is_monorepo'            => false,
-				'packages'               => [
-					'@acme/core' => [
-						'last_seen_tag'          => '@acme/core@2.0.0',
-						'last_seen_published_at' => '2026-06-01T00:00:00Z',
-					],
-				],
-			]
-		);
-
-		$advanced = [];
-		$this->release_state->method( 'update_package_seen' )->willReturnCallback(
-			function ( string $identifier, string $package, string $tag, string $published_at ) use ( &$advanced ): void {
-				$advanced[] = $tag;
-			}
-		);
-
-		$this->queue->expects( $this->never() )->method( 'enqueue' );
-		$this->queue->method( 'dequeue_all' )->willReturn( [] );
-
-		\WP_Mock::userFunction( 'add_option' )->andReturn( true );
-		\WP_Mock::userFunction( 'delete_option' )->andReturn( true );
-		\WP_Mock::userFunction( 'update_option' )->andReturn( true );
-
-		$monitor->run();
-
-		$this->assertSame( [ '@acme/core@3.0.0' ], $advanced );
-	}
-
-	/**
-	 * A repo added before its first release (baseline stamped by onboarding,
-	 * cursors empty) must generate when that first package-style release
-	 * appears — onboarding promised it, and this is also the cron-retry path
-	 * when client auto-generation fails (round 3).
-	 */
-	public function test_first_release_after_empty_add_is_enqueued(): void {
-		\WP_Mock::userFunction( 'get_posts' )->andReturn( [] );
-
-		$monitor = new Release_Monitor(
-			$this->api_client,
-			$this->release_state,
-			new Version_Comparator(),
-			$this->queue,
-			$this->repo_settings,
-		);
-
-		$this->repo_settings->method( 'get_repositories' )->willReturn(
-			[ [ 'identifier' => 'acme/newborn' ] ]
-		);
-
-		$this->api_client->method( 'fetch_latest_eligible_release' )->willReturn(
-			$this->make_release( 'newborn@1.0.0', '2026-07-19T00:00:00Z' )
-		);
-		$this->api_client->method( 'fetch_releases' )->willReturn(
-			[ $this->make_release( 'newborn@1.0.0', '2026-07-19T00:00:00Z' ) ]
-		);
-
-		$this->release_state->method( 'get_state' )->willReturn(
-			[
-				'last_seen_tag'          => '',
-				'last_seen_published_at' => '',
-				'last_checked_at'        => 0,
-				'streams_baseline_at'    => 1700000000,
-			'tracking_started_at'    => 0,
-				'tracking_started_at'    => 0,
-				'is_monorepo'            => false,
-				'topology_checked_at'    => time(),
-				'packages'               => [],
-			]
-		);
-
-		$enqueued = [];
-		$this->queue->method( 'enqueue' )->willReturnCallback(
-			function ( string $identifier, Release $release ) use ( &$enqueued ): void {
-				$enqueued[] = $release->tag;
-			}
-		);
-		$this->queue->method( 'dequeue_all' )->willReturn( [] );
-
-		\WP_Mock::userFunction( 'add_option' )->andReturn( true );
-		\WP_Mock::userFunction( 'delete_option' )->andReturn( true );
-		\WP_Mock::userFunction( 'update_option' )->andReturn( true );
-
-		$monitor->run();
-
-		$this->assertSame( [ 'newborn@1.0.0' ], $enqueued );
-	}
-
-	/**
-	 * The durable is_monorepo flag routes to stream monitoring even when the
-	 * LATEST release is a plain repo-wide tag (round 3): both unseen package
-	 * releases behind it are enqueued.
-	 */
-	public function test_monorepo_flag_survives_plain_latest_tag(): void {
-		\WP_Mock::userFunction( 'get_posts' )->andReturn( [] );
-
-		$monitor = new Release_Monitor(
-			$this->api_client,
-			$this->release_state,
-			new Version_Comparator(),
-			$this->queue,
-			$this->repo_settings,
-		);
+		$monitor = $this->real_comparator_monitor();
 
 		$this->repo_settings->method( 'get_repositories' )->willReturn(
 			[ [ 'identifier' => 'acme/mixed' ] ]
 		);
 
-		// Latest is a plain repo-wide tag — tag-shape detection would miss it.
-		$this->api_client->method( 'fetch_latest_eligible_release' )->willReturn(
-			$this->make_release( 'v3.0.0', '2026-07-19T00:00:00Z' )
-		);
-		$this->api_client->method( 'fetch_releases' )->willReturn(
+		$this->api_client->method( 'fetch_release_snapshot' )->willReturn(
 			[
 				$this->make_release( 'v3.0.0', '2026-07-19T00:00:00Z' ),
 				$this->make_release( '@acme/core@2.0.0', '2026-07-18T12:00:00Z' ),
@@ -875,43 +512,28 @@ class Release_MonitorTest extends TestCase {
 		);
 
 		$this->release_state->method( 'get_state' )->willReturn(
-			[
-				'last_seen_tag'          => 'v2.0.0',
-				'last_seen_published_at' => '2026-01-01T00:00:00Z',
-				'last_checked_at'        => 0,
-				'streams_baseline_at'    => 1700000000,
-			'tracking_started_at'    => 0,
-				'tracking_started_at'    => 0,
-				'is_monorepo'            => true,
-				'topology_checked_at'    => time(),
-				'packages'               => [
-					''           => [
-						'last_seen_tag'          => 'v2.0.0',
-						'last_seen_published_at' => '2026-01-01T00:00:00Z',
+			$this->base_state(
+				[
+					'streams' => [
+						''           => [
+							'last_seen_tag'          => 'v2.0.0',
+							'last_seen_published_at' => '2026-01-01T00:00:00Z',
+						],
+						'@acme/core' => [
+							'last_seen_tag'          => '@acme/core@1.9.0',
+							'last_seen_published_at' => '2026-06-01T00:00:00Z',
+						],
+						'@acme/next' => [
+							'last_seen_tag'          => '@acme/next@1.4.0',
+							'last_seen_published_at' => '2026-05-01T00:00:00Z',
+						],
 					],
-					'@acme/core' => [
-						'last_seen_tag'          => '@acme/core@1.9.0',
-						'last_seen_published_at' => '2026-06-01T00:00:00Z',
-					],
-					'@acme/next' => [
-						'last_seen_tag'          => '@acme/next@1.4.0',
-						'last_seen_published_at' => '2026-05-01T00:00:00Z',
-					],
-				],
-			]
+				]
+			)
 		);
 
-		$enqueued = [];
-		$this->queue->method( 'enqueue' )->willReturnCallback(
-			function ( string $identifier, Release $release ) use ( &$enqueued ): void {
-				$enqueued[] = $release->tag;
-			}
-		);
-		$this->queue->method( 'dequeue_all' )->willReturn( [] );
-
-		\WP_Mock::userFunction( 'add_option' )->andReturn( true );
-		\WP_Mock::userFunction( 'delete_option' )->andReturn( true );
-		\WP_Mock::userFunction( 'update_option' )->andReturn( true );
+		$enqueued = &$this->capture_enqueues();
+		$this->mock_run_plumbing();
 
 		$monitor->run();
 
@@ -920,111 +542,146 @@ class Release_MonitorTest extends TestCase {
 	}
 
 	/**
-	 * Round-4 required test 1: a stale/never-made topology determination
-	 * with a PLAIN latest tag must still inspect the full list — a repo can
-	 * become a monorepo behind a repo-wide tag. Unseen streams process.
+	 * A stream head whose stream has no cursor (deliberately omitted at
+	 * onboarding, or the stream appeared after the baseline) is enqueued —
+	 * this is both the cron-retry path for a failed client auto-generate and
+	 * the first-release path for a repo added before any release existed.
 	 */
-	public function test_stale_topology_with_plain_latest_discovers_monorepo(): void {
+	public function test_missing_cursor_after_baseline_enqueues_head(): void {
 		\WP_Mock::userFunction( 'get_posts' )->andReturn( [] );
-
-		$monitor = new Release_Monitor(
-			$this->api_client,
-			$this->release_state,
-			new Version_Comparator(),
-			$this->queue,
-			$this->repo_settings,
-		);
+		$monitor = $this->real_comparator_monitor();
 
 		$this->repo_settings->method( 'get_repositories' )->willReturn(
-			[ [ 'identifier' => 'acme/became-mono' ] ]
+			[ [ 'identifier' => 'acme/newborn' ] ]
 		);
 
-		$this->api_client->method( 'fetch_latest_eligible_release' )->willReturn(
-			$this->make_release( 'v9.0.0', '2026-07-19T00:00:00Z' )
-		);
-		$this->api_client->method( 'fetch_releases' )->willReturn(
-			[
-				$this->make_release( 'v9.0.0', '2026-07-19T00:00:00Z' ),
-				$this->make_release( '@acme/core@2.0.0', '2026-07-18T12:00:00Z' ),
-				$this->make_release( '@acme/next@1.5.0', '2026-07-18T11:00:00Z' ),
-			]
+		$this->api_client->method( 'fetch_release_snapshot' )->willReturn(
+			[ $this->make_release( 'v1.0.0', '2026-07-19T00:00:00Z' ) ]
 		);
 
-		$this->release_state->method( 'get_state' )->willReturn(
+		$this->release_state->method( 'get_state' )->willReturn( $this->base_state() );
+
+		$enqueued = &$this->capture_enqueues();
+		$this->mock_run_plumbing();
+
+		$monitor->run();
+
+		$this->assertSame( [ 'v1.0.0' ], $enqueued );
+	}
+
+	/**
+	 * Replay guard: a stream head that already has a post (manual generation,
+	 * client auto-generate) advances its cursor and is NOT re-enqueued —
+	 * re-enqueueing burned an AI call and could publish a review draft via
+	 * the cron's publish workflow.
+	 */
+	public function test_stream_head_with_existing_post_is_not_reenqueued(): void {
+		\WP_Mock::userFunction( 'get_posts' )->andReturn( [ new \WP_Post( (object) [ 'ID' => 77 ] ) ] );
+		$monitor  = $this->real_comparator_monitor();
+		$patterns = '@acme/core@*';
+
+		$this->repo_settings->method( 'get_repositories' )->willReturn(
 			[
-				'last_seen_tag'          => 'v8.0.0',
-				'last_seen_published_at' => '2026-01-01T00:00:00Z',
-				'last_checked_at'        => 0,
-				'streams_baseline_at'    => 1700000000,
-			'tracking_started_at'    => 0,
-				'tracking_started_at'    => 0,
-				'is_monorepo'            => false,
-				'topology_checked_at'    => 0,
-				'packages'               => [
-					''           => [
-						'last_seen_tag'          => 'v8.0.0',
-						'last_seen_published_at' => '2026-01-01T00:00:00Z',
-					],
-					'@acme/core' => [
-						'last_seen_tag'          => '@acme/core@1.0.0',
-						'last_seen_published_at' => '2026-01-01T00:00:00Z',
-					],
-					'@acme/next' => [
-						'last_seen_tag'          => '@acme/next@1.0.0',
-						'last_seen_published_at' => '2026-01-01T00:00:00Z',
-					],
+				[
+					'identifier'   => 'acme/mono-replay',
+					'tag_patterns' => $patterns,
 				],
 			]
 		);
 
-		$flagged = null;
-		$this->release_state->method( 'set_monorepo' )->willReturnCallback(
-			function ( string $identifier, bool $flag ) use ( &$flagged ): void {
-				$flagged = $flag;
+		$this->api_client->method( 'fetch_release_snapshot' )->willReturn(
+			[ $this->make_release( '@acme/core@3.0.0', '2026-07-18T12:00:00Z' ) ]
+		);
+
+		$this->release_state->method( 'get_state' )->willReturn(
+			$this->base_state(
+				[
+					'policy_hash' => Release_Selector::policy_hash( false, $patterns ),
+					'streams'     => [
+						'@acme/core' => [
+							'last_seen_tag'          => '@acme/core@2.0.0',
+							'last_seen_published_at' => '2026-06-01T00:00:00Z',
+						],
+					],
+				]
+			)
+		);
+
+		$advanced = [];
+		$this->release_state->method( 'update_stream_seen' )->willReturnCallback(
+			function ( string $identifier, string $stream, string $tag, string $published_at ) use ( &$advanced ): void {
+				$advanced[] = $tag;
 			}
 		);
 
-		$enqueued = [];
-		$this->queue->method( 'enqueue' )->willReturnCallback(
-			function ( string $identifier, Release $release ) use ( &$enqueued ): void {
-				$enqueued[] = $release->tag;
-			}
-		);
+		$this->queue->expects( $this->never() )->method( 'enqueue' );
 		$this->queue->method( 'dequeue_all' )->willReturn( [] );
-
-		\WP_Mock::userFunction( 'add_option' )->andReturn( true );
-		\WP_Mock::userFunction( 'delete_option' )->andReturn( true );
-		\WP_Mock::userFunction( 'update_option' )->andReturn( true );
+		$this->mock_run_plumbing();
 
 		$monitor->run();
 
-		$this->assertTrue( $flagged );
-		sort( $enqueued );
-		$this->assertSame( [ '@acme/core@2.0.0', '@acme/next@1.5.0', 'v9.0.0' ], $enqueued );
+		$this->assertSame( [ '@acme/core@3.0.0' ], $advanced );
 	}
 
 	/**
-	 * Round-4 required test 2: legacy state (upgrade — no baseline, no
-	 * topology fields) with a plain latest tag still discovers the monorepo
-	 * and runs the one-time migration seeding rather than bursting.
+	 * REGRESSION (design-doc "round 7"): with pre-releases off, a pre-release
+	 * head is invisible to monitoring — the newest STABLE release is the
+	 * stream head, and it generates even though a higher-versioned beta
+	 * exists. A beta must never block or become a cursor.
 	 */
-	public function test_legacy_upgrade_with_plain_latest_discovers_and_seeds(): void {
-		$monitor = new Release_Monitor(
-			$this->api_client,
-			$this->release_state,
-			new Version_Comparator(),
-			$this->queue,
-			$this->repo_settings,
-		);
+	public function test_prerelease_head_is_invisible_when_prereleases_off(): void {
+		\WP_Mock::userFunction( 'get_posts' )->andReturn( [] );
+		$monitor = $this->real_comparator_monitor();
 
 		$this->repo_settings->method( 'get_repositories' )->willReturn(
-			[ [ 'identifier' => 'acme/legacy-mono' ] ]
+			[ [ 'identifier' => 'acme/beta-mixed' ] ]
 		);
 
-		$this->api_client->method( 'fetch_latest_eligible_release' )->willReturn(
-			$this->make_release( 'v9.0.0', '2026-07-19T00:00:00Z' )
+		$this->api_client->method( 'fetch_release_snapshot' )->willReturn(
+			[
+				$this->make_release( '@acme/core@3.0.0-beta.1', '2026-07-19T00:00:00Z', true ),
+				$this->make_release( '@acme/core@2.1.0', '2026-07-18T00:00:00Z' ),
+			]
 		);
-		$this->api_client->method( 'fetch_releases' )->willReturn(
+
+		$this->release_state->method( 'get_state' )->willReturn(
+			$this->base_state(
+				[
+					'streams' => [
+						'@acme/core' => [
+							'last_seen_tag'          => '@acme/core@2.0.0',
+							'last_seen_published_at' => '2026-06-01T00:00:00Z',
+						],
+					],
+				]
+			)
+		);
+
+		$enqueued = &$this->capture_enqueues();
+		$this->mock_run_plumbing();
+
+		$monitor->run();
+
+		$this->assertSame( [ '@acme/core@2.1.0' ], $enqueued );
+	}
+
+	// -------------------------------------------------------------------------
+	// Transition: upgrade from the released pre-stream plugin
+	// -------------------------------------------------------------------------
+
+	/**
+	 * State written by the released plugin (no stream_state_version) gets a
+	 * one-time baseline of every current eligible stream head and generates
+	 * NOTHING — no one-post-per-package burst on upgrade.
+	 */
+	public function test_upgrade_from_released_state_baselines_without_generating(): void {
+		$monitor = $this->real_comparator_monitor();
+
+		$this->repo_settings->method( 'get_repositories' )->willReturn(
+			[ [ 'identifier' => 'acme/legacy' ] ]
+		);
+
+		$this->api_client->method( 'fetch_release_snapshot' )->willReturn(
 			[
 				$this->make_release( 'v9.0.0', '2026-07-19T00:00:00Z' ),
 				$this->make_release( '@acme/core@2.0.0', '2026-07-18T12:00:00Z' ),
@@ -1032,32 +689,30 @@ class Release_MonitorTest extends TestCase {
 			]
 		);
 
+		// Exactly what 1.1.x left behind: a repo-wide cursor and nothing else.
 		$this->release_state->method( 'get_state' )->willReturn(
-			[
-				'last_seen_tag'          => 'v8.0.0',
-				'last_seen_published_at' => '2026-01-01T00:00:00Z',
-				'last_checked_at'        => 0,
-				'streams_baseline_at'    => 0,
-				'tracking_started_at'    => 0,
-				'is_monorepo'            => false,
-				'topology_checked_at'    => 0,
-				'packages'               => [],
-			]
+			$this->base_state(
+				[
+					'last_seen_tag'          => 'v8.0.0',
+					'last_seen_published_at' => '2026-01-01T00:00:00Z',
+					'stream_state_version'   => 0,
+					'streams_baseline_at'    => 0,
+					'policy_hash'            => '',
+					'streams'                => [],
+				]
+			)
 		);
 
 		$seeded = null;
-		$this->release_state->method( 'seed_streams' )->willReturnCallback(
-			function ( string $identifier, array $cursors ) use ( &$seeded ): void {
+		$this->release_state->expects( $this->once() )->method( 'complete_baseline' )->willReturnCallback(
+			function ( string $identifier, array $cursors, string $policy_hash ) use ( &$seeded ): void {
 				$seeded = $cursors;
 			}
 		);
 
 		$this->queue->expects( $this->never() )->method( 'enqueue' );
 		$this->queue->method( 'dequeue_all' )->willReturn( [] );
-
-		\WP_Mock::userFunction( 'add_option' )->andReturn( true );
-		\WP_Mock::userFunction( 'delete_option' )->andReturn( true );
-		\WP_Mock::userFunction( 'update_option' )->andReturn( true );
+		$this->mock_run_plumbing();
 
 		$monitor->run();
 
@@ -1065,198 +720,220 @@ class Release_MonitorTest extends TestCase {
 		$keys = array_keys( $seeded );
 		sort( $keys );
 		$this->assertSame( [ '', '@acme/core', '@acme/next' ], $keys );
+		$this->assertSame( '@acme/core@2.0.0', $seeded['@acme/core']['last_seen_tag'] );
 	}
 
-	/**
-	 * Round-5: a single-stream repo whose onboarding discovery failed (no
-	 * baseline, package-shaped tag) routes through the SINGLE-cursor path —
-	 * winners-based topology, not tag shape — and its pending release is
-	 * enqueued, never seeded away.
-	 */
-	public function test_single_stream_package_repo_without_baseline_enqueues_pending(): void {
-		\WP_Mock::userFunction( 'get_posts' )->andReturn( [] );
-
-		$monitor = new Release_Monitor(
-			$this->api_client,
-			$this->release_state,
-			new Version_Comparator(),
-			$this->queue,
-			$this->repo_settings,
-		);
-
-		$this->repo_settings->method( 'get_repositories' )->willReturn(
-			[ [ 'identifier' => 'acme/newborn-flaky' ] ]
-		);
-
-		$this->api_client->method( 'fetch_latest_eligible_release' )->willReturn(
-			$this->make_release( 'newborn@1.0.0', '2026-07-19T00:00:00Z' )
-		);
-		$this->api_client->method( 'fetch_releases' )->willReturn(
-			[ $this->make_release( 'newborn@1.0.0', '2026-07-19T00:00:00Z' ) ]
-		);
-
-		$this->release_state->method( 'get_state' )->willReturn(
-			[
-				'last_seen_tag'          => '',
-				'last_seen_published_at' => '',
-				'last_checked_at'        => 0,
-				'streams_baseline_at'    => 0,
-				'tracking_started_at'    => 0,
-				'is_monorepo'            => false,
-				'topology_checked_at'    => 0,
-				'packages'               => [],
-			]
-		);
-
-		$this->release_state->expects( $this->never() )->method( 'seed_streams' );
-
-		$enqueued = [];
-		$this->queue->method( 'enqueue' )->willReturnCallback(
-			function ( string $identifier, Release $release ) use ( &$enqueued ): void {
-				$enqueued[] = $release->tag;
-			}
-		);
-		$this->queue->method( 'dequeue_all' )->willReturn( [] );
-
-		\WP_Mock::userFunction( 'add_option' )->andReturn( true );
-		\WP_Mock::userFunction( 'delete_option' )->andReturn( true );
-		\WP_Mock::userFunction( 'update_option' )->andReturn( true );
-
-		$monitor->run();
-
-		$this->assertSame( [ 'newborn@1.0.0' ], $enqueued );
-	}
+	// -------------------------------------------------------------------------
+	// Transition: eligibility policy change (forward-only)
+	// -------------------------------------------------------------------------
 
 	/**
-	 * Round-6 required: onboarding failed, single-stream generation later
-	 * succeeded (its cursor was written by process_queue), and NOW a second
-	 * stream appears. tracking_started_at proves the repo is not legacy, so
-	 * the new stream's first release is ENQUEUED — the previous inference
-	 * would have seeded it away as migration history.
+	 * A changed policy hash rebaselines the current eligible heads under the
+	 * NEW policy and generates nothing that scan — settings changes are
+	 * forward-only, and a cursor written under the old policy can never
+	 * block or leak content under the new one.
 	 */
-	public function test_second_stream_after_failed_onboarding_is_enqueued(): void {
-		\WP_Mock::userFunction( 'get_posts' )->andReturn( [] );
-
-		$monitor = new Release_Monitor(
-			$this->api_client,
-			$this->release_state,
-			new Version_Comparator(),
-			$this->queue,
-			$this->repo_settings,
-		);
+	public function test_policy_change_rebaselines_without_generating(): void {
+		$monitor = $this->real_comparator_monitor();
 
 		$this->repo_settings->method( 'get_repositories' )->willReturn(
-			[ [ 'identifier' => 'acme/grew-a-stream' ] ]
+			[ [ 'identifier' => 'acme/policy-flip' ] ]
 		);
 
-		$this->api_client->method( 'fetch_latest_eligible_release' )->willReturn(
-			$this->make_release( 'tools@1.0.0', '2026-07-19T00:00:00Z' )
-		);
-		$this->api_client->method( 'fetch_releases' )->willReturn(
-			[
-				$this->make_release( 'tools@1.0.0', '2026-07-19T00:00:00Z' ),
-				$this->make_release( 'newborn@1.2.0', '2026-07-01T00:00:00Z' ),
-			]
+		$this->api_client->method( 'fetch_release_snapshot' )->willReturn(
+			[ $this->make_release( '@acme/core@2.0.0', '2026-07-18T12:00:00Z' ) ]
 		);
 
+		// Baseline was built when Include pre-releases was ON; the repo config
+		// above has it OFF, so the stored hash no longer matches.
 		$this->release_state->method( 'get_state' )->willReturn(
-			[
-				'last_seen_tag'          => 'newborn@1.2.0',
-				'last_seen_published_at' => '2026-07-01T00:00:00Z',
-				'last_checked_at'        => 0,
-				'streams_baseline_at'    => 0,
-				'tracking_started_at'    => 1700000000,
-				'is_monorepo'            => false,
-				'topology_checked_at'    => 0,
-				'packages'               => [
-					'newborn' => [
-						'last_seen_tag'          => 'newborn@1.2.0',
-						'last_seen_published_at' => '2026-07-01T00:00:00Z',
+			$this->base_state(
+				[
+					'policy_hash' => Release_Selector::policy_hash( true, '' ),
+					'streams'     => [
+						'@acme/core' => [
+							'last_seen_tag'          => '@acme/core@1.9.0',
+							'last_seen_published_at' => '2026-06-01T00:00:00Z',
+						],
 					],
-				],
-			]
+				]
+			)
 		);
 
-		$this->release_state->expects( $this->never() )->method( 'seed_streams' );
-
-		$enqueued = [];
-		$this->queue->method( 'enqueue' )->willReturnCallback(
-			function ( string $identifier, Release $release ) use ( &$enqueued ): void {
-				$enqueued[] = $release->tag;
+		$captured_hash = null;
+		$this->release_state->expects( $this->once() )->method( 'complete_baseline' )->willReturnCallback(
+			function ( string $identifier, array $cursors, string $policy_hash ) use ( &$captured_hash ): void {
+				$captured_hash = $policy_hash;
 			}
 		);
-		$this->queue->method( 'dequeue_all' )->willReturn( [] );
 
-		\WP_Mock::userFunction( 'add_option' )->andReturn( true );
-		\WP_Mock::userFunction( 'delete_option' )->andReturn( true );
-		\WP_Mock::userFunction( 'update_option' )->andReturn( true );
+		$this->queue->expects( $this->never() )->method( 'enqueue' );
+		$this->queue->method( 'dequeue_all' )->willReturn( [] );
+		$this->mock_run_plumbing();
 
 		$monitor->run();
 
-		$this->assertSame( [ 'tools@1.0.0' ], $enqueued );
+		$this->assertSame( Release_Selector::policy_hash( false, '' ), $captured_hash );
+	}
+
+	// -------------------------------------------------------------------------
+	// Transition: retry of failed onboarding (onboarding_pending)
+	// -------------------------------------------------------------------------
+
+	/**
+	 * A pending single-stream repo completes onboarding on the cron retry
+	 * with the SAME matrix as a successful add: empty baseline (the only
+	 * stream is the initial release's own) and exactly one generation.
+	 */
+	public function test_pending_retry_single_stream_baselines_and_enqueues_initial(): void {
+		\WP_Mock::userFunction( 'get_posts' )->andReturn( [] );
+		$monitor = $this->real_comparator_monitor();
+
+		$this->repo_settings->method( 'get_repositories' )->willReturn(
+			[ [ 'identifier' => 'acme/retry-single' ] ]
+		);
+
+		$this->api_client->method( 'fetch_release_snapshot' )->willReturn(
+			[ $this->make_release( 'v1.0.0', '2026-07-19T00:00:00Z' ) ]
+		);
+
+		$this->release_state->method( 'get_state' )->willReturn(
+			$this->base_state(
+				[
+					'stream_state_version' => 0,
+					'onboarding_pending'   => true,
+					'streams_baseline_at'  => 0,
+					'policy_hash'          => '',
+				]
+			)
+		);
+
+		$this->release_state->expects( $this->once() )->method( 'complete_baseline' )->with( 'acme/retry-single', [], $this->anything() );
+
+		$enqueued = &$this->capture_enqueues();
+		$this->mock_run_plumbing();
+
+		$monitor->run();
+
+		$this->assertSame( [ 'v1.0.0' ], $enqueued );
 	}
 
 	/**
-	 * Round-6 required: repo added with no releases while discovery failed;
-	 * its FIRST successful list is already multi-stream. The promised first
-	 * releases generate — tracking began before they existed, so nothing is
-	 * historical.
+	 * A pending repo whose first successful snapshot shows 2+ recognized
+	 * packages follows the chooser branch of the matrix: every current head
+	 * baselined, NOTHING generated (no burst of existing history), and the
+	 * package nudge deferred to the settings screen.
 	 */
-	public function test_first_multi_stream_releases_after_failed_empty_onboarding_generate(): void {
-		\WP_Mock::userFunction( 'get_posts' )->andReturn( [] );
-
-		$monitor = new Release_Monitor(
-			$this->api_client,
-			$this->release_state,
-			new Version_Comparator(),
-			$this->queue,
-			$this->repo_settings,
-		);
+	public function test_pending_retry_multi_package_baselines_all_and_defers_nudge(): void {
+		$monitor = $this->real_comparator_monitor();
 
 		$this->repo_settings->method( 'get_repositories' )->willReturn(
-			[ [ 'identifier' => 'acme/born-multi' ] ]
+			[ [ 'identifier' => 'acme/retry-mono' ] ]
 		);
 
-		$this->api_client->method( 'fetch_latest_eligible_release' )->willReturn(
-			$this->make_release( '@acme/core@1.0.0', '2026-07-19T00:00:00Z' )
-		);
-		$this->api_client->method( 'fetch_releases' )->willReturn(
+		$this->api_client->method( 'fetch_release_snapshot' )->willReturn(
 			[
-				$this->make_release( '@acme/core@1.0.0', '2026-07-19T00:00:00Z' ),
-				$this->make_release( '@acme/next@1.0.0', '2026-07-19T00:00:00Z' ),
+				$this->make_release( '@acme/core@2.0.0', '2026-07-18T12:00:00Z' ),
+				$this->make_release( '@acme/utils@1.1.0', '2026-07-18T11:00:00Z' ),
 			]
 		);
 
 		$this->release_state->method( 'get_state' )->willReturn(
-			[
-				'last_seen_tag'          => '',
-				'last_seen_published_at' => '',
-				'last_checked_at'        => 0,
-				'streams_baseline_at'    => 0,
-				'tracking_started_at'    => 1700000000,
-				'is_monorepo'            => false,
-				'topology_checked_at'    => 0,
-				'packages'               => [],
-			]
+			$this->base_state(
+				[
+					'stream_state_version' => 0,
+					'onboarding_pending'   => true,
+					'streams_baseline_at'  => 0,
+					'policy_hash'          => '',
+				]
+			)
 		);
 
-		$this->release_state->expects( $this->never() )->method( 'seed_streams' );
-
-		$enqueued = [];
-		$this->queue->method( 'enqueue' )->willReturnCallback(
-			function ( string $identifier, Release $release ) use ( &$enqueued ): void {
-				$enqueued[] = $release->tag;
+		$seeded = null;
+		$this->release_state->expects( $this->once() )->method( 'complete_baseline' )->willReturnCallback(
+			function ( string $identifier, array $cursors, string $policy_hash ) use ( &$seeded ): void {
+				$seeded = $cursors;
 			}
 		);
-		$this->queue->method( 'dequeue_all' )->willReturn( [] );
 
-		\WP_Mock::userFunction( 'add_option' )->andReturn( true );
-		\WP_Mock::userFunction( 'delete_option' )->andReturn( true );
-		\WP_Mock::userFunction( 'update_option' )->andReturn( true );
+		$deferred = null;
+		\WP_Mock::userFunction( 'set_transient' )->andReturnUsing(
+			function ( string $key, $value ) use ( &$deferred ) {
+				if ( Cache_Keys::deferred_notices() === $key ) {
+					$deferred = $value;
+				}
+				return true;
+			}
+		);
+
+		$this->queue->expects( $this->never() )->method( 'enqueue' );
+		$this->queue->method( 'dequeue_all' )->willReturn( [] );
+		\WP_Mock::userFunction( '__' )->andReturnArg( 0 );
+		$this->mock_run_plumbing();
 
 		$monitor->run();
 
-		sort( $enqueued );
-		$this->assertSame( [ '@acme/core@1.0.0', '@acme/next@1.0.0' ], $enqueued );
+		$this->assertNotNull( $seeded );
+		$this->assertSame( [ '@acme/core', '@acme/utils' ], array_keys( $seeded ) );
+		$this->assertIsArray( $deferred );
+		$this->assertArrayHasKey( 'acme/retry-mono', $deferred );
+	}
+
+	/**
+	 * A pending repo with no releases resolves onboarding with an empty
+	 * ready baseline: the pending flag cannot linger forever, and the first
+	 * later release generates through normal monitoring.
+	 */
+	public function test_pending_retry_empty_snapshot_resolves_onboarding(): void {
+		$monitor = $this->real_comparator_monitor();
+
+		$this->repo_settings->method( 'get_repositories' )->willReturn(
+			[ [ 'identifier' => 'acme/retry-empty' ] ]
+		);
+
+		$this->api_client->method( 'fetch_release_snapshot' )->willReturn( [] );
+
+		$this->release_state->method( 'get_state' )->willReturn(
+			$this->base_state(
+				[
+					'stream_state_version' => 0,
+					'onboarding_pending'   => true,
+					'streams_baseline_at'  => 0,
+					'policy_hash'          => '',
+				]
+			)
+		);
+
+		$this->release_state->expects( $this->once() )->method( 'complete_baseline' )->with( 'acme/retry-empty', [], $this->anything() );
+
+		$this->queue->expects( $this->never() )->method( 'enqueue' );
+		$this->queue->method( 'dequeue_all' )->willReturn( [] );
+		$this->mock_run_plumbing();
+
+		$monitor->run();
+	}
+
+	/**
+	 * A failed snapshot on the retry leaves the repository pending — no
+	 * baseline is written, so the next cron retries onboarding again.
+	 */
+	public function test_pending_retry_snapshot_failure_stays_pending(): void {
+		$monitor = $this->real_comparator_monitor();
+
+		$this->repo_settings->method( 'get_repositories' )->willReturn(
+			[ [ 'identifier' => 'acme/retry-flaky' ] ]
+		);
+
+		$this->api_client->method( 'fetch_release_snapshot' )->willReturn(
+			new \WP_Error( 'http_request_failed', 'timeout' )
+		);
+
+		$this->release_state->expects( $this->never() )->method( 'complete_baseline' );
+		$this->queue->expects( $this->never() )->method( 'enqueue' );
+		$this->queue->method( 'dequeue_all' )->willReturn( [] );
+		\WP_Mock::userFunction( '__' )->andReturnArg( 0 );
+		$this->mock_run_plumbing();
+
+		$monitor->run();
 	}
 }

@@ -40,6 +40,16 @@ $admin_notice = get_transient( Cache_Keys::admin_notice( $current_user_id ) );
 if ( $admin_notice ) {
 	delete_transient( Cache_Keys::admin_notice( $current_user_id ) );
 }
+
+// Site-wide deferred notices written by background work (e.g. the cron retry
+// of a failed onboarding discovering a multi-package repository).
+$deferred_notices = get_transient( Cache_Keys::deferred_notices() );
+if ( ! is_array( $deferred_notices ) ) {
+	$deferred_notices = [];
+}
+if ( $deferred_notices ) {
+	delete_transient( Cache_Keys::deferred_notices() );
+}
 ?>
 <div class="wrap">
 	<h1><?php echo esc_html__( 'Auto Release Posts for GitHub', 'auto-release-posts-for-github' ); ?></h1>
@@ -82,6 +92,18 @@ if ( $admin_notice ) {
 			</p>
 		</div>
 	<?php endif; ?>
+
+	<?php foreach ( $deferred_notices as $deferred_notice ) : ?>
+		<?php
+		if ( empty( $deferred_notice['message'] ) ) {
+			continue;
+		}
+		$deferred_class = 'warning' === ( $deferred_notice['type'] ?? '' ) ? 'notice-warning' : 'notice-info';
+		?>
+		<div class="notice <?php echo esc_attr( $deferred_class ); ?> is-dismissible">
+			<p><?php echo esc_html( $deferred_notice['message'] ); ?></p>
+		</div>
+	<?php endforeach; ?>
 
 	<?php $block_editor_active = \GitHubReleasePosts\Admin\Admin_Page::is_block_editor_active(); ?>
 
