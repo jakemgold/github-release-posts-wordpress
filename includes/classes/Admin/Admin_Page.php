@@ -920,11 +920,37 @@ class Admin_Page {
 		$latest_pick = Release_Selector::select_latest_head( $releases );
 		$latest_tag  = null !== $latest_pick ? $latest_pick->tag : $releases[0]->tag;
 
+		// Display labels for the picker options: package tags render as
+		// "core 1.6.1" under the same opt-in gate as every other surface
+		// (patterns configured). This list shows packages side by side, so
+		// collision handling is this caller's job (see display_label()):
+		// two packages sharing a short name keep their full names.
+		$package_display   = Tag_Pattern_Matcher::has_patterns( $tag_patterns );
+		$packages_by_short = [];
+		foreach ( $releases as $release ) {
+			$derived = Tag_Pattern_Matcher::derive_display_package( $release->tag, $package_display );
+			if ( null !== $derived ) {
+				$short = Tag_Pattern_Matcher::short_name( $derived['package'] );
+
+				$packages_by_short[ $short ][ $derived['package'] ] = true;
+			}
+		}
+
 		$payload = [];
 		foreach ( $releases as $release ) {
 			$existing = Release_Monitor::find_post( $identifier, $release->tag );
-			$entry    = [
+
+			$derived   = Tag_Pattern_Matcher::derive_display_package( $release->tag, $package_display );
+			$tag_label = $release->tag;
+			if ( null !== $derived ) {
+				$short     = Tag_Pattern_Matcher::short_name( $derived['package'] );
+				$display   = count( $packages_by_short[ $short ] ) > 1 ? $derived['package'] : $short;
+				$tag_label = $display . ' ' . $derived['version'];
+			}
+
+			$entry = [
 				'tag'           => $release->tag,
+				'tag_label'     => $tag_label,
 				'name'          => $release->name,
 				'published_at'  => $release->published_at,
 				'has_post'      => $existing instanceof \WP_Post,

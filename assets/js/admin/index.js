@@ -1543,8 +1543,11 @@ document.addEventListener( 'DOMContentLoaded', function () {
 			const opt = document.createElement( 'option' );
 			opt.value = r.tag;
 			const dateLabel = formatReleasePublishedAt( r.published_at );
+			// Server-supplied display form ("core 1.6.1" for package tags,
+			// same opt-in gate as the Last Post column); the option VALUE
+			// stays the raw tag — it round-trips to the generate endpoint.
 			opt.textContent =
-				r.tag +
+				( r.tag_label || r.tag ) +
 				( dateLabel ? `  —  ${ dateLabel }` : '' ) +
 				( r.has_post ? `  (${ ghrpAdmin.i18n.postExists || 'post exists' })` : '' );
 			opt.dataset.hasPost = r.has_post ? '1' : '';
