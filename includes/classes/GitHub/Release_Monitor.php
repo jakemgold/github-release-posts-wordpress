@@ -159,6 +159,17 @@ class Release_Monitor {
 				$policy_hash = Release_Selector::policy_hash( $include_prereleases, $tag_patterns );
 				$eligible    = Release_Selector::monitoring_projection( $snapshot, $include_prereleases, $tag_patterns );
 
+				// Display-only observation, never read by monitoring: once a
+				// repository is seen releasing 2+ recognized packages, package
+				// naming (titles, slugs, admin labels) engages without
+				// requiring a stored package selection. Also how repositories
+				// tracked before this feature pick up package naming — their
+				// first scan observes it. The guard keeps this a one-time
+				// write (the marker is sticky; see mark_multi_package()).
+				if ( ! $state['multi_package_observed'] && Tag_Pattern_Matcher::build_packages_payload( $snapshot )['multi_package'] ) {
+					$this->state->mark_multi_package( $identifier );
+				}
+
 				if ( $state['onboarding_pending'] ) {
 					// Transition: retry of a failed add. Rerun the SAME
 					// onboarding matrix the add path uses, so a repository

@@ -107,6 +107,13 @@ class Onboarding_Handler {
 		// recognizes 2+ named packages.
 		$ui_choice = (bool) $packages_payload['multi_package'];
 
+		// Persist the observation (display-only, sticky): package naming for
+		// titles, slugs, and admin labels engages from the moment of the add,
+		// without requiring the admin to open the chooser first.
+		if ( $ui_choice ) {
+			$this->state->mark_multi_package( $identifier );
+		}
+
 		// MONITORING projection: the repository's real eligibility policy.
 		// Cursors are built from this view only — seeding from the
 		// pre-release-inclusive discovery list would pin cursors at

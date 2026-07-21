@@ -58,7 +58,7 @@ class Release_State {
 	 * Returns the state array for a repository, with defaults for any missing keys.
 	 *
 	 * @param string $identifier Normalised `owner/repo` identifier.
-	 * @return array{last_seen_tag: string, last_seen_published_at: string, last_checked_at: int, stream_state_version: int, onboarding_pending: bool, streams_baseline_at: int, policy_hash: string, streams: array<string, array{last_seen_tag: string, last_seen_published_at: string}>}
+	 * @return array{last_seen_tag: string, last_seen_published_at: string, last_checked_at: int, stream_state_version: int, onboarding_pending: bool, streams_baseline_at: int, policy_hash: string, streams: array<string, array{last_seen_tag: string, last_seen_published_at: string}>, multi_package_observed: bool}
 	 */
 	public function get_state( string $identifier ): array {
 		$stored = get_option( $this->option_key( $identifier ), [] );
@@ -76,7 +76,51 @@ class Release_State {
 			'streams_baseline_at'    => (int) ( $stored['streams_baseline_at'] ?? 0 ),
 			'policy_hash'            => (string) ( $stored['policy_hash'] ?? '' ),
 			'streams'                => (array) ( $stored['streams'] ?? [] ),
+			// DISPLAY-ONLY fact (see mark_multi_package()) — monitoring
+			// decisions must never read it.
+			'multi_package_observed' => (bool) ( $stored['multi_package_observed'] ?? false ),
 		];
+	}
+
+	/**
+	 * Records that this repository has been observed releasing two or more
+	 * recognized packages.
+	 *
+	 * DISPLAY-ONLY: it turns on package naming for titles, slugs, and admin
+	 * labels (see uses_package_naming()); monitoring decisions must never
+	 * read it, so a stale or missing value can only ever affect cosmetics.
+	 * Sticky by design — package composition inside the bounded snapshot
+	 * window shifts as releases publish, and naming that flip-flopped with
+	 * it would restyle future posts unpredictably. Once multi-package,
+	 * always package-named.
+	 *
+	 * @param string $identifier Normalised `owner/repo` identifier.
+	 * @return void
+	 */
+	public function mark_multi_package( string $identifier ): void {
+		$state = $this->get_state( $identifier );
+		if ( $state['multi_package_observed'] ) {
+			return;
+		}
+
+		$state['multi_package_observed'] = true;
+		$this->save( $identifier, $state );
+	}
+
+	/**
+	 * Whether display surfaces treat this repository's tags as package
+	 * releases: an explicit package selection (or filter-supplied patterns)
+	 * opts in, and an observed multi-package topology does too. A
+	 * single-package repository that merely uses package-shaped tags
+	 * (`myplugin@1.2.3`) matches neither signal, so its titles, slugs, and
+	 * labels stay byte-for-byte unchanged.
+	 *
+	 * @param string $identifier   Normalised `owner/repo` identifier.
+	 * @param string $tag_patterns Effective tag patterns for the repository.
+	 * @return bool
+	 */
+	public function uses_package_naming( string $identifier, string $tag_patterns ): bool {
+		return Tag_Pattern_Matcher::has_patterns( $tag_patterns ) || $this->get_state( $identifier )['multi_package_observed'];
 	}
 
 	/**

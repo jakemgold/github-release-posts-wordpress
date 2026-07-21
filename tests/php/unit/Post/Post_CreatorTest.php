@@ -70,6 +70,13 @@ class Post_CreatorTest extends TestCase {
 			->andReturn( false )
 			->byDefault();
 
+		// The package-naming gate reads per-repo release state
+		// (Release_State::get_state → get_option with an array default).
+		\WP_Mock::userFunction( 'get_option' )
+			->with( \WP_Mock\Functions::type( 'string' ), [] )
+			->andReturn( [] )
+			->byDefault();
+
 		// resolve_author() calls get_userdata() and get_users().
 		\WP_Mock::userFunction( 'get_userdata' )->andReturn( false )->byDefault();
 		\WP_Mock::userFunction( 'get_users' )->andReturn( [ 1 ] )->byDefault();

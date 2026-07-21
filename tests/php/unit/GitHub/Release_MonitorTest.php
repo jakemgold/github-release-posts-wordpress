@@ -108,6 +108,7 @@ class Release_MonitorTest extends TestCase {
 				'streams_baseline_at'    => 1700000000,
 				'policy_hash'            => Release_Selector::policy_hash( false, '' ),
 				'streams'                => [],
+				'multi_package_observed' => false,
 			],
 			$overrides
 		);
@@ -546,6 +547,8 @@ class Release_MonitorTest extends TestCase {
 	 * onboarding, or the stream appeared after the baseline) is enqueued —
 	 * this is both the cron-retry path for a failed client auto-generate and
 	 * the first-release path for a repo added before any release existed.
+	 * A single-stream snapshot must also never record the multi-package
+	 * naming observation.
 	 */
 	public function test_missing_cursor_after_baseline_enqueues_head(): void {
 		\WP_Mock::userFunction( 'get_posts' )->andReturn( [] );
@@ -560,6 +563,7 @@ class Release_MonitorTest extends TestCase {
 		);
 
 		$this->release_state->method( 'get_state' )->willReturn( $this->base_state() );
+		$this->release_state->expects( $this->never() )->method( 'mark_multi_package' );
 
 		$enqueued = &$this->capture_enqueues();
 		$this->mock_run_plumbing();
@@ -567,6 +571,98 @@ class Release_MonitorTest extends TestCase {
 		$monitor->run();
 
 		$this->assertSame( [ 'v1.0.0' ], $enqueued );
+	}
+
+	/**
+	 * The scan records the display-only multi-package observation exactly
+	 * once: an unmarked repo with a 2-package snapshot is marked (this is
+	 * also how monorepos tracked before 1.2.0 pick up package naming), and
+	 * an already-marked repo is never rewritten.
+	 */
+	public function test_multi_package_topology_is_observed_once(): void {
+		\WP_Mock::userFunction( 'get_posts' )->andReturn( [] );
+		$monitor = $this->real_comparator_monitor();
+
+		$this->repo_settings->method( 'get_repositories' )->willReturn(
+			[ [ 'identifier' => 'acme/observed' ] ]
+		);
+
+		$this->api_client->method( 'fetch_release_snapshot' )->willReturn(
+			[
+				$this->make_release( '@acme/core@2.0.0', '2026-07-18T12:00:00Z' ),
+				$this->make_release( '@acme/utils@1.0.0', '2026-07-17T00:00:00Z' ),
+			]
+		);
+
+		// Cursors current — the observation is the only expected effect.
+		$this->release_state->method( 'get_state' )->willReturn(
+			$this->base_state(
+				[
+					'streams' => [
+						'@acme/core'  => [
+							'last_seen_tag'          => '@acme/core@2.0.0',
+							'last_seen_published_at' => '2026-07-18T12:00:00Z',
+						],
+						'@acme/utils' => [
+							'last_seen_tag'          => '@acme/utils@1.0.0',
+							'last_seen_published_at' => '2026-07-17T00:00:00Z',
+						],
+					],
+				]
+			)
+		);
+
+		$this->release_state->expects( $this->once() )->method( 'mark_multi_package' )->with( 'acme/observed' );
+
+		$this->queue->expects( $this->never() )->method( 'enqueue' );
+		$this->queue->method( 'dequeue_all' )->willReturn( [] );
+		$this->mock_run_plumbing();
+
+		$monitor->run();
+	}
+
+	/**
+	 * An already-observed repo does not re-write the marker every scan.
+	 */
+	public function test_observed_marker_is_not_rewritten(): void {
+		\WP_Mock::userFunction( 'get_posts' )->andReturn( [] );
+		$monitor = $this->real_comparator_monitor();
+
+		$this->repo_settings->method( 'get_repositories' )->willReturn(
+			[ [ 'identifier' => 'acme/already-observed' ] ]
+		);
+
+		$this->api_client->method( 'fetch_release_snapshot' )->willReturn(
+			[
+				$this->make_release( '@acme/core@2.0.0', '2026-07-18T12:00:00Z' ),
+				$this->make_release( '@acme/utils@1.0.0', '2026-07-17T00:00:00Z' ),
+			]
+		);
+
+		$this->release_state->method( 'get_state' )->willReturn(
+			$this->base_state(
+				[
+					'multi_package_observed' => true,
+					'streams'                => [
+						'@acme/core'  => [
+							'last_seen_tag'          => '@acme/core@2.0.0',
+							'last_seen_published_at' => '2026-07-18T12:00:00Z',
+						],
+						'@acme/utils' => [
+							'last_seen_tag'          => '@acme/utils@1.0.0',
+							'last_seen_published_at' => '2026-07-17T00:00:00Z',
+						],
+					],
+				]
+			)
+		);
+
+		$this->release_state->expects( $this->never() )->method( 'mark_multi_package' );
+
+		$this->queue->method( 'dequeue_all' )->willReturn( [] );
+		$this->mock_run_plumbing();
+
+		$monitor->run();
 	}
 
 	/**
