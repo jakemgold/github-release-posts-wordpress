@@ -51,6 +51,7 @@ AI-written content with embedded images, plus the GitHub Release sidebar panel f
 ## Features
 
 - Monitor multiple GitHub repositories for new releases
+- Monorepo support — repositories releasing multiple packages are monitored per package, with a picker to choose exactly which packages get posts (see [Monorepo support](#monorepo-support))
 - AI-powered post generation via WordPress Connectors — works with Anthropic, OpenAI, Google, and any other configured connector
 - Significance-aware content — patch, minor, major, and security releases get tailored tone and structure
 - Choose the research depth — Standard reviews release notes, linked issues and PRs, metadata, and the README; Deep adds commit messages and file changes since the last release
@@ -67,6 +68,49 @@ AI-written content with embedded images, plus the GitHub Release sidebar panel f
 - Optional project link support — enter a URL or WordPress.org slug for download CTAs
 - Optional pre-release tracking per repository (off by default)
 - Optional AI disclosure note appended to generated posts
+
+## Monorepo support
+
+Repositories that release multiple packages from one codebase — tags like `@headstartwp/core@1.6.1` alongside `@headstartwp/next@1.5.1` — are detected automatically and monitored per package, so coordinated sibling releases each get their own post.
+
+### Recognized tag shapes
+
+| Tag style | Example | Derived package |
+|-----------|---------|-----------------|
+| npm / changesets (scoped) | `@headstartwp/core@1.6.1` | `@headstartwp/core` |
+| npm / changesets | `create-astro@5.2.2` | `create-astro` |
+| name + `-v` + version | `admin-v2.4.0` | `admin` |
+| name + version | `admin-2.4.0` | `admin` |
+
+Plain tags (`v3.0.0`, `3.0.0`) form the repository's default stream. A repository whose releases all describe a single project — even in one of the package shapes above — is treated as single-package, and nothing changes for it.
+
+### Choosing packages
+
+Detected monorepos show a **Packages** option in the repository's inline edit: create posts for all packages (the default — no filter, so packages added in the future are included too), or choose a fixed set (stored explicitly, so new packages stay excluded until checked). Selections are stored as comma-separated tag patterns matched with `fnmatch()` semantics — `*`, `?`, and `[0-9]` are supported, brace expansion is not, and matching is case-sensitive, as git tags are.
+
+### How monitoring works
+
+- Each scheduled check inspects one bounded snapshot of the repository's 25 most recent release records.
+- Every release belongs to a stream — its package, or the default stream for plain tags — and each stream keeps its own cursor, so sibling releases published between checks are never skipped.
+- At most one release per stream is generated per check: a package publishing several versions between checks gets its newest eligible version.
+- Releases that already have a post are never re-processed, and the first check after upgrading records current releases without generating a burst of posts.
+- Changing **Include pre-releases** or the package selection is forward-only: monitoring continues under the new settings without generating newly eligible older releases. **Generate draft** is the deliberate backfill tool.
+- Once a repository is observed releasing multiple packages, post titles, URL slugs, and admin labels use readable package naming ("HeadstartWP core 1.6.1 — …"). Single-package repositories keep their raw-tag naming byte-for-byte.
+
+### Custom tag patterns in code
+
+For tagging schemes the plugin does not recognize, or dynamic rules, supply patterns with the `ghrp_repo_tag_patterns` filter:
+
+```php
+add_filter( 'ghrp_repo_tag_patterns', function ( $patterns, $identifier, $repo ) {
+	if ( 'acme/monorepo' === $identifier ) {
+		return 'platform/*, sdk-[0-9]*';
+	}
+	return $patterns;
+}, 10, 3 );
+```
+
+Return a comma-separated list of glob patterns, or an empty string for no filtering. The returned value must be deterministic — it participates in the stored eligibility policy, and a value that changed on every run would re-baseline (and therefore never post) on every run. The Packages picker reflects stored selections only; filter-supplied patterns apply at generation time.
 
 ## Requirements
 
@@ -154,6 +198,8 @@ The plugin is extensible via filter hooks at every stage of the pipeline:
 | `ghrp_max_release_body_length` | Truncation threshold for large release bodies |
 | `ghrp_sideload_allowed_domains` | Domains allowed for image sideloading |
 | `ghrp_check_frequency` | WP-Cron schedule (default: `daily`) |
+| `ghrp_repo_tag_patterns` | Tag patterns for monorepo package selection (see [Monorepo support](#monorepo-support)) |
+| `ghrp_skip_accessible_repo` | Exclude repositories from the add-repo picker (default: archived and dot-prefixed repos) |
 | `ghrp_register_ai_providers` | Register custom AI provider connectors |
 | `ghrp_wp_ai_client_model_preferences` | Ordered list of preferred model IDs for WordPress Connectors |
 | `ghrp_openai_reasoning_effort` | Reasoning effort level for OpenAI models (default: `high`) |
