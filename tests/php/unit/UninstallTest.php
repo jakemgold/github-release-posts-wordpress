@@ -64,6 +64,12 @@ class UninstallTest extends TestCase {
 				->once();
 		}
 
+		// The cron lock is a plain option row outside get_defaults(); it must
+		// be removed explicitly.
+		\WP_Mock::userFunction( 'delete_option' )
+			->with( \GitHubReleasePosts\Cache_Keys::cron_lock() )
+			->once();
+
 		\WP_Mock::userFunction( 'wp_clear_scheduled_hook' )->andReturn( null );
 
 		// Mock wpdb.

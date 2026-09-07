@@ -152,7 +152,9 @@ class Publish_Workflow {
 	/**
 	 * Records a post result for the admin notice transient.
 	 *
-	 * Replaces any previous results (AC-010 — no unbounded stacking).
+	 * Release_Monitor::run() clears the transient at the start of every
+	 * scheduled run, so it always describes the most recent run and never
+	 * stacks (AC-010).
 	 *
 	 * @param int         $post_id WordPress post ID.
 	 * @param string      $status  Final post status.

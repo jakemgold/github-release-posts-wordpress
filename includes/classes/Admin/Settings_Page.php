@@ -197,7 +197,11 @@ class Settings_Page {
 				'message' => (string) $result->get_error_message(),
 			];
 
-		set_transient( $cache_key, $status, MINUTE_IN_SECONDS );
+		// The key is md5( PAT ), so a rotated token invalidates itself; the TTL
+		// only bounds how often an unchanged token is re-checked against GitHub.
+		// The settings tab renders on every plugin-page load (both tabs), so
+		// a 60-second TTL made nearly every load a live api.github.com call.
+		set_transient( $cache_key, $status, 15 * MINUTE_IN_SECONDS );
 		return $status;
 	}
 
@@ -513,17 +517,24 @@ class Settings_Page {
 				continue;
 			}
 
-			$class_name = $registry->getProviderClassName( $id );
-			$models     = $class_name::modelMetadataDirectory()->listModelMetadata();
+			// listModelMetadata() can be a live request to the provider's
+			// models endpoint and throws on failure; this runs on every load of
+			// the plugin's admin page, so a bad key must not fatal the screen.
+			try {
+				$class_name = $registry->getProviderClassName( $id );
+				$models     = $class_name::modelMetadataDirectory()->listModelMetadata();
 
-			return [
-				'configured'    => true,
-				'provider_name' => (string) $class_name::metadata()->getName(),
-				'provider_id'   => $id,
-				'model_id'      => ! empty( $models ) ? (string) $models[0]->getId() : '',
-				'is_preferred'  => false,
-				'effort'        => '',
-			];
+				return [
+					'configured'    => true,
+					'provider_name' => (string) $class_name::metadata()->getName(),
+					'provider_id'   => $id,
+					'model_id'      => ! empty( $models ) ? (string) $models[0]->getId() : '',
+					'is_preferred'  => false,
+					'effort'        => '',
+				];
+			} catch ( \Throwable $e ) {
+				continue;
+			}
 		}
 
 		return $default;

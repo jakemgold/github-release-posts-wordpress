@@ -864,8 +864,7 @@ class Admin_Page {
 		// patterns configured (see Tag_Pattern_Matcher::derive_display_package()).
 		$source_repo = (string) get_post_meta( $post->ID, Plugin_Constants::META_SOURCE_REPO, true );
 		$repo_config = $this->repo_settings->get_repository( $source_repo );
-		/** This filter is documented in includes/classes/GitHub/Release_Monitor.php */
-		$patterns = (string) apply_filters( 'ghrp_repo_tag_patterns', (string) ( $repo_config['tag_patterns'] ?? '' ), $source_repo, $repo_config );
+		$patterns    = $this->repo_settings->get_effective_tag_patterns( $source_repo, $repo_config );
 
 		return [
 			'id'        => $post->ID,
@@ -898,8 +897,7 @@ class Admin_Page {
 		// where the field is missing (pre-1.0 entries).
 		$repo                = $this->repo_settings->get_repository( $identifier );
 		$include_prereleases = ! empty( $repo['include_prereleases'] );
-		/** This filter is documented in includes/classes/GitHub/Release_Monitor.php */
-		$tag_patterns = (string) apply_filters( 'ghrp_repo_tag_patterns', (string) ( $repo['tag_patterns'] ?? '' ), $identifier, $repo );
+		$tag_patterns        = $this->repo_settings->get_effective_tag_patterns( $identifier, $repo );
 
 		$releases = $api_client->fetch_releases( $identifier, $include_prereleases, $tag_patterns );
 
@@ -955,7 +953,9 @@ class Admin_Page {
 				'tag_label'     => $tag_label,
 				'name'          => $release->name,
 				'published_at'  => $release->published_at,
-				'has_post'      => $existing instanceof \WP_Post,
+				// A trashed post is not "existing" here, matching generate-draft,
+				// which deliberately creates a fresh draft alongside a trashed one.
+				'has_post'      => $existing instanceof \WP_Post && 'trash' !== $existing->post_status,
 				'post_id'       => 0,
 				'post_status'   => '',
 				'post_edit_url' => '',
@@ -1054,9 +1054,8 @@ class Admin_Page {
 		// release of ANY package in a monorepo, so "Generate post" could draft
 		// a package the site never publishes. Delegates to the fast cached
 		// endpoint when no patterns are set.
-		$repo_config = $this->repo_settings->get_repository( (string) $identifier );
-		/** This filter is documented in includes/classes/GitHub/Release_Monitor.php */
-		$tag_patterns = (string) apply_filters( 'ghrp_repo_tag_patterns', (string) ( $repo_config['tag_patterns'] ?? '' ), (string) $identifier, $repo_config );
+		$repo_config  = $this->repo_settings->get_repository( (string) $identifier );
+		$tag_patterns = $this->repo_settings->get_effective_tag_patterns( (string) $identifier, $repo_config );
 		// Same eligibility inputs as the version picker (round 5): the picker
 		// honors Include pre-releases, so generation must too — otherwise a
 		// pre-release-only repo lists releases it can never generate, and the
@@ -1459,6 +1458,11 @@ class Admin_Page {
 	 * @return \WP_REST_Response|\WP_Error
 	 */
 	public function rest_regenerate_post( \WP_REST_Request $request ): \WP_REST_Response|\WP_Error {
+		// Same gate as every other generation path: the output is block markup.
+		if ( ! self::is_block_editor_active() ) {
+			return new \WP_Error( 'ghrp_no_block_editor', __( 'Post generation requires the block editor.', 'auto-release-posts-for-github' ), [ 'status' => 400 ] );
+		}
+
 		$post_id  = (int) $request->get_param( 'post_id' );
 		$feedback = (string) $request->get_param( 'feedback' );
 
@@ -1535,10 +1539,9 @@ class Admin_Page {
 		// Assemble full title — honors the configured title format (regression fix:
 		// previously hardcoded the 'full' format, doubling project name + version
 		// for sites with 'none' selected).
-		$display_name = $this->repo_settings->get_display_name( $identifier );
-		$repo_config  = $this->repo_settings->get_repository( $identifier );
-		/** This filter is documented in includes/classes/GitHub/Release_Monitor.php */
-		$patterns       = (string) apply_filters( 'ghrp_repo_tag_patterns', (string) ( $repo_config['tag_patterns'] ?? '' ), $identifier, $repo_config );
+		$display_name   = $this->repo_settings->get_display_name( $identifier );
+		$repo_config    = $this->repo_settings->get_repository( $identifier );
+		$patterns       = $this->repo_settings->get_effective_tag_patterns( $identifier, $repo_config );
 		$package_naming = ( new Release_State() )->uses_package_naming( $identifier, $patterns );
 		$full_title     = Post_Creator::build_title(
 			$display_name,

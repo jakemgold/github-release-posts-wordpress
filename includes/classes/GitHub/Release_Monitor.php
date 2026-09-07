@@ -83,8 +83,10 @@ class Release_Monitor {
 		// cannot be used here: its existence check is cache-based and its write is
 		// an upsert, so two workers that both pass the check each believe they
 		// acquired it — the race that produced duplicate posts. The stored value
-		// is the acquisition timestamp, so a lock abandoned by a hard crash (which
-		// skips the finally below) is reclaimed after 10 minutes.
+		// is the holder's last heartbeat timestamp: it is refreshed as the run
+		// progresses (see refresh_lock()), so a healthy but long run is never
+		// mistaken for an abandoned one, while a lock left by a hard crash
+		// (which skips the finally below) is reclaimed after 10 minutes.
 		$lock_key     = Cache_Keys::cron_lock();
 		$now          = time();
 		$lock_max_age = 10 * MINUTE_IN_SECONDS;
@@ -99,6 +101,9 @@ class Release_Monitor {
 			}
 		}
 
+		$this->lock_key   = $lock_key;
+		$this->lock_value = (string) $now;
+
 		// Wrap the run body in try/finally so any uncaught exception from
 		// HTTP, AI provider, image sideload, or third-party action/filter
 		// listeners still releases the lock — without this, the cron would
@@ -106,6 +111,10 @@ class Release_Monitor {
 		try {
 			// Record start time before processing so a partial run still updates the display (BR-004).
 			update_option( Plugin_Constants::OPTION_LAST_RUN_AT, time(), false );
+
+			// The results summary describes THIS run: start it empty so errors
+			// from a repository that fails every day do not stack forever.
+			delete_transient( Cache_Keys::cron_results() );
 
 			$repos = $this->repo_settings->get_repositories();
 
@@ -115,6 +124,8 @@ class Release_Monitor {
 					continue;
 				}
 
+				$this->refresh_lock();
+
 				// Skip paused repos — no API call, no state update (AC-025, BR-004).
 				if ( ! empty( $repo['paused'] ) ) {
 					$this->log( $identifier, 'skipped — paused' );
@@ -122,23 +133,7 @@ class Release_Monitor {
 				}
 
 				$include_prereleases = ! empty( $repo['include_prereleases'] );
-				/**
-				 * Filters the tag patterns applied to a repository's releases.
-				 *
-				 * The primary way to set patterns is the Packages picker in the
-				 * admin; this filter is the code-level override for dynamic or
-				 * uncommon needs (unrecognized tag schemes, per-environment
-				 * rules). Return a comma-separated list of fnmatch globs, or
-				 * an empty string for no filtering. The returned value must be
-				 * deterministic — it participates in the stored eligibility
-				 * policy hash, and a value that changes on every run would
-				 * rebaseline (and therefore never post) on every run.
-				 *
-				 * @param string $tag_patterns Stored comma-separated patterns.
-				 * @param string $identifier   Repository identifier (owner/repo).
-				 * @param array  $repo         Full repository configuration.
-				 */
-				$tag_patterns = (string) apply_filters( 'ghrp_repo_tag_patterns', (string) ( $repo['tag_patterns'] ?? '' ), $identifier, $repo );
+				$tag_patterns        = $this->repo_settings->get_effective_tag_patterns( $identifier, $repo );
 
 				$snapshot = $this->api_client->fetch_release_snapshot( $identifier );
 
@@ -212,8 +207,95 @@ class Release_Monitor {
 
 			$this->process_queue();
 		} finally {
-			delete_option( $lock_key );
+			$this->release_lock();
 		}
+	}
+
+	/**
+	 * Option name of the cron lock held by this run ('' when not holding one).
+	 *
+	 * @var string
+	 */
+	private string $lock_key = '';
+
+	/**
+	 * Value currently stored in the held lock row — the last heartbeat
+	 * timestamp. It is this worker's ownership token: every refresh and the
+	 * final release are conditional on the row still carrying it, so a worker
+	 * whose lock was reclaimed as stale can never touch the reclaimer's lock.
+	 *
+	 * @var string
+	 */
+	private string $lock_value = '';
+
+	/**
+	 * Heartbeats the cron lock so a long, healthy run is not reclaimed as
+	 * abandoned mid-flight. One run can legitimately exceed the reclaim age:
+	 * each queued release costs an AI call (up to 120 s) plus enrichment and
+	 * image sideloading, and a coordinated monorepo release queues several.
+	 *
+	 * Conditional on the row still holding this worker's value: if another
+	 * worker has reclaimed the lock, the UPDATE matches nothing and we keep
+	 * our stale token, which the final release_lock() then also cannot match.
+	 *
+	 * @return void
+	 */
+	private function refresh_lock(): void {
+		if ( '' === $this->lock_key ) {
+			return;
+		}
+
+		global $wpdb;
+
+		$next = (string) time();
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$updated = $wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->options} SET option_value = %s WHERE option_name = %s AND option_value = %s",
+				$next,
+				$this->lock_key,
+				$this->lock_value
+			)
+		);
+
+		if ( $updated ) {
+			$this->lock_value = $next;
+			wp_cache_delete( $this->lock_key, 'options' );
+		}
+	}
+
+	/**
+	 * Releases the cron lock — only if this worker still owns it.
+	 *
+	 * An unconditional delete would remove a NEWER worker's lock whenever this
+	 * run had already been reclaimed as stale, letting a third worker start
+	 * alongside the second and re-create the overlap the lock exists to
+	 * prevent.
+	 *
+	 * @return void
+	 */
+	private function release_lock(): void {
+		if ( '' === $this->lock_key ) {
+			return;
+		}
+
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query(
+			$wpdb->prepare(
+				"DELETE FROM {$wpdb->options} WHERE option_name = %s AND option_value = %s",
+				$this->lock_key,
+				$this->lock_value
+			)
+		);
+
+		wp_cache_delete( $this->lock_key, 'options' );
+		wp_cache_delete( 'notoptions', 'options' );
+
+		$this->lock_key   = '';
+		$this->lock_value = '';
 	}
 
 	/**
@@ -433,6 +515,9 @@ class Release_Monitor {
 				continue;
 			}
 
+			// Each entry is the expensive part of the run — heartbeat before it.
+			$this->refresh_lock();
+
 			/**
 			 * Fires when a new release is ready for AI generation and post creation.
 			 *
@@ -493,7 +578,7 @@ class Release_Monitor {
 	 * @return \WP_Post|null First matching post, or null if none found.
 	 */
 	public static function find_post( string $identifier, string $tag ): ?\WP_Post {
-		$cache_key = $identifier . ':' . $tag;
+		$cache_key = self::find_post_cache_key( $identifier, $tag );
 		if ( array_key_exists( $cache_key, self::$find_post_cache ) ) {
 			return self::$find_post_cache[ $cache_key ];
 		}
@@ -509,7 +594,7 @@ class Release_Monitor {
 		$posts = get_posts(
 			[
 				'post_type'      => 'post',
-				'post_status'    => [ 'publish', 'draft', 'pending', 'private', 'trash' ],
+				'post_status'    => self::searchable_post_statuses(),
 				'posts_per_page' => 1,
 				'orderby'        => 'ID',
 				'order'          => 'DESC',
@@ -545,7 +630,40 @@ class Release_Monitor {
 	 * @return void
 	 */
 	public static function forget_post( string $identifier, string $tag ): void {
-		unset( self::$find_post_cache[ $identifier . ':' . $tag ] );
+		unset( self::$find_post_cache[ self::find_post_cache_key( $identifier, $tag ) ] );
+	}
+
+	/**
+	 * Builds the request-scoped cache key for a repo + tag lookup.
+	 *
+	 * Includes the current site so a process that iterates a multisite
+	 * network (switch_to_blog() loops in WP-CLI or a network cron runner)
+	 * never serves one site's post as another site's.
+	 *
+	 * @param string $identifier Repository identifier.
+	 * @param string $tag        Release tag.
+	 * @return string
+	 */
+	private static function find_post_cache_key( string $identifier, string $tag ): string {
+		$blog_id = function_exists( 'get_current_blog_id' ) ? (int) get_current_blog_id() : 0;
+
+		return $blog_id . '|' . $identifier . ':' . $tag;
+	}
+
+	/**
+	 * Every post status a generated post can legitimately carry.
+	 *
+	 * The dedup lookup must see scheduled ('future') posts and any custom
+	 * status a workflow plugin or the ghrp_post_status filter applies —
+	 * otherwise a scheduled release post is invisible to the cron, which
+	 * then regenerates it every run. Only WordPress's internal statuses
+	 * (auto-draft, inherit) are excluded; trash stays in, since a trashed
+	 * post is the "skip this release" signal.
+	 *
+	 * @return string[]
+	 */
+	public static function searchable_post_statuses(): array {
+		return array_values( array_diff( array_keys( (array) get_post_stati() ), [ 'auto-draft', 'inherit' ] ) );
 	}
 
 	/**

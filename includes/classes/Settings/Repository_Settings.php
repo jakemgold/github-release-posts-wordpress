@@ -82,12 +82,30 @@ class Repository_Settings {
 	 * same policy. Consumers that hold only the stored string can disagree
 	 * with each other the moment a filter is in play.
 	 *
-	 * @param string $identifier The `owner/repo` identifier.
+	 * @param string     $identifier The `owner/repo` identifier.
+	 * @param array|null $config     The repository's configuration, when the
+	 *                               caller already holds it (skips the lookup).
 	 * @return string Comma-separated glob patterns, or '' for no filtering.
 	 */
-	public function get_effective_tag_patterns( string $identifier ): string {
-		$config = $this->get_repository( $identifier );
-		/** This filter is documented in includes/classes/GitHub/Release_Monitor.php */
+	public function get_effective_tag_patterns( string $identifier, ?array $config = null ): string {
+		$config ??= $this->get_repository( $identifier );
+
+		/**
+		 * Filters the tag patterns applied to a repository's releases.
+		 *
+		 * The primary way to set patterns is the Packages picker in the
+		 * admin; this filter is the code-level override for dynamic or
+		 * uncommon needs (unrecognized tag schemes, per-environment rules).
+		 * Return a comma-separated list of fnmatch globs, or an empty string
+		 * for no filtering. The returned value must be deterministic — it
+		 * participates in the stored eligibility policy hash, and a value
+		 * that changes on every run would rebaseline (and therefore never
+		 * post) on every run.
+		 *
+		 * @param string $tag_patterns Stored comma-separated patterns.
+		 * @param string $identifier   Repository identifier (owner/repo).
+		 * @param array  $repo         Full repository configuration.
+		 */
 		return (string) apply_filters( 'ghrp_repo_tag_patterns', (string) ( $config['tag_patterns'] ?? '' ), $identifier, $config );
 	}
 

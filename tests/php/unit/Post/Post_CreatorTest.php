@@ -84,6 +84,17 @@ class Post_CreatorTest extends TestCase {
 		// the real behavior.
 		\WP_Mock::userFunction( 'wp_slash' )->andReturnUsing( static fn( $value ) => $value )->byDefault();
 
+		// find_post() derives its status list from the registry.
+		\WP_Mock::userFunction( 'get_post_stati' )->andReturn(
+			[
+				'publish' => 'publish',
+				'draft'   => 'draft',
+				'pending' => 'pending',
+				'private' => 'private',
+				'trash'   => 'trash',
+			]
+		)->byDefault();
+
 		// resolve_author() calls get_userdata() and get_users().
 		\WP_Mock::userFunction( 'get_userdata' )->andReturn( false )->byDefault();
 		\WP_Mock::userFunction( 'get_users' )->andReturn( [ 1 ] )->byDefault();
@@ -259,6 +270,26 @@ class Post_CreatorTest extends TestCase {
 		$this->assertConditionsMet();
 	}
 
+	/**
+	 * The pre-insert idempotency check must hit the database even when the
+	 * request-scoped find_post() memo already says "no post": that memo may
+	 * predate a minute-long AI call during which another worker inserted.
+	 */
+	public function test_handle_requeries_existing_post_despite_stale_memo(): void {
+		$post = $this->make_generated_post();
+		$data = $this->make_release_data();
+
+		// First call primes the memo with "no post"; handle() must query again.
+		\WP_Mock::userFunction( 'get_posts' )->times( 2 )->andReturn( [] );
+		Release_Monitor::find_post( 'owner/my-plugin', 'v1.2.0' );
+
+		\WP_Mock::userFunction( 'wp_insert_post' )->andReturn( 42 );
+		\WP_Mock::userFunction( 'update_post_meta' )->andReturn( true );
+
+		$this->creator->handle( $post, $data, [] );
+		$this->assertConditionsMet();
+	}
+
 	public function test_handle_stores_all_meta_keys(): void {
 		$post = $this->make_generated_post();
 		$data = $this->make_release_data();
@@ -317,10 +348,53 @@ class Post_CreatorTest extends TestCase {
 		// wp_insert_post should NOT be called.
 		\WP_Mock::userFunction( 'wp_insert_post' )->never();
 
-		// But ghrp_post_created should still fire with the existing ID.
-		\WP_Mock::expectAction( 'ghrp_post_created', 55, $post, $data, [] );
+		// And the creation hooks must NOT replay against someone else's post:
+		// Publish_Workflow would apply THIS request's status to it (a cron run
+		// publishing a review draft, or a manual run un-publishing a live post).
+		$fired = false;
+		\WP_Mock::onAction( 'ghrp_post_created' )
+			->with( 55, $post, $data, [] )
+			->perform(
+				function () use ( &$fired ) {
+					$fired = true;
+				}
+			);
 
 		$this->creator->handle( $post, $data, [] );
+
+		$this->assertFalse( $fired, 'ghrp_post_created must not fire for a pre-existing post' );
+		$this->assertConditionsMet();
+	}
+
+	/**
+	 * The race the fresh pre-insert lookup exists for: the memo said "no post"
+	 * before the AI call, another request inserted meanwhile. The fresh lookup
+	 * finds it, and this request must stand down completely — no insert, no
+	 * creation hooks against the winner's post.
+	 */
+	public function test_handle_stands_down_when_fresh_lookup_finds_a_post(): void {
+		$post   = $this->make_generated_post();
+		$data   = $this->make_release_data();
+		$winner = new \WP_Post( (object) [ 'ID' => 73, 'post_status' => 'draft' ] );
+
+		// Memo primed with "no post"; the fresh lookup then sees the winner.
+		\WP_Mock::userFunction( 'get_posts' )->times( 2 )->andReturnValues( [ [], [ $winner ] ] );
+		Release_Monitor::find_post( 'owner/my-plugin', 'v1.2.0' );
+
+		\WP_Mock::userFunction( 'wp_insert_post' )->never();
+
+		$fired = false;
+		\WP_Mock::onAction( 'ghrp_post_created' )
+			->with( 73, $post, $data, [] )
+			->perform(
+				function () use ( &$fired ) {
+					$fired = true;
+				}
+			);
+
+		$this->creator->handle( $post, $data, [] );
+
+		$this->assertFalse( $fired );
 		$this->assertConditionsMet();
 	}
 

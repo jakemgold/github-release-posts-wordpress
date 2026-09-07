@@ -43,6 +43,38 @@ class ActivatorTest extends TestCase {
 	 * activator (plugins screen requires `activate_plugins`, WP-CLI runs
 	 * without a user, network activation runs as super admin).
 	 */
+	/**
+	 * The self-heal is a no-op while the event is scheduled.
+	 */
+	public function test_ensure_cron_event_is_noop_when_already_scheduled(): void {
+		\WP_Mock::userFunction( 'wp_next_scheduled' )
+			->with( Plugin_Constants::CRON_HOOK_RELEASE_CHECK )
+			->andReturn( 1700000000 );
+		\WP_Mock::userFunction( 'wp_schedule_event' )->never();
+
+		Activator::ensure_cron_event();
+
+		$this->assertConditionsMet();
+	}
+
+	/**
+	 * The self-heal schedules the check when it is missing — this is how a
+	 * subsite of a network-activated plugin gets its event on first boot.
+	 */
+	public function test_ensure_cron_event_schedules_when_missing(): void {
+		\WP_Mock::userFunction( 'wp_next_scheduled' )
+			->with( Plugin_Constants::CRON_HOOK_RELEASE_CHECK )
+			->andReturn( false );
+		\WP_Mock::userFunction( 'wp_schedule_event' )
+			->once()
+			->with( \WP_Mock\Functions::type( 'int' ), 'daily', Plugin_Constants::CRON_HOOK_RELEASE_CHECK )
+			->andReturn( true );
+
+		Activator::ensure_cron_event();
+
+		$this->assertConditionsMet();
+	}
+
 	public function test_activate_writes_default_options(): void {
 		$defaults = Plugin_Constants::get_defaults();
 

@@ -48,6 +48,12 @@ $wpdb->query( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 	)
 );
 
+// The cron concurrency lock is a plain option row (written by a direct
+// INSERT, not a transient), so neither loop above nor the transient
+// wildcard below matches it; a lock abandoned by a crashed run would
+// otherwise outlive the plugin.
+delete_option( \GitHubReleasePosts\Cache_Keys::cron_lock() );
+
 // -------------------------------------------------------------------------
 // 2. Plugin post meta is intentionally retained.
 //
@@ -69,7 +75,7 @@ wp_clear_scheduled_hook( Plugin_Constants::CRON_HOOK_RATE_LIMIT_RETRY );
 // -------------------------------------------------------------------------
 // 4. Delete plugin transients.
 // Transients follow the naming conventions:
-// ghrp_rel_{hash}     — GitHub release cache
+// ghrp_snapshot_{hash} — GitHub release snapshot cache
 // ghrp_ai_resp_{hash} — AI response cache
 // ghrp_rate_limit_*   — Rate limit tracking
 // Delete by prefix using a direct database query since WordPress does

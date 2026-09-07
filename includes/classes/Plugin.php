@@ -133,6 +133,10 @@ class Plugin {
 		add_action( Plugin_Constants::CRON_HOOK_RELEASE_CHECK, [ $monitor, 'run' ] );
 		add_action( Plugin_Constants::CRON_HOOK_RATE_LIMIT_RETRY, [ $monitor, 'run' ] );
 
+		// Self-heal the schedule: activation only scheduled it for the site it
+		// ran on (never for network-activated subsites) — see Activator.
+		\GitHubReleasePosts\Activator::ensure_cron_event();
+
 		// AI generation — processes releases queued by the monitor.
 		( new Release_Enricher( $api_client ) )->setup();
 		( new Prompt_Builder( $repo_settings, $significance, $global_settings ) )->setup();

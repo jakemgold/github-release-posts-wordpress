@@ -25,6 +25,8 @@ class PluginTest extends TestCase {
 		// Plugin::setup() calls add_filter and add_action — allow them.
 		\WP_Mock::userFunction( 'add_filter' )->andReturn( true );
 		\WP_Mock::userFunction( 'add_action' )->andReturn( true );
+		// init() self-heals the cron schedule; report it as already scheduled.
+		\WP_Mock::userFunction( 'wp_next_scheduled' )->andReturn( 1700000000 )->byDefault();
 	}
 
 	/**
