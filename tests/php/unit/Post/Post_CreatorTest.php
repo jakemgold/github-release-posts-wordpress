@@ -744,6 +744,22 @@ class Post_CreatorTest extends TestCase {
 	}
 
 	/**
+	 * A `>` inside a quoted attribute value must not end the tag early: the
+	 * image keeps its src and alt, and the following paragraph survives.
+	 */
+	public function test_convert_html_to_blocks_keeps_img_with_gt_in_quoted_attribute(): void {
+		$result = Post_Creator::convert_html_to_blocks(
+			'<img alt="Before > After" src="https://github.com/acme/repo/screenshot.png" /><p>Next paragraph</p>'
+		);
+
+		// esc_attr() is a passthrough in the unit environment, so the alt text
+		// appears verbatim here; what matters is that it is still one attribute.
+		$this->assertStringContainsString( '<img src="https://github.com/acme/repo/screenshot.png" alt="Before > After" />', $result );
+		$this->assertStringContainsString( "<p>Next paragraph</p>\n<!-- /wp:paragraph -->", $result );
+		$this->assertSame( 2, substr_count( $result, '<!-- wp:' ) );
+	}
+
+	/**
 	 * A self-closing <br/> inside a paragraph is not a block boundary.
 	 */
 	public function test_convert_html_to_blocks_keeps_br_inside_paragraph(): void {

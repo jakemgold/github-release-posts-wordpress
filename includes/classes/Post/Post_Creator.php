@@ -537,10 +537,12 @@ class Post_Creator {
 
 		// Split remaining HTML into top-level elements. Void elements (<hr>,
 		// <img>) are matched as a single tag whether or not they are
-		// self-closed, and container elements run to their own closing tag —
-		// never to a `/>` inside them, which used to cut a paragraph in half
-		// at a <br/> and let a bare <hr> swallow the paragraph after it.
-		$pattern = '%(<(?:hr|img)\b[^>]*>|<(?:p|ul|ol|h[1-6]|blockquote|pre|table)[\s>].*?</(?:p|ul|ol|h[1-6]|blockquote|pre|table)>)%si';
+		// self-closed — treating quoted attribute values as units, so a `>`
+		// inside alt text does not end the tag early — and container
+		// elements run to their own closing tag, never to a `/>` inside them,
+		// which used to cut a paragraph in half at a <br/> and let a bare
+		// <hr> swallow the paragraph after it.
+		$pattern = '%(<(?:hr|img)\b(?:[^>"\']|"[^"]*"|\'[^\']*\')*>|<(?:p|ul|ol|h[1-6]|blockquote|pre|table)[\s>].*?</(?:p|ul|ol|h[1-6]|blockquote|pre|table)>)%si';
 		$parts   = preg_split( $pattern, $html, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY );
 
 		if ( empty( $parts ) ) {
