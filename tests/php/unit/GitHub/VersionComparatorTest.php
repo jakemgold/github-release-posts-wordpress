@@ -367,6 +367,11 @@ class VersionComparatorTest extends TestCase {
 			'metadata on the cursor, plain tag'    => [ 'v1.2.3-alpha.beta', 'v1.2.3-alpha+sha.abcdef', true ],
 			'metadata on the cursor, package tag'  => [ '@acme/core@1.2.3-alpha.beta', '@acme/core@1.2.3-alpha+sha.abcdef', true ],
 			'metadata on a final keeps PHP result' => [ '2.0.0+build.7', '2.0.0', false ],
+			// Numeric metadata must not make two different cores look equal to
+			// the guard: version_compare() reads 1.2.3+4 as 1.2.3.4.
+			'numeric metadata vs a longer core'    => [ 'v1.2.3.4-preview.1', 'v1.2.3+4', true ],
+			'same for package tags'                => [ '@acme/core@1.2.3.4-preview.1', '@acme/core@1.2.3+4', true ],
+			'numeric metadata vs a shorter core'   => [ '1.2.3-pre.1', '1.2+3', true ],
 		];
 	}
 

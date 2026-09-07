@@ -173,13 +173,18 @@ class Version_Comparator {
 
 	/**
 	 * Splits a version into its core (1.2.3) and pre-release suffix ('' when
-	 * none). Build metadata stays attached to whichever part it follows.
+	 * none), for classifying the pair in compare_semver() only — the
+	 * comparison itself still runs on the original strings. Build metadata is
+	 * dropped here because version_compare() reads "+" as one more separator,
+	 * so a core of 1.2.3+4 would otherwise look equal to 1.2.3.4 and the guard
+	 * could fire across two different versions.
 	 *
 	 * @param string $version Version without a leading v.
 	 * @return array{0: string, 1: string}
 	 */
 	private function split_prerelease( string $version ): array {
-		$parts = explode( '-', $version, 2 );
+		$version = explode( '+', $version, 2 )[0];
+		$parts   = explode( '-', $version, 2 );
 
 		return [ $parts[0], $parts[1] ?? '' ];
 	}
