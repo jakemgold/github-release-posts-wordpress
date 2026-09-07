@@ -182,7 +182,7 @@ class Settings_Page {
 			if ( 'db' === $this->global_settings->get_github_pat_source() && $this->global_settings->can_encrypt() ) {
 				return [
 					'state'   => 'invalid',
-					'message' => __( 'The saved token can no longer be decrypted — the site’s AUTH_KEY has changed since it was saved. Enter the token again.', 'auto-release-posts-for-github' ),
+					'message' => __( 'The saved token can no longer be decrypted (usually because the site’s AUTH_KEY changed). Enter the token again.', 'auto-release-posts-for-github' ),
 				];
 			}
 
