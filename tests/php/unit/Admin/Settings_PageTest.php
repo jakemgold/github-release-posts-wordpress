@@ -93,4 +93,47 @@ class Settings_PageTest extends TestCase {
 
 		$this->assertSame( 'EXISTING_CIPHERTEXT', $result );
 	}
+
+	/**
+	 * A stored token that no longer decrypts (AUTH_KEY rotated, or the
+	 * database moved to a site with different salts) must be reported: the
+	 * field still shows the masked placeholder while every request has been
+	 * going out unauthenticated.
+	 */
+	public function test_pat_field_reports_a_token_that_no_longer_decrypts(): void {
+		$global = $this->createMock( Global_Settings::class );
+		$global->method( 'get_masked_github_pat' )->willReturn( Global_Settings::MASKED_PLACEHOLDER );
+		$global->method( 'get_github_pat_source' )->willReturn( 'db' );
+		$global->method( 'get_github_pat' )->willReturn( '' );
+		$global->method( 'can_encrypt' )->willReturn( true );
+
+		\WP_Mock::userFunction( 'disabled' )->andReturn( '' );
+
+		ob_start();
+		( new Settings_Page( $global ) )->render_github_pat_field();
+		$html = (string) ob_get_clean();
+
+		$this->assertStringContainsString( 'ghrp-pat-status--invalid', $html );
+		$this->assertStringContainsString( 'can no longer be decrypted', $html );
+	}
+
+	/**
+	 * With no token stored at all, the status stays quiet.
+	 */
+	public function test_pat_field_shows_no_status_without_a_token(): void {
+		$global = $this->createMock( Global_Settings::class );
+		$global->method( 'get_masked_github_pat' )->willReturn( '' );
+		$global->method( 'get_github_pat_source' )->willReturn( 'none' );
+		$global->method( 'get_github_pat' )->willReturn( '' );
+		$global->method( 'can_encrypt' )->willReturn( true );
+
+		\WP_Mock::userFunction( 'disabled' )->andReturn( '' );
+
+		ob_start();
+		( new Settings_Page( $global ) )->render_github_pat_field();
+		$html = (string) ob_get_clean();
+
+		$this->assertStringContainsString( 'ghrp-pat-status--none', $html );
+		$this->assertStringNotContainsString( 'decrypted', $html );
+	}
 }

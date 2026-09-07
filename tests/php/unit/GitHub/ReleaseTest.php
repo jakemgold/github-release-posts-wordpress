@@ -127,4 +127,42 @@ class ReleaseTest extends TestCase {
 
 		$this->assertFalse( $stable->prerelease );
 	}
+
+	/**
+	 * Assets keep only name, download URL, and size. The raw objects embed the
+	 * uploader's user record (~1.5 KB each); a snapshot of releases with dozens
+	 * of artifacts overran Memcached's 1 MB item limit and never cached.
+	 *
+	 * @covers Release::from_api_response
+	 */
+	public function test_from_api_response_slims_assets(): void {
+		$release = Release::from_api_response(
+			[
+				'tag_name'     => 'v1.0.0',
+				'published_at' => '2026-01-01T00:00:00Z',
+				'html_url'     => 'https://github.com/owner/repo/releases/tag/v1.0.0',
+				'assets'       => [
+					[
+						'name'                 => 'app-linux-x64.zip',
+						'browser_download_url' => 'https://github.com/owner/repo/releases/download/v1.0.0/app-linux-x64.zip',
+						'size'                 => 104857600,
+						'content_type'         => 'application/zip',
+						'uploader'             => [ 'login' => 'octocat', 'id' => 1 ],
+					],
+					'not-an-asset',
+				],
+			]
+		);
+
+		$this->assertSame(
+			[
+				[
+					'name'                 => 'app-linux-x64.zip',
+					'browser_download_url' => 'https://github.com/owner/repo/releases/download/v1.0.0/app-linux-x64.zip',
+					'size'                 => 104857600,
+				],
+			],
+			$release->assets
+		);
+	}
 }

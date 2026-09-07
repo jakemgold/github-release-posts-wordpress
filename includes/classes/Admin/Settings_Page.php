@@ -163,7 +163,7 @@ class Settings_Page {
 	}
 
 	/**
-	 * Returns the current PAT validation status, cached for 1 minute.
+	 * Returns the current PAT validation status, cached for 15 minutes.
 	 *
 	 * Mirrors the AI Connector status pattern: cheap GET /user check, cached
 	 * so every Settings page render isn't an HTTP request. Result shape:
@@ -174,6 +174,18 @@ class Settings_Page {
 	private function get_github_pat_validation_status(): array {
 		$pat = $this->global_settings->get_github_pat();
 		if ( '' === $pat ) {
+			// A stored ciphertext that no longer decrypts: AUTH_KEY was rotated,
+			// or the database moved to a site with different salts. Every request
+			// has been going out unauthenticated while the field still shows the
+			// masked placeholder — say so. A missing AUTH_KEY is covered by the
+			// encryption warning under the field instead.
+			if ( 'db' === $this->global_settings->get_github_pat_source() && $this->global_settings->can_encrypt() ) {
+				return [
+					'state'   => 'invalid',
+					'message' => __( 'The saved token can no longer be decrypted (usually because the site’s AUTH_KEY changed). Enter the token again.', 'auto-release-posts-for-github' ),
+				];
+			}
+
 			return [
 				'state'   => 'none',
 				'message' => '',

@@ -15,9 +15,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Determines whether a candidate release is newer than the last-seen release.
  *
- * Uses semver comparison (via version_compare) when both tags look like semver,
- * falling back to ISO 8601 publication date comparison for non-semver tags.
- * Leading `v` is stripped before semver parsing (BR-005).
+ * Uses semver comparison when both tags look like semver — version_compare()
+ * plus the semver rule that a bare version outranks its own pre-releases (see
+ * compare_semver()) — falling back to ISO 8601 publication date comparison
+ * for non-semver tags. Leading `v` is stripped before semver parsing (BR-005).
  *
  * Eligibility (drafts, pre-releases, tag patterns) is not this class's
  * concern — callers compare releases that already passed
@@ -67,13 +68,9 @@ class Version_Comparator {
 			$last_tag_norm = '';
 		}
 
-		// Both semver — use version_compare (AC-006, BR-005).
+		// Both semver — compare by version (AC-006, BR-005).
 		if ( $this->is_semver( $candidate_tag ) && $this->is_semver( $last_tag_norm ) ) {
-			return version_compare(
-				$this->strip_v( $candidate_tag ),
-				$this->strip_v( $last_tag_norm ),
-				'>'
-			);
+			return $this->compare_semver( $this->strip_v( $candidate_tag ), $this->strip_v( $last_tag_norm ) ) > 0;
 		}
 
 		// Non-semver — compare ISO 8601 publication dates (AC-007).
@@ -145,6 +142,51 @@ class Version_Comparator {
 	 */
 	public function is_semver( string $tag ): bool {
 		return (bool) preg_match( '/^v?\d+\.\d+(\.\d+)?(\.\d+)?(-[a-zA-Z0-9.]+)?(\+[a-zA-Z0-9.]+)?$/', $tag );
+	}
+
+	/**
+	 * Compares two semver-shaped versions.
+	 *
+	 * PHP's version_compare() does the work, with one correction: it reads a
+	 * pre-release suffix that begins with "p" (-pre, -preview, -patch) as
+	 * "patch level" and ranks it ABOVE the release, so 2.0.0 was never newer
+	 * than 2.0.0-preview.1 and a final release that followed its own preview
+	 * was skipped for good. When two versions share a core and exactly one is
+	 * a final, the final wins (semver §11.3). Every other pair — two
+	 * pre-releases, different cores, build metadata — keeps PHP's ordering
+	 * unchanged; this is deliberately not a full semver comparator.
+	 *
+	 * @param string $a Version without a leading v.
+	 * @param string $b Version without a leading v.
+	 * @return int -1, 0, or 1, like version_compare().
+	 */
+	private function compare_semver( string $a, string $b ): int {
+		[ $a_core, $a_pre ] = $this->split_prerelease( $a );
+		[ $b_core, $b_pre ] = $this->split_prerelease( $b );
+
+		if ( 0 === version_compare( $a_core, $b_core ) && ( '' === $a_pre ) !== ( '' === $b_pre ) ) {
+			return '' === $a_pre ? 1 : -1;
+		}
+
+		return version_compare( $a, $b );
+	}
+
+	/**
+	 * Splits a version into its core (1.2.3) and pre-release suffix ('' when
+	 * none), for classifying the pair in compare_semver() only — the
+	 * comparison itself still runs on the original strings. Build metadata is
+	 * dropped here because version_compare() reads "+" as one more separator,
+	 * so a core of 1.2.3+4 would otherwise look equal to 1.2.3.4 and the guard
+	 * could fire across two different versions.
+	 *
+	 * @param string $version Version without a leading v.
+	 * @return array{0: string, 1: string}
+	 */
+	private function split_prerelease( string $version ): array {
+		$version = explode( '+', $version, 2 )[0];
+		$parts   = explode( '-', $version, 2 );
+
+		return [ $parts[0], $parts[1] ?? '' ];
 	}
 
 	/**

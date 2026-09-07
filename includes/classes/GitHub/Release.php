@@ -28,7 +28,7 @@ class Release {
 	 * @param string  $body         The release notes / changelog body.
 	 * @param string  $published_at ISO 8601 publication timestamp.
 	 * @param string  $html_url     URL to the release page on GitHub.
-	 * @param array[] $assets       Array of release asset objects from the API.
+	 * @param array[] $assets       Slim asset records: name, browser_download_url, size.
 	 * @param bool    $prerelease   Whether GitHub marks this release as a pre-release.
 	 */
 	public function __construct(
@@ -51,13 +51,30 @@ class Release {
 		$tag  = (string) ( $data['tag_name'] ?? '' );
 		$name = (string) ( $data['name'] ?? '' );
 
+		// Keep only the asset fields anything downstream could use. A raw asset
+		// object is ~1.5 KB (it embeds the uploader's user record), and releases
+		// with dozens of build artifacts pushed a 25-record snapshot past
+		// Memcached's 1 MB item limit — the transient never stored and every
+		// surface refetched.
+		$assets = [];
+		foreach ( (array) ( $data['assets'] ?? [] ) as $asset ) {
+			if ( ! is_array( $asset ) ) {
+				continue;
+			}
+			$assets[] = [
+				'name'                 => (string) ( $asset['name'] ?? '' ),
+				'browser_download_url' => (string) ( $asset['browser_download_url'] ?? '' ),
+				'size'                 => (int) ( $asset['size'] ?? 0 ),
+			];
+		}
+
 		return new self(
 			tag:          $tag,
 			name:         '' !== $name ? $name : $tag,
 			body:         (string) ( $data['body'] ?? '' ),
 			published_at: (string) ( $data['published_at'] ?? '' ),
 			html_url:     (string) ( $data['html_url'] ?? '' ),
-			assets:       is_array( $data['assets'] ?? null ) ? $data['assets'] : [],
+			assets:       $assets,
 			prerelease: ! empty( $data['prerelease'] ),
 		);
 	}

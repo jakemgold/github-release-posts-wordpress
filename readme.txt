@@ -179,6 +179,11 @@ Both source and build outputs ship with the plugin, so the source is available l
 * Pressing Enter in the Add Repository field now adds the repository (it previously submitted the form without adding anything).
 * Clearing a repository's Name in Quick Edit falls back to the derived name instead of a blank row, and saving Quick Edit no longer resets the post author when the stored author is not in the dropdown.
 * A failure to save a newly added repository is reported instead of showing "Settings saved."
+* Fixed a final release being skipped after its own pre-release when the tag suffix starts with "p" (`-pre`, `-preview`): PHP ranked `2.0.0-preview.1` above `2.0.0`, so the release was never posted and the version picker crowned the preview as latest.
+* A repository that GitHub reports as not found (deleted, renamed, or no longer visible to the token) is now reported as an error in the scheduled-run summary instead of being treated as having no releases — which could baseline the repository empty and post every package's current release once access returned.
+* The settings screen now says so when the saved GitHub token can no longer be decrypted (the site's `AUTH_KEY` changed), instead of showing it as saved while every request went out unauthenticated.
+* Release data — including what the plugin's generation hooks receive — now carries only each asset's name, download URL, and size instead of GitHub's full asset objects; on Memcached-backed sites a download-heavy repository's cached snapshot exceeded the 1 MB item limit and was refetched on every check.
+* Upgrading from 1.1.x now carries the previously tracked release into the new per-stream monitoring, so a release published between the last pre-upgrade check and the first post-upgrade check is posted instead of being treated as history.
 
 = 1.2.0 =
 
