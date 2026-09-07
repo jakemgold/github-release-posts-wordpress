@@ -107,6 +107,17 @@ class Release_SignificanceTest extends TestCase {
 	// -------------------------------------------------------------------------
 
 	/**
+	 * Keywords match whole words only: "rce" inside "source"/"resource" and
+	 * "cve" inside "curve" must not classify an ordinary release as security.
+	 */
+	public function test_classify_ignores_security_keywords_embedded_in_words(): void {
+		$body = 'Improved source maps, faster resource loading, and a smoother learning curve.';
+		$data = $this->make_release_data( 'v1.2.3', $body );
+
+		$this->assertNotSame( 'security', $this->significance->classify( $data ) );
+	}
+
+	/**
 	 * @dataProvider security_keyword_provider
 	 */
 	public function test_classify_security_keyword_in_body( string $keyword ): void {

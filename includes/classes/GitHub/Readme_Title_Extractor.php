@@ -170,9 +170,14 @@ class Readme_Title_Extractor {
 		$text = preg_replace( '/`([^`]+)`/', '$1', $text );
 
 		// Strip markdown emphasis markers: **bold**, __bold__, *em*, _em_.
-		// Done as a two-pass: doubles first, then singles.
-		$text = preg_replace( '/(\*\*|__)(.+?)\1/', '$2', $text );
-		$text = preg_replace( '/(\*|_)(.+?)\1/', '$2', $text );
+		// Done as a two-pass: doubles first, then singles. Underscore
+		// emphasis must sit at word boundaries, as in Markdown itself —
+		// otherwise a snake_case project name ("wp_mock_helpers") loses its
+		// underscores and becomes the stored display name.
+		$text = preg_replace( '/\*\*(.+?)\*\*/', '$1', $text );
+		$text = preg_replace( '/(?<!\w)__(.+?)__(?!\w)/', '$1', $text );
+		$text = preg_replace( '/\*(.+?)\*/', '$1', $text );
+		$text = preg_replace( '/(?<!\w)_(.+?)_(?!\w)/', '$1', $text );
 
 		// Strip leading emoji and miscellaneous symbols. Conservative — we only
 		// remove characters in well-known symbol Unicode ranges from the front

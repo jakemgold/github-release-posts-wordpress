@@ -271,7 +271,7 @@ class Email_Notifier {
 			if ( Post_Status::is_public( $entry->status ) ) {
 				$lines[] = sprintf( '  %s: %s', __( 'View post', 'auto-release-posts-for-github' ), get_permalink( $entry->post_id ) );
 			} else {
-				$lines[] = sprintf( '  %s: %s', __( 'Review draft', 'auto-release-posts-for-github' ), (string) get_edit_post_link( $entry->post_id, 'raw' ) );
+				$lines[] = sprintf( '  %s: %s', __( 'Review draft', 'auto-release-posts-for-github' ), self::edit_url( $entry->post_id ) );
 			}
 
 			$lines[] = sprintf( '  %s: %s', __( 'GitHub release', 'auto-release-posts-for-github' ), $entry->html_url );
@@ -279,6 +279,21 @@ class Email_Notifier {
 		}
 
 		return implode( "\n", $lines );
+	}
+
+	/**
+	 * Builds the editor URL for a post without a capability check.
+	 *
+	 * Core's get_edit_post_link() returns null unless the CURRENT user can
+	 * edit the post — and these emails are assembled during cron, where there
+	 * is no current user, so every "Review draft" link used to render empty.
+	 * The recipient is an administrator; build the canonical edit URL directly.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return string
+	 */
+	private static function edit_url( int $post_id ): string {
+		return admin_url( 'post.php?post=' . $post_id . '&action=edit' );
 	}
 
 	/**
@@ -328,11 +343,11 @@ class Email_Notifier {
 			if ( $entry->post_id > 0 ) {
 				if ( Post_Status::is_public( $entry->status ) ) {
 					$view_url = esc_url( get_permalink( $entry->post_id ) );
-					$edit_url = esc_url( (string) get_edit_post_link( $entry->post_id, 'raw' ) );
+					$edit_url = esc_url( self::edit_url( $entry->post_id ) );
 					$html    .= '<a href="' . $view_url . '">' . esc_html__( 'View post', 'auto-release-posts-for-github' ) . '</a>';
 					$html    .= ' · <a href="' . $edit_url . '">' . esc_html__( 'Edit', 'auto-release-posts-for-github' ) . '</a>';
 				} else {
-					$edit_url = esc_url( (string) get_edit_post_link( $entry->post_id, 'raw' ) );
+					$edit_url = esc_url( self::edit_url( $entry->post_id ) );
 					$html    .= '<a href="' . $edit_url . '"><strong>' . esc_html__( 'Review draft', 'auto-release-posts-for-github' ) . '</strong></a>';
 				}
 				$html .= ' · ';

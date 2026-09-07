@@ -1577,7 +1577,8 @@ class Admin_Page {
 			);
 		}
 
-		$update_result = wp_update_post( $update_args, true );
+		// wp_update_post() expects slashed input (see Post_Creator::handle()).
+		$update_result = wp_update_post( wp_slash( $update_args ), true );
 
 		if ( is_wp_error( $update_result ) ) {
 			return new \WP_Error(

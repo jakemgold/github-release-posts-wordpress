@@ -120,7 +120,7 @@ class Email_NotifierTest extends TestCase {
 
 		// Now send.
 		\WP_Mock::userFunction( 'get_bloginfo' )->with( 'name' )->andReturn( 'Test Site' );
-		\WP_Mock::userFunction( 'get_edit_post_link' )->andReturn( 'https://example.com/wp-admin/post.php?post=42' );
+		\WP_Mock::userFunction( 'admin_url' )->andReturn( 'https://example.com/wp-admin/post.php?post=42&action=edit' );
 
 		\WP_Mock::userFunction( 'wp_mail' )
 			->once()
@@ -154,7 +154,7 @@ class Email_NotifierTest extends TestCase {
 		$this->notifier->collect( 42, 'draft', $this->make_data(), [] );
 
 		\WP_Mock::userFunction( 'get_bloginfo' )->with( 'name' )->andReturn( 'Test Site' );
-		\WP_Mock::userFunction( 'get_edit_post_link' )->andReturn( 'https://example.com/wp-admin/post.php?post=42' );
+		\WP_Mock::userFunction( 'admin_url' )->andReturn( 'https://example.com/wp-admin/post.php?post=42&action=edit' );
 
 		\WP_Mock::userFunction( 'wp_mail' )->once()->andReturn( true );
 
@@ -169,7 +169,7 @@ class Email_NotifierTest extends TestCase {
 		$this->notifier->collect( 42, 'publish', $this->make_data(), [] );
 
 		\WP_Mock::userFunction( 'get_bloginfo' )->with( 'name' )->andReturn( 'Test Site' );
-		\WP_Mock::userFunction( 'get_edit_post_link' )->andReturn( 'https://example.com/wp-admin/post.php?post=42' );
+		\WP_Mock::userFunction( 'admin_url' )->andReturn( 'https://example.com/wp-admin/post.php?post=42&action=edit' );
 		\WP_Mock::userFunction( 'get_permalink' )->with( 42 )->andReturn( 'https://example.com/my-plugin-update/' );
 
 		\WP_Mock::userFunction( 'wp_mail' )->once()->andReturn( true );
@@ -190,7 +190,7 @@ class Email_NotifierTest extends TestCase {
 		$this->notifier->collect( 42, 'publish', $this->make_data(), [] );
 
 		\WP_Mock::userFunction( 'get_bloginfo' )->with( 'name' )->andReturn( 'Test Site' );
-		\WP_Mock::userFunction( 'get_edit_post_link' )->andReturn( 'https://example.com/wp-admin/post.php?post=42' );
+		\WP_Mock::userFunction( 'admin_url' )->andReturn( 'https://example.com/wp-admin/post.php?post=42&action=edit' );
 		\WP_Mock::userFunction( 'get_permalink' )->with( 42 )->andReturn( 'https://example.com/my-plugin-update/' );
 
 		\WP_Mock::userFunction( 'wp_mail' )
@@ -218,7 +218,7 @@ class Email_NotifierTest extends TestCase {
 
 		$this->notifier->collect( 42, 'draft', $this->make_data(), [] );
 
-		\WP_Mock::userFunction( 'get_edit_post_link' )->andReturn( 'https://example.com/wp-admin/post.php?post=42' );
+		\WP_Mock::userFunction( 'admin_url' )->andReturn( 'https://example.com/wp-admin/post.php?post=42&action=edit' );
 
 		\WP_Mock::userFunction( 'wp_mail' )
 			->once()
@@ -258,7 +258,7 @@ class Email_NotifierTest extends TestCase {
 		$this->notifier->collect( 42, 'draft', $this->make_data(), [] );
 
 		\WP_Mock::userFunction( 'get_bloginfo' )->with( 'name' )->andReturn( 'Test Site' );
-		\WP_Mock::userFunction( 'get_edit_post_link' )->andReturn( 'https://example.com/wp-admin/post.php?post=42' );
+		\WP_Mock::userFunction( 'admin_url' )->andReturn( 'https://example.com/wp-admin/post.php?post=42&action=edit' );
 
 		// Should be called 3 times — admin + 2 additional.
 		\WP_Mock::userFunction( 'wp_mail' )->times( 3 )->andReturn( true );
@@ -281,7 +281,7 @@ class Email_NotifierTest extends TestCase {
 		$this->notifier->collect( 42, 'draft', $this->make_data(), [] );
 
 		\WP_Mock::userFunction( 'get_bloginfo' )->with( 'name' )->andReturn( 'Test Site' );
-		\WP_Mock::userFunction( 'get_edit_post_link' )->andReturn( 'https://example.com/wp-admin/post.php?post=42' );
+		\WP_Mock::userFunction( 'admin_url' )->andReturn( 'https://example.com/wp-admin/post.php?post=42&action=edit' );
 
 		// Should be called once — only the additional email.
 		\WP_Mock::userFunction( 'wp_mail' )

@@ -33,6 +33,22 @@ class Readme_Title_ExtractorTest extends TestCase {
 	// Basic happy paths
 	// -------------------------------------------------------------------------
 
+	/**
+	 * Underscores inside a word are part of the name, not emphasis markers.
+	 */
+	public function test_keeps_snake_case_names_intact(): void {
+		$this->assertSame( 'wp_mock_helpers', Readme_Title_Extractor::extract( "# wp_mock_helpers\n\nMocks for WordPress." ) );
+		$this->assertSame( 'django_rest_framework_simplejwt', Readme_Title_Extractor::extract( "# django_rest_framework_simplejwt\n\nJWT auth." ) );
+	}
+
+	/**
+	 * Real underscore emphasis (at word boundaries) is still stripped.
+	 */
+	public function test_strips_underscore_emphasis_at_word_boundaries(): void {
+		$this->assertSame( 'The Best Plugin', Readme_Title_Extractor::extract( "# The _Best_ Plugin\n\nText." ) );
+		$this->assertSame( 'Bold Name', Readme_Title_Extractor::extract( "# __Bold__ Name\n\nText." ) );
+	}
+
 	public function test_extracts_simple_atx_heading(): void {
 		$this->assertSame( 'Ads.txt', Readme_Title_Extractor::extract( "# Ads.txt\n\nManage ads.txt files." ) );
 	}

@@ -29,6 +29,8 @@ class Post_CreatorTest extends TestCase {
 		parent::setUp();
 
 		$this->repo_settings = \Mockery::mock( Repository_Settings::class );
+		// The package-naming gate resolves effective patterns through the settings service.
+		$this->repo_settings->shouldReceive( 'get_effective_tag_patterns' )->andReturn( '' )->byDefault();
 		$this->repo_settings->shouldReceive( 'get_repository' )
 			->with( 'owner/my-plugin' )
 			->andReturn( [
@@ -76,6 +78,11 @@ class Post_CreatorTest extends TestCase {
 			->with( \WP_Mock\Functions::type( 'string' ), [] )
 			->andReturn( [] )
 			->byDefault();
+
+		// Post writes go through wp_slash(); pass through by default so the
+		// argument assertions below stay readable. The slashing test installs
+		// the real behavior.
+		\WP_Mock::userFunction( 'wp_slash' )->andReturnUsing( static fn( $value ) => $value )->byDefault();
 
 		// resolve_author() calls get_userdata() and get_users().
 		\WP_Mock::userFunction( 'get_userdata' )->andReturn( false )->byDefault();
@@ -206,6 +213,47 @@ class Post_CreatorTest extends TestCase {
 
 		// Expect ghrp_post_created action.
 		\WP_Mock::expectAction( 'ghrp_post_created', 42, $post, $data, [] );
+
+		$this->creator->handle( $post, $data, [] );
+		$this->assertConditionsMet();
+	}
+
+	/**
+	 * wp_insert_post() unslashes everything it is handed, so content must be
+	 * slashed first or every backslash the AI wrote (namespaces, regexes,
+	 * Windows paths in code samples) is stripped on save.
+	 */
+	public function test_handle_slashes_content_before_insert(): void {
+		$post = new GeneratedPost(
+			title:         'Namespaced',
+			content:       '<p>Use <code>Foo\\Bar::run()</code>.</p>',
+			provider_slug: 'wp_ai_client',
+		);
+		$data = $this->make_release_data();
+
+		$this->mock_wp_query_no_results();
+		\WP_Mock::userFunction( 'update_post_meta' )->andReturn( true );
+
+		// Real wp_slash() semantics: addslashes on every string, recursively.
+		$slash = null;
+		$slash = static function ( $value ) use ( &$slash ) {
+			if ( is_array( $value ) ) {
+				return array_map( $slash, $value );
+			}
+			return is_string( $value ) ? addslashes( $value ) : $value;
+		};
+		\WP_Mock::userFunction( 'wp_slash' )->andReturnUsing( $slash );
+
+		\WP_Mock::userFunction( 'wp_insert_post' )
+			->once()
+			->with(
+				\Mockery::on( function ( $args ) {
+					// The single backslash the AI wrote must arrive doubled.
+					return str_contains( $args['post_content'], 'Foo\\\\Bar::run()' );
+				} ),
+				true
+			)
+			->andReturn( 42 );
 
 		$this->creator->handle( $post, $data, [] );
 		$this->assertConditionsMet();
@@ -681,6 +729,40 @@ class Post_CreatorTest extends TestCase {
 	// -------------------------------------------------------------------------
 	// convert_html_to_blocks() — figure / image extraction
 	// -------------------------------------------------------------------------
+
+	/**
+	 * A horizontal rule becomes a complete, self-contained separator block —
+	 * the paragraph after it must survive as its own block. (The old output
+	 * was a bare opener with no closer that swallowed the rest of the post.)
+	 */
+	public function test_convert_html_to_blocks_hr_is_a_complete_separator_block(): void {
+		$result = Post_Creator::convert_html_to_blocks( '<p>Intro</p><hr><p>After the rule.</p>' );
+
+		$this->assertStringContainsString( "<!-- wp:separator -->\n<hr class=\"wp-block-separator has-alpha-channel-opacity\"/>\n<!-- /wp:separator -->", $result );
+		$this->assertStringContainsString( "<p>After the rule.</p>\n<!-- /wp:paragraph -->", $result );
+		$this->assertSame( 3, substr_count( $result, '<!-- wp:' ) );
+	}
+
+	/**
+	 * A self-closing <br/> inside a paragraph is not a block boundary.
+	 */
+	public function test_convert_html_to_blocks_keeps_br_inside_paragraph(): void {
+		$result = Post_Creator::convert_html_to_blocks( '<p>Line one<br/>Line two</p>' );
+
+		$this->assertStringContainsString( '<p>Line one<br/>Line two</p>', $result );
+		$this->assertSame( 1, substr_count( $result, '<!-- wp:paragraph -->' ) );
+	}
+
+	/**
+	 * A bare (non-self-closed) <img> is one element; the paragraph after it
+	 * is not swallowed into the image block.
+	 */
+	public function test_convert_html_to_blocks_bare_img_does_not_swallow_next_paragraph(): void {
+		$result = Post_Creator::convert_html_to_blocks( '<img src="https://example.com/a.png" alt="A"><p>Next paragraph</p>' );
+
+		$this->assertStringContainsString( '<!-- wp:image', $result );
+		$this->assertStringContainsString( "<p>Next paragraph</p>\n<!-- /wp:paragraph -->", $result );
+	}
 
 	public function test_convert_html_to_blocks_wraps_paragraph(): void {
 		\WP_Mock::userFunction( 'get_option' )->andReturn( false )->byDefault();

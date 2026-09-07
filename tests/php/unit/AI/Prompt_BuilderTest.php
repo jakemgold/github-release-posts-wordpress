@@ -34,6 +34,9 @@ class Prompt_BuilderTest extends TestCase {
 				return ucwords( str_replace( [ '-', '_' ], ' ', end( $parts ) ) );
 			} )
 			->byDefault();
+		$this->repo_settings->shouldReceive( 'get_effective_tag_patterns' )->andReturn( '' )->byDefault();
+		// Package naming reads per-repo release state (Release_State::get_state).
+		\WP_Mock::userFunction( 'get_option' )->andReturn( [] )->byDefault();
 		$this->significance    = \Mockery::mock( Release_Significance::class );
 		$this->global_settings = \Mockery::mock( Global_Settings::class );
 		$this->global_settings->shouldReceive( 'get_custom_prompt_instructions' )->andReturn( '' )->byDefault();
@@ -270,7 +273,9 @@ $this->significance->shouldReceive( 'classify' )->andReturn( 'minor' );
 
 		$result = $this->builder->build( '', $data );
 
-		$this->assertStringContainsString( 'My Plugin v1.2.0 — [your subtitle here]', $result );
+		// The prompt quotes the prefix Post_Creator will actually save
+		// (trailing ".0" trimmed) — not the raw tag.
+		$this->assertStringContainsString( 'My Plugin v1.2 — [your subtitle here]', $result );
 		$this->assertStringContainsString( 'do NOT include the project name or version number', $result );
 		$this->assertStringContainsString( 'Line 1: Your subtitle ONLY', $result );
 	}
@@ -289,7 +294,7 @@ $this->significance->shouldReceive( 'classify' )->andReturn( 'minor' );
 		$result = $this->builder->build( '', $data );
 
 		$this->assertStringContainsString( 'reads as repetitive', $result );
-		$this->assertStringContainsString( 'arrive in My Project v1.2.0', $result );
+		$this->assertStringContainsString( 'arrive in My Project v1.2', $result );
 	}
 
 	public function test_build_title_guidance_version_format_drops_plugin_name(): void {
@@ -304,9 +309,37 @@ $this->significance->shouldReceive( 'classify' )->andReturn( 'minor' );
 
 		$result = $this->builder->build( '', $data );
 
-		$this->assertStringContainsString( 'Version 1.2.0 — [your subtitle here]', $result );
+		$this->assertStringContainsString( 'Version 1.2 — [your subtitle here]', $result );
 		$this->assertStringContainsString( 'do NOT include the version number', $result );
 		$this->assertStringContainsString( 'Line 1: Your subtitle ONLY', $result );
+	}
+
+	/**
+	 * For a package-named repository the prompt must describe the package
+	 * prefix Post_Creator saves ("core 1.6.1"), never the raw tag.
+	 */
+	public function test_build_title_guidance_uses_package_naming_prefix(): void {
+		$data = new ReleaseData(
+			identifier:   'owner/repo',
+			tag:          '@acme/core@1.6.1',
+			name:         '@acme/core@1.6.1',
+			body:         'Bug fixes and improvements.',
+			html_url:     'https://github.com/owner/repo/releases/tag/%40acme%2Fcore%401.6.1',
+			published_at: '2025-01-01T00:00:00Z',
+		);
+
+		$this->repo_settings->shouldReceive( 'get_repository' )->andReturn( [
+			'identifier'   => 'owner/repo',
+			'display_name' => 'My Plugin',
+		] );
+		$this->repo_settings->shouldReceive( 'get_display_name' )->with( 'owner/repo' )->andReturn( 'My Plugin' );
+		$this->repo_settings->shouldReceive( 'get_effective_tag_patterns' )->with( 'owner/repo' )->andReturn( '@acme/core@*' );
+		$this->significance->shouldReceive( 'classify' )->andReturn( 'minor' );
+
+		$result = $this->builder->build( '', $data );
+
+		$this->assertStringContainsString( 'My Plugin core 1.6.1 — [your subtitle here]', $result );
+		$this->assertStringNotContainsString( '@acme/core@1.6.1 —', $result );
 	}
 
 	public function test_build_title_guidance_none_format_asks_for_full_title(): void {

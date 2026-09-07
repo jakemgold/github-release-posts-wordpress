@@ -74,6 +74,24 @@ class Repository_Settings {
 	}
 
 	/**
+	 * Returns a repository's EFFECTIVE tag patterns: the stored selection
+	 * passed through the ghrp_repo_tag_patterns filter.
+	 *
+	 * The single place the filter is applied, so every consumer — monitor,
+	 * onboarding, titles/slugs, the prompt, and every admin label — sees the
+	 * same policy. Consumers that hold only the stored string can disagree
+	 * with each other the moment a filter is in play.
+	 *
+	 * @param string $identifier The `owner/repo` identifier.
+	 * @return string Comma-separated glob patterns, or '' for no filtering.
+	 */
+	public function get_effective_tag_patterns( string $identifier ): string {
+		$config = $this->get_repository( $identifier );
+		/** This filter is documented in includes/classes/GitHub/Release_Monitor.php */
+		return (string) apply_filters( 'ghrp_repo_tag_patterns', (string) ( $config['tag_patterns'] ?? '' ), $identifier, $config );
+	}
+
+	/**
 	 * Persists the full repositories array.
 	 *
 	 * @param array<int, array<string, mixed>> $repos Array of repository objects.
