@@ -336,7 +336,11 @@ class VersionComparatorTest extends TestCase {
 	 * A final release outranks any pre-release of the same version, whatever
 	 * the suffix. PHP's version_compare() ranks suffixes beginning with "p"
 	 * (-pre, -preview, -patch) ABOVE the release, so 2.0.0 was never "newer"
-	 * than 2.0.0-preview.1 and the final release was skipped.
+	 * than 2.0.0-preview.1 and the final release was skipped. Every pair
+	 * outside that one rule keeps PHP's ordering — the last rows pin that,
+	 * including the review's reproduction (a cursor carrying build metadata
+	 * against a pre-release with an extra identifier), which a broader
+	 * "strip metadata, then compare suffixes" rewrite got wrong.
 	 *
 	 * @dataProvider provide_prerelease_orderings
 	 */
@@ -350,16 +354,19 @@ class VersionComparatorTest extends TestCase {
 
 	public static function provide_prerelease_orderings(): array {
 		return [
-			'final after -pre'                 => [ '2.0.0', '2.0.0-pre.1', true ],
-			'final after -preview'             => [ 'v2.0.0', 'v2.0.0-preview.2', true ],
-			'final after -rc (unchanged)'      => [ '2.0.0', '2.0.0-rc.1', true ],
-			'final after -beta (unchanged)'    => [ '2.0.0', '2.0.0-beta.3', true ],
-			'pre-release after its final'      => [ '2.0.0-pre.1', '2.0.0', false ],
-			'rc after its final'               => [ '2.0.0-rc.2', '2.0.0', false ],
-			'later pre-release, same scheme'   => [ '2.0.0-pre.2', '2.0.0-pre.1', true ],
-			'earlier pre-release, same scheme' => [ '2.0.0-preview.1', '2.0.0-preview.2', false ],
-			'next version pre-release'         => [ '2.0.1-pre.1', '2.0.0', true ],
-			'build metadata is not precedence' => [ '2.0.0+build.7', '2.0.0', false ],
+			'final after -pre'                     => [ '2.0.0', '2.0.0-pre.1', true ],
+			'final after -preview'                 => [ 'v2.0.0', 'v2.0.0-preview.2', true ],
+			'final after -rc (unchanged)'          => [ '2.0.0', '2.0.0-rc.1', true ],
+			'final after -beta (unchanged)'        => [ '2.0.0', '2.0.0-beta.3', true ],
+			'pre-release after its final'          => [ '2.0.0-pre.1', '2.0.0', false ],
+			'rc after its final'                   => [ '2.0.0-rc.2', '2.0.0', false ],
+			'later pre-release, same scheme'       => [ '2.0.0-pre.2', '2.0.0-pre.1', true ],
+			'earlier pre-release, same scheme'     => [ '2.0.0-preview.1', '2.0.0-preview.2', false ],
+			'next version pre-release'             => [ '2.0.1-pre.1', '2.0.0', true ],
+			'two pre-releases keep PHP ordering'   => [ '2.0.0-rc.1', '2.0.0-beta.9', true ],
+			'metadata on the cursor, plain tag'    => [ 'v1.2.3-alpha.beta', 'v1.2.3-alpha+sha.abcdef', true ],
+			'metadata on the cursor, package tag'  => [ '@acme/core@1.2.3-alpha.beta', '@acme/core@1.2.3-alpha+sha.abcdef', true ],
+			'metadata on a final keeps PHP result' => [ '2.0.0+build.7', '2.0.0', false ],
 		];
 	}
 

@@ -145,16 +145,16 @@ class Version_Comparator {
 	}
 
 	/**
-	 * Compares two semver-shaped versions with semver precedence.
+	 * Compares two semver-shaped versions.
 	 *
-	 * PHP's version_compare() alone gets one rule wrong: a pre-release suffix
-	 * that begins with "p" (-pre, -preview, -patch) reads as "patch level",
-	 * which it ranks ABOVE the release — so 2.0.0 was never newer than
-	 * 2.0.0-preview.1, and a final release that followed its own preview was
-	 * skipped for good. Semver says a bare version outranks the same version
-	 * with any pre-release suffix, and build metadata (+sha) never affects
-	 * precedence. Two suffixed builds of the same version still compare via
-	 * version_compare(), whose alpha < beta < rc ordering is right.
+	 * PHP's version_compare() does the work, with one correction: it reads a
+	 * pre-release suffix that begins with "p" (-pre, -preview, -patch) as
+	 * "patch level" and ranks it ABOVE the release, so 2.0.0 was never newer
+	 * than 2.0.0-preview.1 and a final release that followed its own preview
+	 * was skipped for good. When two versions share a core and exactly one is
+	 * a final, the final wins (semver §11.3). Every other pair — two
+	 * pre-releases, different cores, build metadata — keeps PHP's ordering
+	 * unchanged; this is deliberately not a full semver comparator.
 	 *
 	 * @param string $a Version without a leading v.
 	 * @param string $b Version without a leading v.
@@ -164,28 +164,22 @@ class Version_Comparator {
 		[ $a_core, $a_pre ] = $this->split_prerelease( $a );
 		[ $b_core, $b_pre ] = $this->split_prerelease( $b );
 
-		$core = version_compare( $a_core, $b_core );
-		if ( 0 !== $core ) {
-			return $core;
+		if ( 0 === version_compare( $a_core, $b_core ) && ( '' === $a_pre ) !== ( '' === $b_pre ) ) {
+			return '' === $a_pre ? 1 : -1;
 		}
 
-		if ( '' === $a_pre || '' === $b_pre ) {
-			return ( '' === $a_pre ) <=> ( '' === $b_pre );
-		}
-
-		return version_compare( $a_pre, $b_pre );
+		return version_compare( $a, $b );
 	}
 
 	/**
 	 * Splits a version into its core (1.2.3) and pre-release suffix ('' when
-	 * none), discarding build metadata.
+	 * none). Build metadata stays attached to whichever part it follows.
 	 *
 	 * @param string $version Version without a leading v.
 	 * @return array{0: string, 1: string}
 	 */
 	private function split_prerelease( string $version ): array {
-		$version = explode( '+', $version, 2 )[0];
-		$parts   = explode( '-', $version, 2 );
+		$parts = explode( '-', $version, 2 );
 
 		return [ $parts[0], $parts[1] ?? '' ];
 	}
