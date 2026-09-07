@@ -58,20 +58,19 @@ class ActivatorTest extends TestCase {
 	}
 
 	/**
-	 * A network-wide activation writes defaults and schedules the check on
-	 * EVERY site — core fires the hook once, in the main site's context.
+	 * The self-heal schedules the check when it is missing — this is how a
+	 * subsite of a network-activated plugin gets its event on first boot.
 	 */
-	public function test_network_activation_schedules_on_every_site(): void {
-		\WP_Mock::userFunction( 'is_multisite' )->andReturn( true );
-		\WP_Mock::userFunction( 'get_sites' )->andReturn( [ 1, 2 ] );
-		\WP_Mock::userFunction( 'switch_to_blog' )->times( 2 )->andReturn( true );
-		\WP_Mock::userFunction( 'restore_current_blog' )->times( 2 )->andReturn( true );
-		\WP_Mock::userFunction( 'add_option' )->andReturn( true );
-		\WP_Mock::userFunction( 'wp_clear_scheduled_hook' )->andReturn( null );
-		\WP_Mock::userFunction( 'wp_next_scheduled' )->andReturn( false );
-		\WP_Mock::userFunction( 'wp_schedule_event' )->times( 2 )->andReturn( true );
+	public function test_ensure_cron_event_schedules_when_missing(): void {
+		\WP_Mock::userFunction( 'wp_next_scheduled' )
+			->with( Plugin_Constants::CRON_HOOK_RELEASE_CHECK )
+			->andReturn( false );
+		\WP_Mock::userFunction( 'wp_schedule_event' )
+			->once()
+			->with( \WP_Mock\Functions::type( 'int' ), 'daily', Plugin_Constants::CRON_HOOK_RELEASE_CHECK )
+			->andReturn( true );
 
-		Activator::activate( true );
+		Activator::ensure_cron_event();
 
 		$this->assertConditionsMet();
 	}

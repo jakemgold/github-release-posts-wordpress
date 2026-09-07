@@ -25,35 +25,20 @@ class Activator {
 	 *   are preserved on reactivation.
 	 * - Clears any stale cron event then registers a fresh recurring one.
 	 *
-	 * @param bool $network_wide Whether the plugin is being activated for the
-	 *                           whole network (multisite Network Admin).
 	 * @return void
 	 */
-	public static function activate( bool $network_wide = false ): void {
+	public static function activate(): void {
 		// No capability guard — activation hooks are already capability-gated by
 		// the activator (the plugins screen requires `activate_plugins`, WP-CLI
 		// runs as no-user, network activation runs as super admin). A stricter
 		// inline check breaks CLI / network / automated activation by silently
 		// skipping defaults and cron registration.
-
+		//
 		// A network activation fires this hook ONCE, in the main site's
-		// context, while options and the cron event are per-site — without
-		// this loop no subsite would ever run the scheduled check.
-		if ( $network_wide && is_multisite() ) {
-			foreach ( get_sites(
-				[
-					'fields' => 'ids',
-					'number' => 0,
-				]
-			) as $site_id ) {
-				switch_to_blog( (int) $site_id );
-				self::write_default_options();
-				self::register_cron_event();
-				restore_current_blog();
-			}
-			return;
-		}
-
+		// context, while the cron event is per-site. Subsites are provisioned
+		// lazily instead: ensure_cron_event() runs from Plugin::init() on every
+		// request, so each site schedules its own check the first time it
+		// boots (settings accessors already supply defaults for absent options).
 		self::write_default_options();
 		self::register_cron_event();
 	}

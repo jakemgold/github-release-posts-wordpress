@@ -52,8 +52,12 @@ class Post_Creator {
 	 * Creates a WordPress post from AI-generated content.
 	 *
 	 * Checks idempotency first — if a post already exists for the given
-	 * repo + tag, fires ghrp_post_created with the existing post ID and
-	 * returns without creating a duplicate.
+	 * repo + tag, returns without creating a duplicate and WITHOUT firing the
+	 * creation hooks: the existing post belongs to whichever request created
+	 * it, and replaying this request's context onto it would let a cron run
+	 * publish another admin's review draft, or a manual request un-publish a
+	 * live post. Callers that need the post (the cron's post-creation check,
+	 * the REST response) look it up themselves afterward.
 	 *
 	 * @param GeneratedPost $post    Generated post data (subtitle + HTML body).
 	 * @param ReleaseData   $data    Source release data.
@@ -73,15 +77,8 @@ class Post_Creator {
 			$existing_id = $this->find_existing_post( $data->identifier, $data->tag );
 
 			if ( null !== $existing_id ) {
-				/**
-				 * Fires when a post has been created (or already exists) for a release.
-				 *
-				 * @param int           $post_id  The WordPress post ID.
-				 * @param GeneratedPost $post     The generated post data.
-				 * @param ReleaseData   $data     The source release data.
-				 * @param array         $context  Generation context flags.
-				 */
-				do_action( 'ghrp_post_created', $existing_id, $post, $data, $context );
+				// Someone else's post. Do not re-run publication, taxonomy, or
+				// notification side effects against it — see the method docblock.
 				return;
 			}
 		}
@@ -170,7 +167,14 @@ class Post_Creator {
 		// Set featured image from per-repo config if configured.
 		$this->set_featured_image( $post_id, $data->identifier );
 
-		/** This action is documented above. */
+		/**
+		 * Fires when a post has been created for a release.
+		 *
+		 * @param int           $post_id  The WordPress post ID.
+		 * @param GeneratedPost $post     The generated post data.
+		 * @param ReleaseData   $data     The source release data.
+		 * @param array         $context  Generation context flags.
+		 */
 		do_action( 'ghrp_post_created', $post_id, $post, $data, $context );
 	}
 
