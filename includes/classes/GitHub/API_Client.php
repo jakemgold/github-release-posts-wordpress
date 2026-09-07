@@ -126,10 +126,7 @@ class API_Client {
 			$code = (int) wp_remote_retrieve_response_code( $response );
 
 			if ( 404 === $code ) {
-				// Repo has no releases, or does not exist (BR-001: private repos
-				// rejected upstream). Treat as "no releases" rather than a hard
-				// error (AC-003).
-				return [];
+				return $this->not_found_error();
 			}
 
 			if ( 403 === $code ) {
@@ -271,14 +268,32 @@ class API_Client {
 	}
 
 	/**
+	 * The error for a 404 from a release-list endpoint.
+	 *
+	 * The list endpoint answers `200 []` for a repository with no releases, so
+	 * a 404 means the repository is gone, renamed, or not visible to the
+	 * current credentials (GitHub masks inaccessible private repositories as
+	 * 404). Reading it as "no releases" hid the failure from the run summary
+	 * and, during a lifecycle transition, baselined the repository with no
+	 * streams — every package's current release was then posted as new once
+	 * access returned.
+	 *
+	 * @return \WP_Error
+	 */
+	private function not_found_error(): \WP_Error {
+		return new \WP_Error(
+			'github_not_found',
+			__( 'GitHub returned 404 Not Found: the repository does not exist, was renamed, or is not visible to the configured token.', 'auto-release-posts-for-github' )
+		);
+	}
+
+	/**
 	 * Checks whether a repository exists (and is visible to current credentials).
 	 *
-	 * Needed because the release endpoints 404 identically for a nonexistent
-	 * repo and a real repo with zero releases (AC-003 treats those 404s as
-	 * "no releases"), so existence must be asked of `GET /repos/{owner}/{repo}`
-	 * directly. GitHub masks private repos the current credentials cannot see
-	 * as 404, so `false` means "nonexistent or not visible", not provably
-	 * nonexistent.
+	 * Asked of `GET /repos/{owner}/{repo}` directly at add time so a mistyped
+	 * or invisible repository is rejected before any release state is written.
+	 * GitHub masks private repos the current credentials cannot see as 404, so
+	 * `false` means "nonexistent or not visible", not provably nonexistent.
 	 *
 	 * @param string $identifier Repository identifier (owner/repo or full URL).
 	 * @return bool|\WP_Error True if visible, false on 404, WP_Error on
@@ -364,7 +379,7 @@ class API_Client {
 
 		$code = (int) wp_remote_retrieve_response_code( $response );
 		if ( 404 === $code ) {
-			return [];
+			return $this->not_found_error();
 		}
 		if ( 200 !== $code ) {
 			return new \WP_Error(

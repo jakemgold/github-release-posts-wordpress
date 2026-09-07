@@ -168,20 +168,47 @@ class API_ClientTest extends TestCase {
 	}
 
 	// -------------------------------------------------------------------------
-	// AC-003: 404 returns an empty list (no releases)
+	// 404 is an error; an empty 200 list is "no releases"
 	// -------------------------------------------------------------------------
 
 	/**
-	 * HTTP 404 returns [] — not a WP_Error.
+	 * HTTP 404 means the repository is gone or invisible, not release-less:
+	 * the list endpoint answers 200 [] for a repository with no releases.
+	 * Reading it as "no releases" hid the failure and, during a lifecycle
+	 * transition, baselined the repository with no streams.
 	 *
 	 * @covers API_Client::fetch_release_snapshot
 	 */
-	public function test_snapshot_returns_empty_list_for_404(): void {
+	public function test_snapshot_returns_wp_error_for_404(): void {
 		\WP_Mock::userFunction( 'get_transient' )->andReturn( false );
 		\WP_Mock::userFunction( 'wp_remote_get' )->andReturn( $this->mock_response( 404 ) );
 		\WP_Mock::userFunction( 'is_wp_error' )->andReturn( false );
 		\WP_Mock::userFunction( 'wp_remote_retrieve_response_code' )->andReturn( 404 );
-		\WP_Mock::userFunction( 'wp_remote_retrieve_header' )->andReturn( '100' );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_header' )->andReturn( '' ); // No rate-limit header, so the only set_transient() candidate is the snapshot cache.
+		\WP_Mock::userFunction( '__' )->andReturnArg( 0 );
+		\WP_Mock::userFunction( 'set_transient' )->never();
+
+		$client = new API_Client( $this->settings_mock() );
+		$result = $client->fetch_release_snapshot( '10up/renamed-or-private' );
+
+		$this->assertInstanceOf( \WP_Error::class, $result );
+		$this->assertSame( 'github_not_found', $result->get_error_code() );
+	}
+
+	/**
+	 * A repository with no releases answers 200 [] — the cacheable
+	 * "no releases" case.
+	 *
+	 * @covers API_Client::fetch_release_snapshot
+	 */
+	public function test_snapshot_returns_empty_list_for_empty_200_body(): void {
+		\WP_Mock::userFunction( 'get_transient' )->andReturn( false );
+		\WP_Mock::userFunction( 'wp_remote_get' )->andReturn( $this->mock_response( 200, '[]' ) );
+		\WP_Mock::userFunction( 'is_wp_error' )->andReturn( false );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_response_code' )->andReturn( 200 );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_header' )->andReturn( '' ); // No rate-limit header, so the only set_transient() candidate is the snapshot cache.
+		\WP_Mock::userFunction( 'wp_remote_retrieve_body' )->andReturn( '[]' );
+		\WP_Mock::userFunction( 'set_transient' )->once()->andReturn( true );
 
 		$client = new API_Client( $this->settings_mock() );
 		$result = $client->fetch_release_snapshot( '10up/plugin-with-no-releases' );
@@ -537,19 +564,24 @@ class API_ClientTest extends TestCase {
 	}
 
 	/**
+	 * The version picker's deeper list reports a missing repository the same
+	 * way the snapshot does.
+	 *
 	 * @covers API_Client::fetch_releases
 	 */
-	public function test_fetch_releases_returns_empty_array_for_404(): void {
+	public function test_fetch_releases_returns_wp_error_for_404(): void {
 		\WP_Mock::userFunction( 'wp_remote_get' )->andReturn( $this->mock_response( 404 ) );
 		\WP_Mock::userFunction( 'is_wp_error' )->andReturn( false );
 		\WP_Mock::userFunction( 'wp_remote_retrieve_response_code' )->andReturn( 404 );
 		\WP_Mock::userFunction( 'wp_remote_retrieve_header' )->andReturn( '100' );
 		\WP_Mock::userFunction( 'set_transient' )->andReturn( true );
+		\WP_Mock::userFunction( '__' )->andReturnArg( 0 );
 
 		$client = new API_Client( $this->settings_mock() );
 		$result = $client->fetch_releases( '10up/plugin' );
 
-		$this->assertSame( [], $result );
+		$this->assertInstanceOf( \WP_Error::class, $result );
+		$this->assertSame( 'github_not_found', $result->get_error_code() );
 	}
 
 	/**
