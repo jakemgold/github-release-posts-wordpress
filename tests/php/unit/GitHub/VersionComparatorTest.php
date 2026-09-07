@@ -331,4 +331,48 @@ class VersionComparatorTest extends TestCase {
 		$this->assertSame( '@acme/core@2.0.0', $winners['@acme/core']->tag );
 		$this->assertSame( 'v9.0.0', $winners['']->tag );
 	}
+
+	/**
+	 * A final release outranks any pre-release of the same version, whatever
+	 * the suffix. PHP's version_compare() ranks suffixes beginning with "p"
+	 * (-pre, -preview, -patch) ABOVE the release, so 2.0.0 was never "newer"
+	 * than 2.0.0-preview.1 and the final release was skipped.
+	 *
+	 * @dataProvider provide_prerelease_orderings
+	 */
+	public function test_semver_prerelease_precedence( string $candidate, string $last_seen, bool $expected ): void {
+		$this->assertSame(
+			$expected,
+			$this->comparator->is_newer( $this->make_release( $candidate ), $this->make_state( $last_seen ) ),
+			"Expected is_newer('$candidate' vs '$last_seen') to be " . var_export( $expected, true )
+		);
+	}
+
+	public static function provide_prerelease_orderings(): array {
+		return [
+			'final after -pre'                 => [ '2.0.0', '2.0.0-pre.1', true ],
+			'final after -preview'             => [ 'v2.0.0', 'v2.0.0-preview.2', true ],
+			'final after -rc (unchanged)'      => [ '2.0.0', '2.0.0-rc.1', true ],
+			'final after -beta (unchanged)'    => [ '2.0.0', '2.0.0-beta.3', true ],
+			'pre-release after its final'      => [ '2.0.0-pre.1', '2.0.0', false ],
+			'rc after its final'               => [ '2.0.0-rc.2', '2.0.0', false ],
+			'later pre-release, same scheme'   => [ '2.0.0-pre.2', '2.0.0-pre.1', true ],
+			'earlier pre-release, same scheme' => [ '2.0.0-preview.1', '2.0.0-preview.2', false ],
+			'next version pre-release'         => [ '2.0.1-pre.1', '2.0.0', true ],
+			'build metadata is not precedence' => [ '2.0.0+build.7', '2.0.0', false ],
+		];
+	}
+
+	/**
+	 * Stream winners use the same rule, so the version picker and the cron
+	 * crown the final release rather than the later-published preview.
+	 */
+	public function test_select_stream_winners_prefers_final_over_its_preview(): void {
+		$releases = [
+			$this->make_release( 'v2.0.0-preview.1', '2026-07-02T00:00:00Z' ),
+			$this->make_release( 'v2.0.0', '2026-07-01T00:00:00Z' ),
+		];
+
+		$this->assertSame( 'v2.0.0', $this->comparator->select_stream_winners( $releases )['']->tag );
+	}
 }
