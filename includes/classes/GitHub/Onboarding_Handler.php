@@ -120,8 +120,7 @@ class Onboarding_Handler {
 		// pre-release versions and swallow later stable releases.
 		$repo_config         = $this->repo_settings->get_repository( $identifier );
 		$include_prereleases = ! empty( $repo_config['include_prereleases'] );
-		/** This filter is documented in includes/classes/GitHub/Release_Monitor.php */
-		$tag_patterns = (string) apply_filters( 'ghrp_repo_tag_patterns', (string) ( $repo_config['tag_patterns'] ?? '' ), $identifier, $repo_config );
+		$tag_patterns        = $this->repo_settings->get_effective_tag_patterns( $identifier, $repo_config );
 
 		$eligible = Release_Selector::monitoring_projection( $snapshot, $include_prereleases, $tag_patterns );
 		$plan     = Release_Selector::onboarding_plan( $eligible, $ui_choice );

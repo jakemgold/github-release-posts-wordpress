@@ -64,6 +64,12 @@ class Post_Creator {
 		$bypass = ! empty( $context['bypass_idempotency'] );
 
 		if ( ! $bypass ) {
+			// The request-scoped find_post() memo may have recorded "no post"
+			// BEFORE the AI call that led here — a minute or more ago. Another
+			// worker (the client-side auto-generate racing the cron, or two
+			// admins) can have inserted in the meantime, so the pre-insert
+			// idempotency check must always hit the database.
+			Release_Monitor::forget_post( $data->identifier, $data->tag );
 			$existing_id = $this->find_existing_post( $data->identifier, $data->tag );
 
 			if ( null !== $existing_id ) {

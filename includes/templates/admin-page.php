@@ -105,6 +105,28 @@ if ( $deferred_notices ) {
 		</div>
 	<?php endforeach; ?>
 
+	<?php
+	// Written by AI_Processor after repeated generation failures for one
+	// release; shown once here and re-armed by the next failure.
+	$ai_failure = get_transient( Cache_Keys::ai_failure_notice() );
+	if ( is_array( $ai_failure ) && ! empty( $ai_failure['message'] ) ) :
+		delete_transient( Cache_Keys::ai_failure_notice() );
+		?>
+		<div class="notice notice-warning is-dismissible">
+			<p>
+				<?php
+				printf(
+					/* translators: 1: repository identifier, 2: release tag, 3: last error message */
+					esc_html__( 'AI generation keeps failing for %1$s %2$s — last error: %3$s', 'auto-release-posts-for-github' ),
+					esc_html( (string) ( $ai_failure['identifier'] ?? '' ) ),
+					esc_html( (string) ( $ai_failure['tag'] ?? '' ) ),
+					esc_html( (string) $ai_failure['message'] )
+				);
+				?>
+			</p>
+		</div>
+	<?php endif; ?>
+
 	<?php $block_editor_active = \GitHubReleasePosts\Admin\Admin_Page::is_block_editor_active(); ?>
 
 	<?php if ( ! $block_editor_active ) : ?>

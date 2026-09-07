@@ -17,6 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 use GitHubReleasePosts\Plugin_Constants;
 use GitHubReleasePosts\Post\Post_Status;
+use GitHubReleasePosts\GitHub\Release_Monitor;
 use GitHubReleasePosts\GitHub\Release_State;
 use GitHubReleasePosts\GitHub\Tag_Pattern_Matcher;
 use GitHubReleasePosts\Settings\Repository_Settings;
@@ -123,7 +124,10 @@ class Repository_List_Table extends \WP_List_Table {
 			$posts = get_posts(
 				[
 					'post_type'      => 'post',
-					'post_status'    => [ 'publish', 'draft', 'pending', 'private' ],
+					// Every status a generated post can carry (scheduled, custom
+					// workflow statuses…) except trash — a trashed post is not
+					// the repository's "last post".
+					'post_status'    => array_values( array_diff( Release_Monitor::searchable_post_statuses(), [ 'trash' ] ) ),
 					'meta_key'       => Plugin_Constants::META_SOURCE_REPO, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
 					'meta_value'     => $identifier, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
 					'posts_per_page' => 1,
@@ -269,7 +273,10 @@ class Repository_List_Table extends \WP_List_Table {
 		// multi-package topology observed).
 		$tag_label = Tag_Pattern_Matcher::display_label(
 			(string) $data['tag'],
-			( new Release_State() )->uses_package_naming( $identifier, (string) ( $item['tag_patterns'] ?? '' ) )
+			( new Release_State() )->uses_package_naming(
+				$identifier,
+				( new Repository_Settings() )->get_effective_tag_patterns( $identifier, $item )
+			)
 		);
 		$label     = $data['tag'] ? $tag_label . ' ' . __( 'on', 'auto-release-posts-for-github' ) . ' ' . $data['date'] : $data['date'];
 

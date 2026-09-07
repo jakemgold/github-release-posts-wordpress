@@ -43,6 +43,39 @@ class ActivatorTest extends TestCase {
 	 * activator (plugins screen requires `activate_plugins`, WP-CLI runs
 	 * without a user, network activation runs as super admin).
 	 */
+	/**
+	 * The self-heal is a no-op while the event is scheduled.
+	 */
+	public function test_ensure_cron_event_is_noop_when_already_scheduled(): void {
+		\WP_Mock::userFunction( 'wp_next_scheduled' )
+			->with( Plugin_Constants::CRON_HOOK_RELEASE_CHECK )
+			->andReturn( 1700000000 );
+		\WP_Mock::userFunction( 'wp_schedule_event' )->never();
+
+		Activator::ensure_cron_event();
+
+		$this->assertConditionsMet();
+	}
+
+	/**
+	 * A network-wide activation writes defaults and schedules the check on
+	 * EVERY site — core fires the hook once, in the main site's context.
+	 */
+	public function test_network_activation_schedules_on_every_site(): void {
+		\WP_Mock::userFunction( 'is_multisite' )->andReturn( true );
+		\WP_Mock::userFunction( 'get_sites' )->andReturn( [ 1, 2 ] );
+		\WP_Mock::userFunction( 'switch_to_blog' )->times( 2 )->andReturn( true );
+		\WP_Mock::userFunction( 'restore_current_blog' )->times( 2 )->andReturn( true );
+		\WP_Mock::userFunction( 'add_option' )->andReturn( true );
+		\WP_Mock::userFunction( 'wp_clear_scheduled_hook' )->andReturn( null );
+		\WP_Mock::userFunction( 'wp_next_scheduled' )->andReturn( false );
+		\WP_Mock::userFunction( 'wp_schedule_event' )->times( 2 )->andReturn( true );
+
+		Activator::activate( true );
+
+		$this->assertConditionsMet();
+	}
+
 	public function test_activate_writes_default_options(): void {
 		$defaults = Plugin_Constants::get_defaults();
 

@@ -42,6 +42,11 @@ class Release_MonitorTest extends TestCase {
 		$this->comparator    = $this->createMock( Version_Comparator::class );
 		$this->queue         = $this->createMock( Release_Queue::class );
 		$this->repo_settings = $this->createMock( Repository_Settings::class );
+		// Effective patterns come from the settings service; in these tests the
+		// stored value IS the effective value (no filter in play).
+		$this->repo_settings->method( 'get_effective_tag_patterns' )->willReturnCallback(
+			static fn( string $identifier, ?array $config = null ): string => (string) ( $config['tag_patterns'] ?? '' )
+		);
 
 		$this->monitor = new Release_Monitor(
 			$this->api_client,
@@ -61,11 +66,13 @@ class Release_MonitorTest extends TestCase {
 				return $query;
 			}
 		);
-		$wpdb->shouldReceive( 'query' )->andReturn( 1 );
+		$wpdb->shouldReceive( 'query' )->andReturn( 1 )->byDefault();
 
 		\WP_Mock::userFunction( 'wp_cache_delete' )->andReturn( true );
 		\WP_Mock::userFunction( 'set_transient' )->andReturn( true )->byDefault();
 		\WP_Mock::userFunction( 'get_transient' )->andReturn( false )->byDefault();
+		\WP_Mock::userFunction( 'delete_transient' )->andReturn( true )->byDefault();
+		\WP_Mock::userFunction( 'get_post_stati' )->andReturn( $this->registered_statuses() )->byDefault();
 	}
 
 	public function tearDown(): void {
@@ -128,6 +135,34 @@ class Release_MonitorTest extends TestCase {
 			$this->queue,
 			$this->repo_settings,
 		);
+	}
+
+	/**
+	 * A realistic get_post_stati() result: core statuses, a workflow plugin's
+	 * custom status, and the internal ones the lookup must exclude.
+	 *
+	 * @return array<string, string>
+	 */
+	private function registered_statuses(): array {
+		$names = [ 'publish', 'future', 'draft', 'pending', 'private', 'trash', 'auto-draft', 'inherit', 'pitch' ];
+		return array_combine( $names, $names );
+	}
+
+	/**
+	 * Replaces the $wpdb query mock with one that records every query.
+	 *
+	 * @return array<int, string> Captured queries (by reference).
+	 */
+	private function &capture_queries(): array {
+		global $wpdb;
+		$queries = [];
+		$wpdb->shouldReceive( 'query' )->andReturnUsing(
+			function ( string $query ) use ( &$queries ) {
+				$queries[] = $query;
+				return 1;
+			}
+		);
+		return $queries;
 	}
 
 	/**
@@ -1063,6 +1098,105 @@ class Release_MonitorTest extends TestCase {
 		$this->mock_run_plumbing();
 
 		$monitor->run();
+	}
+
+	// -------------------------------------------------------------------------
+	// Cron lock ownership and heartbeat
+	// -------------------------------------------------------------------------
+
+	/**
+	 * The lock is released with a conditional DELETE on this worker's own
+	 * value — never an unconditional delete_option(), which would remove a
+	 * newer worker's lock after ours had been reclaimed as stale.
+	 */
+	public function test_lock_release_is_conditional_on_ownership(): void {
+		$this->repo_settings->method( 'get_repositories' )->willReturn( [] );
+		$this->queue->method( 'dequeue_all' )->willReturn( [] );
+
+		$queries = &$this->capture_queries();
+		\WP_Mock::userFunction( 'delete_option' )->with( Cache_Keys::cron_lock() )->never();
+		\WP_Mock::userFunction( 'update_option' )->andReturn( true );
+
+		$this->monitor->run();
+
+		$releases = array_filter(
+			$queries,
+			static fn( string $q ): bool => str_starts_with( $q, 'DELETE' ) && str_contains( $q, 'option_value = %s' )
+		);
+		$this->assertCount( 1, $releases, 'exactly one ownership-conditional release' );
+		$this->assertConditionsMet();
+	}
+
+	/**
+	 * The lock is heartbeated before each queued release is processed, so a
+	 * long healthy run is never mistaken for an abandoned one.
+	 */
+	public function test_lock_is_refreshed_before_each_queued_release(): void {
+		$this->repo_settings->method( 'get_repositories' )->willReturn( [] );
+
+		$entry = [
+			'identifier'   => 'owner/repo',
+			'tag'          => 'v1.0.0',
+			'name'         => 'v1.0.0',
+			'body'         => '',
+			'html_url'     => '',
+			'published_at' => '2026-01-01T00:00:00Z',
+			'assets'       => [],
+		];
+		$this->queue->method( 'dequeue_all' )->willReturn( [ $entry, $entry ] );
+
+		$queries = &$this->capture_queries();
+		\WP_Mock::userFunction( 'get_posts' )->andReturn( [ new \WP_Post( (object) [ 'ID' => 5 ] ) ] );
+		\WP_Mock::userFunction( 'update_option' )->andReturn( true );
+		\WP_Mock::userFunction( 'delete_option' )->andReturn( true );
+
+		$this->monitor->run();
+
+		$heartbeats = array_filter(
+			$queries,
+			static fn( string $q ): bool => str_starts_with( $q, 'UPDATE' ) && str_contains( $q, 'AND option_value = %s' )
+		);
+		$this->assertGreaterThanOrEqual( 2, count( $heartbeats ), 'one heartbeat per queued entry at minimum' );
+	}
+
+	// -------------------------------------------------------------------------
+	// find_post() status coverage + run bookkeeping
+	// -------------------------------------------------------------------------
+
+	/**
+	 * The dedup lookup sees scheduled and custom-status posts (otherwise the
+	 * cron regenerates a scheduled post every run) but never WordPress's
+	 * internal auto-draft/inherit rows.
+	 */
+	public function test_find_post_searches_every_real_post_status(): void {
+		\WP_Mock::userFunction( 'get_posts' )
+			->once()
+			->andReturnUsing( function ( $args ) {
+				$this->assertContains( 'future', $args['post_status'] );
+				$this->assertContains( 'pitch', $args['post_status'] );
+				$this->assertContains( 'trash', $args['post_status'] );
+				$this->assertNotContains( 'auto-draft', $args['post_status'] );
+				$this->assertNotContains( 'inherit', $args['post_status'] );
+				return [];
+			} );
+
+		Release_Monitor::find_post( 'owner/repo', 'v1.0.0' );
+	}
+
+	/**
+	 * The run summary is cleared at the start of each run so a repository
+	 * that fails every day does not accumulate errors without bound.
+	 */
+	public function test_run_clears_previous_results_summary(): void {
+		$this->repo_settings->method( 'get_repositories' )->willReturn( [] );
+		$this->queue->method( 'dequeue_all' )->willReturn( [] );
+		$this->mock_run_plumbing();
+
+		\WP_Mock::userFunction( 'delete_transient' )->once()->with( Cache_Keys::cron_results() )->andReturn( true );
+
+		$this->monitor->run();
+
+		$this->assertConditionsMet();
 	}
 
 	/**

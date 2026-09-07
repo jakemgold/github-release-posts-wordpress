@@ -169,6 +169,13 @@ Both source and build outputs ship with the plugin, so the source is available l
 * Links to other GitHub repositories in release notes are now looked up without the site's token, so only public content can be summarized.
 * The AI is now told the exact title prefix the post will carry, including package names for monorepo releases.
 * Project names with underscores (like `wp_mock_helpers`) taken from a README heading are no longer mangled.
+* Fixed duplicate posts in two situations: when a manual generation and the scheduled check raced on the same release, and when an existing post had been scheduled or given a custom workflow status.
+* The scheduled check now keeps its lock alive during long runs and only ever releases its own lock, so overlapping runs can no longer double-generate.
+* The scheduled check event is re-created automatically if it goes missing — including on every site of a network-activated multisite install, which previously never ran it.
+* The Last Post column now honors patterns supplied through the `ghrp_repo_tag_patterns` filter, like every other surface.
+* The "AI generation keeps failing" notice is now shown on the plugin screen (it was recorded but never displayed).
+* The version picker no longer reports a trashed post as existing, and regenerating from the editor requires the block editor like every other generation path.
+* Loading the plugin screen makes fewer live GitHub requests (token validation is cached for 15 minutes), and the scheduled-run summary no longer accumulates errors across runs.
 
 = 1.2.0 =
 

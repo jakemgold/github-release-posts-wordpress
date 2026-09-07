@@ -29,6 +29,7 @@ class Onboarding_HandlerTest extends TestCase {
 		\WP_Mock::userFunction( 'set_transient' )->andReturn( true )->byDefault();
 		// find_post() (dedup lookup) — no existing posts unless a test overrides.
 		\WP_Mock::userFunction( 'get_posts' )->andReturn( [] )->byDefault();
+		\WP_Mock::userFunction( 'get_post_stati' )->andReturn( [ 'publish' => 'publish', 'draft' => 'draft', 'trash' => 'trash' ] )->byDefault();
 	}
 
 	public function tearDown(): void {

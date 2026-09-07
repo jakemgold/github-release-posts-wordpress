@@ -84,6 +84,17 @@ class Post_CreatorTest extends TestCase {
 		// the real behavior.
 		\WP_Mock::userFunction( 'wp_slash' )->andReturnUsing( static fn( $value ) => $value )->byDefault();
 
+		// find_post() derives its status list from the registry.
+		\WP_Mock::userFunction( 'get_post_stati' )->andReturn(
+			[
+				'publish' => 'publish',
+				'draft'   => 'draft',
+				'pending' => 'pending',
+				'private' => 'private',
+				'trash'   => 'trash',
+			]
+		)->byDefault();
+
 		// resolve_author() calls get_userdata() and get_users().
 		\WP_Mock::userFunction( 'get_userdata' )->andReturn( false )->byDefault();
 		\WP_Mock::userFunction( 'get_users' )->andReturn( [ 1 ] )->byDefault();
@@ -254,6 +265,26 @@ class Post_CreatorTest extends TestCase {
 				true
 			)
 			->andReturn( 42 );
+
+		$this->creator->handle( $post, $data, [] );
+		$this->assertConditionsMet();
+	}
+
+	/**
+	 * The pre-insert idempotency check must hit the database even when the
+	 * request-scoped find_post() memo already says "no post": that memo may
+	 * predate a minute-long AI call during which another worker inserted.
+	 */
+	public function test_handle_requeries_existing_post_despite_stale_memo(): void {
+		$post = $this->make_generated_post();
+		$data = $this->make_release_data();
+
+		// First call primes the memo with "no post"; handle() must query again.
+		\WP_Mock::userFunction( 'get_posts' )->times( 2 )->andReturn( [] );
+		Release_Monitor::find_post( 'owner/my-plugin', 'v1.2.0' );
+
+		\WP_Mock::userFunction( 'wp_insert_post' )->andReturn( 42 );
+		\WP_Mock::userFunction( 'update_post_meta' )->andReturn( true );
 
 		$this->creator->handle( $post, $data, [] );
 		$this->assertConditionsMet();
