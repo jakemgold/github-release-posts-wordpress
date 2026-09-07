@@ -414,7 +414,6 @@ class Admin_Page {
 					'postExists'            => __( 'post exists', 'auto-release-posts-for-github' ),
 					'versionPickerConflict' => __( 'A post already exists for this release. Generating will create a new revision and keep the existing post date.', 'auto-release-posts-for-github' ),
 					'valid'                 => __( 'Valid', 'auto-release-posts-for-github' ),
-					'connectionSuccess'     => __( 'Connection successful.', 'auto-release-posts-for-github' ),
 				],
 			]
 		);
@@ -833,10 +832,9 @@ class Admin_Page {
 			$raw_plugin_link = esc_url_raw( $raw_plugin_link );
 		}
 
-		return [
+		$sanitized = [
 			'display_name'        => sanitize_text_field( wp_unslash( $config['display_name'] ?? '' ) ),
 			'plugin_link'         => $raw_plugin_link,
-			'author'              => absint( $config['author'] ?? 0 ),
 			'post_status'         => sanitize_key( $config['post_status'] ?? '' ),
 			// array_values() re-indexes after array_filter() drops the hidden "0"
 			// fallback element, so categories store as a sequential list. Without
@@ -849,6 +847,18 @@ class Admin_Page {
 			'include_prereleases' => ! empty( $config['include_prereleases'] ),
 			'tag_patterns'        => sanitize_text_field( wp_unslash( $config['tag_patterns'] ?? '' ) ),
 		];
+
+		// Only overwrite the author when a real user was chosen. The inline
+		// editor's dropdown lists eligible users; a repo whose stored author is
+		// no longer among them (demoted, or excluded via the
+		// ghrp_author_dropdown_user_ids filter) posts an empty value, and
+		// storing 0 would silently reassign every future post.
+		$author = absint( $config['author'] ?? 0 );
+		if ( $author > 0 ) {
+			$sanitized['author'] = $author;
+		}
+
+		return $sanitized;
 	}
 
 	/**

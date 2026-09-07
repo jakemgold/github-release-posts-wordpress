@@ -189,6 +189,21 @@ class Admin_PageTest extends TestCase {
 	}
 
 	/**
+	 * A blank author (the dropdown had no option for the stored user) must be
+	 * omitted so update_repository() preserves the stored author, instead of
+	 * silently reassigning every future post to user 0.
+	 */
+	public function test_sanitize_repo_config_preserves_author_when_none_posted(): void {
+		$this->stub_sanitizers();
+
+		$blank = $this->invoke_sanitize( [ 'author' => '' ] );
+		$this->assertArrayNotHasKey( 'author', $blank );
+
+		$chosen = $this->invoke_sanitize( [ 'author' => '7' ] );
+		$this->assertSame( 7, $chosen['author'] );
+	}
+
+	/**
 	 * Categories sanitize to an empty array when nothing is selected (just the
 	 * hidden "0" fallback) or when the key is absent entirely.
 	 */

@@ -176,6 +176,9 @@ Both source and build outputs ship with the plugin, so the source is available l
 * The "AI generation keeps failing" notice is now shown on the plugin screen (it was recorded but never displayed).
 * The version picker no longer reports a trashed post as existing, and regenerating from the editor requires the block editor like every other generation path.
 * Loading the plugin screen makes fewer live GitHub requests (token validation is cached for 15 minutes), and the scheduled-run summary no longer accumulates errors across runs.
+* Pressing Enter in the Add Repository field now adds the repository (it previously submitted the form without adding anything).
+* Clearing a repository's Name in Quick Edit falls back to the derived name instead of a blank row, and saving Quick Edit no longer resets the post author when the stored author is not in the dropdown.
+* A failure to save a newly added repository is reported instead of showing "Settings saved."
 
 = 1.2.0 =
 

@@ -164,7 +164,7 @@ class Repository_List_Table extends \WP_List_Table {
 
 		echo '<tr id="ghrp-repo-' . esc_attr( $index ) . '"';
 		echo ' data-repo="' . esc_attr( $identifier ) . '"';
-		echo ' data-display-name="' . esc_attr( $item['display_name'] ?? $identifier ) . '"';
+		echo ' data-display-name="' . esc_attr( $this->display_name_for( $item ) ) . '"';
 		echo ' data-plugin-link="' . esc_attr( $item['plugin_link'] ?? '' ) . '"';
 		echo ' data-tag-patterns="' . esc_attr( $item['tag_patterns'] ?? '' ) . '"';
 		echo ' data-post-status="' . esc_attr( ! empty( $item['post_status'] ) ? $item['post_status'] : 'draft' ) . '"';
@@ -190,7 +190,7 @@ class Repository_List_Table extends \WP_List_Table {
 	 */
 	protected function column_title( array $item ): string {
 		$identifier   = $item['identifier'] ?? '';
-		$display_name = $item['display_name'] ?? $identifier;
+		$display_name = $this->display_name_for( $item );
 
 		$actions = [
 			'edit'   => sprintf(
@@ -556,6 +556,18 @@ class Repository_List_Table extends \WP_List_Table {
 	 */
 	public function no_items(): void {
 		esc_html_e( 'No repositories are being tracked yet. Add one below.', 'auto-release-posts-for-github' );
+	}
+
+	/**
+	 * Resolves the name shown for a repository row through the same resolver
+	 * titles and emails use, so a cleared Name field falls back to the
+	 * derived name everywhere instead of rendering a blank cell here.
+	 *
+	 * @param array $item Repository data.
+	 * @return string
+	 */
+	private function display_name_for( array $item ): string {
+		return ( new Repository_Settings() )->get_display_name( (string) ( $item['identifier'] ?? '' ) );
 	}
 
 	/**

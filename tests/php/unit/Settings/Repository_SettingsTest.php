@@ -209,6 +209,33 @@ class Repository_SettingsTest extends TestCase {
 	}
 
 	/**
+	 * add_repository() must not report success when the option write fails —
+	 * the caller would run onboarding and show "Settings saved." for a
+	 * repository that does not exist on reload.
+	 */
+	public function test_add_repository_reports_save_failure(): void {
+		\WP_Mock::userFunction( 'get_option' )
+			->with( Plugin_Constants::OPTION_REPOSITORIES, [] )
+			->andReturn( [] );
+
+		\WP_Mock::userFunction( 'apply_filters' )
+			->with( 'ghrp_max_repositories', Repository_Settings::MAX_REPOSITORIES )
+			->andReturn( Repository_Settings::MAX_REPOSITORIES );
+
+		// The write fails, and the confirmation read still sees the old value.
+		\WP_Mock::userFunction( 'update_option' )
+			->with( Plugin_Constants::OPTION_REPOSITORIES, \Mockery::type( 'array' ), false )
+			->andReturn( false );
+
+		\WP_Mock::userFunction( 'get_current_user_id' )->andReturn( 1 );
+
+		$result = ( new Repository_Settings() )->add_repository( 'owner/new-repo' );
+
+		$this->assertFalse( $result['success'] );
+		$this->assertNotNull( $result['error'] );
+	}
+
+	/**
 	 * add_repository() rejects a path GitHub reports as nonexistent, and
 	 * nothing is saved.
 	 */

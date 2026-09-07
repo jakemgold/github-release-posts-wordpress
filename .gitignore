@@ -27,6 +27,8 @@ changelog-to-blog-post.zip
 CLAUDE.md
 AGENTS.md
 CODE_REVIEW_FINDINGS.md
+MONOREPO_TAG_PATTERNS_REVIEW.md
+MONOREPO_TAG_PATTERNS_DESIGN_RECOMMENDATION.md
 
 # Local agent state
 .claude/
