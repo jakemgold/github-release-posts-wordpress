@@ -33,8 +33,11 @@ use GitHubReleasePosts\Settings\Repository_Settings;
  *  1. `onboarding_pending`      → rerun the full onboarding matrix (same
  *                                 rules as add-time; see Onboarding_Handler).
  *  2. stream_state_version == 0 → upgrade from the released pre-stream
- *                                 plugin: baseline current heads, generate
- *                                 nothing (no backfill burst).
+ *                                 plugin: baseline current heads (no backfill
+ *                                 burst), except that the stream the released
+ *                                 plugin was following keeps its cursor, so a
+ *                                 release published during the upgrade window
+ *                                 is still detected.
  *  3. policy hash changed       → eligibility settings changed: rebaseline
  *                                 current heads forward-only, generate
  *                                 nothing. Manual Generate Draft remains the
@@ -177,13 +180,16 @@ class Release_Monitor {
 					// or advances past it if a post already exists.
 				} elseif ( Release_State::STREAM_STATE_VERSION !== $state['stream_state_version'] ) {
 					// Transition: upgrade from the released pre-stream plugin.
-					// Baseline every current eligible head and generate
-					// nothing — the released behavior tracked only the latest
-					// release, so current heads are history, not news.
-					$this->state->complete_baseline( $identifier, $this->cursors_for_heads( $eligible ), $policy_hash );
-					$this->log( $identifier, 'upgrade: stream baseline established, no backfill' );
-					$this->state->update_last_checked( $identifier );
-					continue;
+					// Baseline every current eligible head — the released
+					// behavior tracked only the latest release, so other
+					// streams' current heads are history, not news. The one
+					// stream it WAS following carries its repo-wide cursor
+					// over, and the stream check below then catches a release
+					// published between the last pre-upgrade check and this
+					// one instead of baselining it away as history.
+					$streams = $this->upgrade_cursors( $state, $eligible );
+					$this->state->complete_baseline( $identifier, $streams, $policy_hash );
+					$this->log( $identifier, 'upgrade: stream baseline established' . ( '' !== $state['last_seen_tag'] ? ', carrying released cursor ' . $state['last_seen_tag'] : '' ) );
 				} elseif ( $policy_hash !== $state['policy_hash'] ) {
 					// Transition: eligibility policy changed (pre-release
 					// setting or tag patterns). Forward-only: current heads
@@ -431,6 +437,38 @@ class Release_Monitor {
 			$cursors[ (string) $stream ] = [
 				'last_seen_tag'          => $winner->tag,
 				'last_seen_published_at' => $winner->published_at,
+			];
+		}
+
+		return $cursors;
+	}
+
+	/**
+	 * Builds the upgrade baseline: every current eligible head, except that
+	 * the stream the released plugin was following keeps the repo-wide cursor
+	 * it left behind (its last posted release). A stream with no eligible
+	 * head today gets no cursor, so it is picked up as new when one appears —
+	 * the same rule as after any baseline.
+	 *
+	 * @param array<string, mixed> $state    Stored pre-stream state.
+	 * @param Release[]            $eligible Monitoring-projection releases.
+	 * @return array<string, array{last_seen_tag: string, last_seen_published_at: string}>
+	 */
+	private function upgrade_cursors( array $state, array $eligible ): array {
+		$cursors    = $this->cursors_for_heads( $eligible );
+		$legacy_tag = (string) $state['last_seen_tag'];
+
+		if ( '' === $legacy_tag ) {
+			return $cursors;
+		}
+
+		$parsed = Tag_Pattern_Matcher::derive_package( $legacy_tag );
+		$stream = null === $parsed ? '' : $parsed['package'];
+
+		if ( isset( $cursors[ $stream ] ) ) {
+			$cursors[ $stream ] = [
+				'last_seen_tag'          => $legacy_tag,
+				'last_seen_published_at' => (string) $state['last_seen_published_at'],
 			];
 		}
 

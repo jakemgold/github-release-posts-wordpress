@@ -802,10 +802,13 @@ class Release_MonitorTest extends TestCase {
 
 	/**
 	 * State written by the released plugin (no stream_state_version) gets a
-	 * one-time baseline of every current eligible stream head and generates
-	 * NOTHING — no one-post-per-package burst on upgrade.
+	 * one-time baseline of every current eligible stream head. The stream the
+	 * released plugin was following keeps its repo-wide cursor, so the head
+	 * that shipped during the upgrade window is enqueued — every OTHER stream
+	 * is baselined at its head: no one-post-per-package burst.
 	 */
-	public function test_upgrade_from_released_state_baselines_without_generating(): void {
+	public function test_upgrade_carries_released_cursor_and_detects_missed_release(): void {
+		\WP_Mock::userFunction( 'get_posts' )->andReturn( [] );
 		$monitor = $this->real_comparator_monitor();
 
 		$this->repo_settings->method( 'get_repositories' )->willReturn(
@@ -821,6 +824,7 @@ class Release_MonitorTest extends TestCase {
 		);
 
 		// Exactly what 1.1.x left behind: a repo-wide cursor and nothing else.
+		// v9.0.0 was published after that plugin's last check.
 		$this->release_state->method( 'get_state' )->willReturn(
 			$this->base_state(
 				[
@@ -841,8 +845,7 @@ class Release_MonitorTest extends TestCase {
 			}
 		);
 
-		$this->queue->expects( $this->never() )->method( 'enqueue' );
-		$this->queue->method( 'dequeue_all' )->willReturn( [] );
+		$enqueued = &$this->capture_enqueues();
 		$this->mock_run_plumbing();
 
 		$monitor->run();
@@ -851,7 +854,141 @@ class Release_MonitorTest extends TestCase {
 		$keys = array_keys( $seeded );
 		sort( $keys );
 		$this->assertSame( [ '', '@acme/core', '@acme/next' ], $keys );
+		$this->assertSame( 'v8.0.0', $seeded['']['last_seen_tag'], 'the released cursor is carried into its stream' );
 		$this->assertSame( '@acme/core@2.0.0', $seeded['@acme/core']['last_seen_tag'] );
+		$this->assertSame( '@acme/next@1.5.0', $seeded['@acme/next']['last_seen_tag'] );
+		$this->assertSame( [ 'v9.0.0' ], $enqueued );
+	}
+
+	/**
+	 * The common upgrade: nothing shipped since the last pre-upgrade check.
+	 * The carried cursor equals the head, so nothing is generated.
+	 */
+	public function test_upgrade_with_current_cursor_generates_nothing(): void {
+		$monitor = $this->real_comparator_monitor();
+
+		$this->repo_settings->method( 'get_repositories' )->willReturn(
+			[ [ 'identifier' => 'acme/legacy-current' ] ]
+		);
+
+		$this->api_client->method( 'fetch_release_snapshot' )->willReturn(
+			[
+				$this->make_release( 'v9.0.0', '2026-07-19T00:00:00Z' ),
+				$this->make_release( '@acme/core@2.0.0', '2026-07-18T12:00:00Z' ),
+			]
+		);
+
+		$this->release_state->method( 'get_state' )->willReturn(
+			$this->base_state(
+				[
+					'last_seen_tag'          => 'v9.0.0',
+					'last_seen_published_at' => '2026-07-19T00:00:00Z',
+					'stream_state_version'   => 0,
+					'streams_baseline_at'    => 0,
+					'policy_hash'            => '',
+				]
+			)
+		);
+
+		$this->release_state->expects( $this->once() )->method( 'complete_baseline' );
+		$this->queue->expects( $this->never() )->method( 'enqueue' );
+		$this->queue->method( 'dequeue_all' )->willReturn( [] );
+		$this->mock_run_plumbing();
+
+		$monitor->run();
+	}
+
+	/**
+	 * A package tag left by the released plugin lands in ITS stream, not the
+	 * default one, and that stream's newer head is detected.
+	 */
+	public function test_upgrade_carries_package_cursor_into_its_stream(): void {
+		\WP_Mock::userFunction( 'get_posts' )->andReturn( [] );
+		$monitor = $this->real_comparator_monitor();
+
+		$this->repo_settings->method( 'get_repositories' )->willReturn(
+			[ [ 'identifier' => 'acme/legacy-mono' ] ]
+		);
+
+		$this->api_client->method( 'fetch_release_snapshot' )->willReturn(
+			[
+				$this->make_release( '@acme/core@2.1.0', '2026-07-19T00:00:00Z' ),
+				$this->make_release( '@acme/next@1.5.0', '2026-07-18T11:00:00Z' ),
+			]
+		);
+
+		$this->release_state->method( 'get_state' )->willReturn(
+			$this->base_state(
+				[
+					'last_seen_tag'          => '@acme/core@2.0.0',
+					'last_seen_published_at' => '2026-06-01T00:00:00Z',
+					'stream_state_version'   => 0,
+					'streams_baseline_at'    => 0,
+					'policy_hash'            => '',
+				]
+			)
+		);
+
+		$seeded = null;
+		$this->release_state->method( 'complete_baseline' )->willReturnCallback(
+			function ( string $identifier, array $cursors, string $policy_hash ) use ( &$seeded ): void {
+				$seeded = $cursors;
+			}
+		);
+
+		$enqueued = &$this->capture_enqueues();
+		$this->mock_run_plumbing();
+
+		$monitor->run();
+
+		$this->assertSame( '@acme/core@2.0.0', $seeded['@acme/core']['last_seen_tag'] );
+		$this->assertSame( '@acme/next@1.5.0', $seeded['@acme/next']['last_seen_tag'] );
+		$this->assertArrayNotHasKey( '', $seeded );
+		$this->assertSame( [ '@acme/core@2.1.0' ], $enqueued );
+	}
+
+	/**
+	 * The released cursor never seeds a stream that has no eligible head —
+	 * there is nothing to compare it against, and a later head in that stream
+	 * is new, as after any baseline.
+	 */
+	public function test_upgrade_does_not_seed_a_stream_without_a_head(): void {
+		$monitor = $this->real_comparator_monitor();
+
+		$this->repo_settings->method( 'get_repositories' )->willReturn(
+			[ [ 'identifier' => 'acme/legacy-moved' ] ]
+		);
+
+		$this->api_client->method( 'fetch_release_snapshot' )->willReturn(
+			[ $this->make_release( '@acme/core@2.0.0', '2026-07-18T12:00:00Z' ) ]
+		);
+
+		$this->release_state->method( 'get_state' )->willReturn(
+			$this->base_state(
+				[
+					'last_seen_tag'          => 'v8.0.0',
+					'last_seen_published_at' => '2026-01-01T00:00:00Z',
+					'stream_state_version'   => 0,
+					'streams_baseline_at'    => 0,
+					'policy_hash'            => '',
+				]
+			)
+		);
+
+		$seeded = null;
+		$this->release_state->method( 'complete_baseline' )->willReturnCallback(
+			function ( string $identifier, array $cursors, string $policy_hash ) use ( &$seeded ): void {
+				$seeded = $cursors;
+			}
+		);
+
+		$this->queue->expects( $this->never() )->method( 'enqueue' );
+		$this->queue->method( 'dequeue_all' )->willReturn( [] );
+		$this->mock_run_plumbing();
+
+		$monitor->run();
+
+		$this->assertSame( [ '@acme/core' ], array_keys( $seeded ) );
 	}
 
 	// -------------------------------------------------------------------------

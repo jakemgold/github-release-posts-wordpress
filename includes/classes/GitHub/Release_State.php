@@ -29,7 +29,8 @@ use GitHubReleasePosts\Plugin_Constants;
  *  - `stream_state_version` — schema marker. 0 identifies state written by
  *                             the released pre-stream plugin (or no state at
  *                             all): the upgrade transition baselines it once,
- *                             generating nothing.
+ *                             carrying the released repo-wide cursor into its
+ *                             stream and generating nothing else.
  *  - `policy_hash`          — hash of the eligibility policy the baseline was
  *                             built under; a change triggers a forward-only
  *                             rebaseline.
