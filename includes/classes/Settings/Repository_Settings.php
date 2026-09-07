@@ -308,7 +308,16 @@ class Repository_Settings {
 			'tag_patterns'        => '',
 		];
 
-		$this->save_repositories( $repos );
+		if ( ! $this->save_repositories( $repos ) ) {
+			// Reporting success for an unsaved repository would run onboarding,
+			// show "Settings saved", and auto-trigger generation for a row that
+			// does not exist on reload.
+			return [
+				'success' => false,
+				'error'   => __( 'The repository could not be saved. Please try again.', 'auto-release-posts-for-github' ),
+				'repos'   => $this->get_repositories(),
+			];
+		}
 
 		return [
 			'success' => true,

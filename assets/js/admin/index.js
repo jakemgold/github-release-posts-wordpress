@@ -330,6 +330,30 @@ document.addEventListener( 'DOMContentLoaded', function () {
 		repoInput.focus();
 	}
 
+	// Enter in the Add Repository field must trigger the Add button. Left to
+	// the browser, implicit submission activates the form's FIRST submit
+	// button in tree order — the hidden Quick Edit template's "Update" — so
+	// the request arrives without ghrp_add_repo, the bulk-save path runs,
+	// "Settings saved." appears, and the repository is never added.
+	if ( repoInput ) {
+		repoInput.addEventListener( 'keydown', function ( e ) {
+			if ( e.key !== 'Enter' ) {
+				return;
+			}
+			// The picker's own handler selects a highlighted option.
+			if ( repoState.open && repoState.activeId ) {
+				return;
+			}
+			e.preventDefault();
+			const addButton = repoInput.form
+				? repoInput.form.querySelector( 'button[name="ghrp_add_repo"]' )
+				: null;
+			if ( addButton ) {
+				addButton.click();
+			}
+		} );
+	}
+
 	if ( repoPicker && repoInput && repoList ) {
 		repoInput.addEventListener( 'focus', openRepoPopover );
 

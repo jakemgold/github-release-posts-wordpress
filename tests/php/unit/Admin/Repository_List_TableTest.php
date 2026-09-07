@@ -44,6 +44,29 @@ class Repository_List_TableTest extends TestCase {
 	/**
 	 * On single site, returns the capability-query IDs untouched.
 	 */
+	/**
+	 * A cleared Name falls back to the derived display name (what titles and
+	 * emails use), never to a blank row.
+	 */
+	public function test_display_name_falls_back_to_derived_name(): void {
+		$table  = ( new \ReflectionClass( Repository_List_Table::class ) )->newInstanceWithoutConstructor();
+		$method = new \ReflectionMethod( Repository_List_Table::class, 'display_name_for' );
+
+		// The row delegates to Repository_Settings::get_display_name(), which
+		// reads the stored configuration: first a cleared name, then a custom one.
+		\WP_Mock::userFunction( 'get_option' )
+			->with( \GitHubReleasePosts\Plugin_Constants::OPTION_REPOSITORIES, [] )
+			->andReturnValues(
+				[
+					[ [ 'identifier' => 'WordPress/gutenberg', 'display_name' => '', 'plugin_link' => '' ] ],
+					[ [ 'identifier' => 'WordPress/gutenberg', 'display_name' => 'Custom Name', 'plugin_link' => '' ] ],
+				]
+			);
+
+		$this->assertSame( 'Gutenberg', $method->invoke( $table, [ 'identifier' => 'WordPress/gutenberg', 'display_name' => '' ] ) );
+		$this->assertSame( 'Custom Name', $method->invoke( $table, [ 'identifier' => 'WordPress/gutenberg', 'display_name' => 'Custom Name' ] ) );
+	}
+
 	public function test_single_site_returns_capability_query_ids(): void {
 		\WP_Mock::userFunction( 'get_users' )
 			->once()
