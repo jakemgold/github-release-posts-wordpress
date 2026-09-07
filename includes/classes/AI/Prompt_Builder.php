@@ -12,6 +12,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+use GitHubReleasePosts\GitHub\Release_State;
+use GitHubReleasePosts\Post\Post_Creator;
 use GitHubReleasePosts\Settings\Global_Settings;
 use GitHubReleasePosts\Settings\Repository_Settings;
 
@@ -93,9 +95,15 @@ class Prompt_Builder {
 
 		$images = $this->extract_images( $body );
 
-		$audience_level   = $this->global_settings->get_audience_level();
-		$title_format     = $this->global_settings->get_title_format();
-		$title_guidance   = $this->build_title_guidance( $display_name, $data->tag, $title_format );
+		$audience_level = $this->global_settings->get_audience_level();
+		$title_format   = $this->global_settings->get_title_format();
+		// The prompt must describe the prefix Post_Creator will actually
+		// save, so it resolves package naming the same way.
+		$package_naming   = ( new Release_State() )->uses_package_naming(
+			$data->identifier,
+			$this->repo_settings->get_effective_tag_patterns( $data->identifier )
+		);
+		$title_guidance   = $this->build_title_guidance( $display_name, $data->tag, $title_format, $package_naming );
 		$content_guidance = $this->build_content_guidance( $images, $project_link, $changelog_url, $display_name, $audience_level );
 
 		// When deep research adds commit history, instruct the AI to synthesize it.
@@ -161,13 +169,20 @@ class Prompt_Builder {
 	 *  - 'version' — site auto-prefixes "Version {tag} — "; AI writes subtitle only.
 	 *  - 'none'    — no auto-prefix; AI writes the full standalone title.
 	 *
-	 * @param string $display_name Project display name.
-	 * @param string $tag          Release tag.
-	 * @param string $title_format Title format: 'full', 'version', or 'none'.
+	 * @param string $display_name   Project display name.
+	 * @param string $tag            Release tag.
+	 * @param string $title_format   Title format: 'full', 'version', or 'none'.
+	 * @param bool   $package_naming Whether the repo uses package naming.
 	 * @return string
 	 */
-	private function build_title_guidance( string $display_name, string $tag, string $title_format = 'full' ): string {
+	private function build_title_guidance( string $display_name, string $tag, string $title_format = 'full', bool $package_naming = false ): string {
 		$lead = 'Lead with whatever is most compelling and newsworthy in the release. If there are new user-facing features, highlight those. If the release is purely bug fixes or a security patch with nothing else notable, say so plainly.';
+
+		// The exact display form the saved title will carry ("v1.2", or
+		// "core 1.6.1" for a package release) — the model must never be
+		// coached toward a raw tag the title builder will not use.
+		$raw_tag = $tag;
+		$tag     = Post_Creator::display_tag( $raw_tag, $package_naming );
 
 		if ( 'none' === $title_format ) {
 			return "Write a complete, standalone post title — no automatic prefix will be added.\n"
@@ -180,16 +195,15 @@ class Prompt_Builder {
 				. "Use whichever shape best fits this release's content. {$lead} Keep it under 14 words. Be specific — avoid generic titles like \"Latest update released\".";
 		}
 
-		if ( 'version' === $title_format ) {
-			$display_tag = ltrim( $tag, 'vV' );
-			$prefix      = "Version {$display_tag} — ";
+		// Post_Creator builds the real prefix; quoting it verbatim keeps the
+		// prompt and the saved title in lockstep for every format and tag style.
+		$prefix = Post_Creator::title_prefix( $display_name, $raw_tag, $title_format, $package_naming );
 
+		if ( 'version' === $title_format ) {
 			return "The post title will be automatically formatted as: \"{$prefix}[your subtitle here]\"\n"
 				. "Write ONLY the subtitle — do NOT include the version number. The project name is \"{$display_name}\"; you may mention it in the subtitle only if it improves clarity. Vary your subtitle openings across releases — leading every post with the same kind of phrase (e.g. always a feature name) reads as repetitive in an archive.\n"
 				. "{$lead} Keep it under 12 words. Be specific — avoid generic subtitles like \"various improvements and fixes\".";
 		}
-
-		$prefix = "{$display_name} {$tag} — ";
 
 		return "The post title will be automatically formatted as: \"{$prefix}[your subtitle here]\"\n"
 			. "Write ONLY the subtitle — do NOT include the project name or version number.\n"

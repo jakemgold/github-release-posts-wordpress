@@ -189,19 +189,21 @@ class API_Client {
 	 * Builds the wp_remote_get() arguments array.
 	 *
 	 * Includes a User-Agent (required by GitHub), the correct Accept header,
-	 * and an Authorization header only when a PAT is configured (AC-006, AC-007).
-	 * The PAT value is never included in any log or error output (AC-008).
+	 * and an Authorization header only when a PAT is configured (AC-006, AC-007)
+	 * and the caller wants the request authenticated. The PAT value is never
+	 * included in any log or error output (AC-008).
 	 *
+	 * @param bool $authenticated Whether to attach the configured PAT.
 	 * @return array<string, mixed>
 	 */
-	private function build_request_args(): array {
+	private function build_request_args( bool $authenticated = true ): array {
 		$headers = [
 			'Accept'               => 'application/vnd.github+json',
 			'X-GitHub-Api-Version' => '2022-11-28',
 			'User-Agent'           => 'github-release-posts/' . GHRP_VERSION,
 		];
 
-		$pat = $this->settings->get_github_pat();
+		$pat = $authenticated ? $this->settings->get_github_pat() : '';
 		if ( '' !== $pat ) {
 			$headers['Authorization'] = 'Bearer ' . $pat;
 		}
@@ -552,11 +554,15 @@ class API_Client {
 	 * GitHub's Issues API returns both issues and PRs. No caching — these
 	 * are fetched during prompt enrichment only.
 	 *
-	 * @param string $identifier Repository identifier (owner/repo).
-	 * @param int    $number     Issue or PR number.
+	 * @param string $identifier    Repository identifier (owner/repo).
+	 * @param int    $number        Issue or PR number.
+	 * @param bool   $authenticated Whether to send the site's PAT. Callers pass
+	 *                              false for repositories other than the one
+	 *                              being tracked, so untrusted links in release
+	 *                              notes can only reach public content.
 	 * @return array{title: string, body: string}|\WP_Error Issue data or error.
 	 */
-	public function fetch_issue( string $identifier, int $number ): array|\WP_Error {
+	public function fetch_issue( string $identifier, int $number, bool $authenticated = true ): array|\WP_Error {
 		// This identifier comes from links in untrusted release notes (via
 		// Release_Enricher), so validate and URL-encode it before building the
 		// request path. Without this, a value like "owner/.." or one carrying
@@ -584,7 +590,7 @@ class API_Client {
 			rawurlencode( $repo ),
 			$number
 		);
-		$args = $this->build_request_args();
+		$args = $this->build_request_args( $authenticated );
 
 		$response = wp_remote_get( $url, $args );
 
@@ -592,11 +598,22 @@ class API_Client {
 			return $response;
 		}
 
-		$this->handle_rate_limit( $response );
+		$rate_limit = $this->handle_rate_limit( $response );
+		if ( is_wp_error( $rate_limit ) ) {
+			return $rate_limit;
+		}
 
 		$code = (int) wp_remote_retrieve_response_code( $response );
 		if ( 200 !== $code ) {
-			return new \WP_Error( 'github_issue_fetch_failed', sprintf( 'GitHub API returned HTTP %d for #%d.', $code, $number ) );
+			return new \WP_Error(
+				'github_issue_fetch_failed',
+				sprintf(
+					/* translators: 1: HTTP status code, 2: issue or pull request number */
+					__( 'GitHub API returned HTTP %1$d for #%2$d.', 'auto-release-posts-for-github' ),
+					$code,
+					$number
+				)
+			);
 		}
 
 		$data = json_decode( wp_remote_retrieve_body( $response ), true );

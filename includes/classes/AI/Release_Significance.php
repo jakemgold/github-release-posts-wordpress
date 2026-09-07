@@ -128,9 +128,11 @@ class Release_Significance {
 	 * @return bool
 	 */
 	private function has_security_keyword( string $text ): bool {
-		$lower = strtolower( $text );
 		foreach ( self::SECURITY_KEYWORDS as $keyword ) {
-			if ( str_contains( $lower, $keyword ) ) {
+			// Whole-word matching: as a bare substring, "rce" is inside
+			// "source", "resource" and "force", and "cve" inside "curve" —
+			// enough to classify most ordinary release notes as security.
+			if ( preg_match( '/\b' . preg_quote( $keyword, '/' ) . '\b/iu', $text ) ) {
 				return true;
 			}
 		}

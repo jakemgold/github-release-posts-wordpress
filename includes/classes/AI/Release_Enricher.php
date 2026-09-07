@@ -70,7 +70,17 @@ class Release_Enricher {
 
 		$details = [];
 		foreach ( $references as $ref ) {
-			$result = $this->api_client->fetch_issue( $ref['identifier'], $ref['number'] );
+			// Only the tracked repository's own references are fetched with
+			// the site's token. A full URL in release notes can point at ANY
+			// repository, and fetching it authenticated would let a note
+			// pull a private issue's text into a (possibly auto-published)
+			// post. Off-repo references are fetched anonymously: public
+			// content still enriches, private content stays private.
+			$result = $this->api_client->fetch_issue(
+				$ref['identifier'],
+				$ref['number'],
+				$ref['identifier'] === $data->identifier
+			);
 
 			if ( is_wp_error( $result ) ) {
 				continue;
@@ -80,8 +90,11 @@ class Release_Enricher {
 			$desc  = $result['body'];
 
 			// Truncate long PR descriptions to keep prompt size reasonable.
-			if ( strlen( $desc ) > 500 ) {
-				$desc = substr( $desc, 0, 500 ) . '…';
+			// Multibyte-safe: a byte-level cut through an emoji or accented
+			// character leaves invalid UTF-8, and the AI client's JSON
+			// encoding then fails deterministically for that release.
+			if ( mb_strlen( $desc ) > 500 ) {
+				$desc = mb_substr( $desc, 0, 500 ) . '…';
 			}
 
 			$details[] = sprintf(

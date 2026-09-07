@@ -132,7 +132,10 @@ class Post_Creator {
 			$insert_args['post_date'] = (string) $context['post_date'];
 		}
 
-		$post_id = wp_insert_post( $insert_args, true );
+		// wp_insert_post() expects "slashed" input (it unslashes everything it
+		// is handed before writing), so raw content would lose every backslash —
+		// `namespace Foo\Bar` in a code sample saved as `namespace FooBar`.
+		$post_id = wp_insert_post( wp_slash( $insert_args ), true );
 
 		if ( is_wp_error( $post_id ) ) {
 			if ( defined( 'WP_DEBUG' ) && WP_DEBUG && defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
@@ -303,6 +306,70 @@ class Post_Creator {
 	}
 
 	/**
+	 * Renders a release tag in its display form.
+	 *
+	 * Monorepo package tags (e.g. "@headstartwp/core@1.6.1") read as code
+	 * dumps when used verbatim — and the 'version' format's v-strip does
+	 * nothing to them. When the repo uses package naming and the tag parses
+	 * as a package release, this is the short package name + bare version
+	 * ("core 1.6.1"); otherwise it is the tag with a trailing ".0" trimmed
+	 * ("v1.2.0" → "v1.2"), exactly as before package support.
+	 *
+	 * Shared by the title/slug builders AND the prompt builder, so the prefix
+	 * the AI is told about is the prefix that actually gets saved.
+	 *
+	 * @param string $tag            Release tag.
+	 * @param bool   $package_naming Whether the repo uses package naming.
+	 * @return string
+	 */
+	public static function display_tag( string $tag, bool $package_naming = false ): string {
+		$parsed = Tag_Pattern_Matcher::derive_display_package( $tag, $package_naming );
+		if ( null !== $parsed ) {
+			return Tag_Pattern_Matcher::short_name( $parsed['package'] ) . ' ' . self::format_version_tag( $parsed['version'] );
+		}
+
+		return self::format_version_tag( $tag );
+	}
+
+	/**
+	 * Builds the automatic title prefix for a release under a title format.
+	 *
+	 *  - 'full'    "{Display Name} {display tag} — "
+	 *  - 'version' "Version {version} — " (leading 'v' stripped), or for a
+	 *              package release "{Package} {version} — " — "Version 1.6.1"
+	 *              alone is ambiguous across packages, so the package name
+	 *              leads and is capitalized (npm names are ASCII-safe).
+	 *  - 'none'    "" (the AI writes the whole title)
+	 *
+	 * @param string $display_name   Resolved repository display name.
+	 * @param string $tag            Release tag.
+	 * @param string $format         Title format: 'full', 'version', or 'none'.
+	 * @param bool   $package_naming Whether the repo uses package naming.
+	 * @return string Prefix including the trailing " — ", or '' for 'none'.
+	 */
+	public static function title_prefix( string $display_name, string $tag, string $format, bool $package_naming = false ): string {
+		if ( 'none' === $format ) {
+			return '';
+		}
+
+		$parsed = Tag_Pattern_Matcher::derive_display_package( $tag, $package_naming );
+		if ( null !== $parsed ) {
+			$package = Tag_Pattern_Matcher::short_name( $parsed['package'] );
+			$version = self::format_version_tag( $parsed['version'] );
+
+			return 'version' === $format
+				? ucfirst( $package ) . ' ' . ltrim( $version, 'vV' ) . ' — '
+				: "{$display_name} {$package} {$version} — ";
+		}
+
+		$tag = self::format_version_tag( $tag );
+
+		return 'version' === $format
+			? 'Version ' . ltrim( $tag, 'vV' ) . ' — '
+			: "{$display_name} {$tag} — ";
+	}
+
+	/**
 	 * Builds the full post title from already-resolved inputs.
 	 *
 	 *  - 'full'    "{Display Name} {tag} — {subtitle}"
@@ -324,35 +391,9 @@ class Post_Creator {
 	 * @return string Full post title.
 	 */
 	public static function build_title( string $display_name, string $tag, string $ai_title, string $format, string $identifier, bool $package_naming = false ): string {
-		// Monorepo package tags (e.g. "@headstartwp/core@1.6.1") read as code
-		// dumps when used verbatim — and the 'version' format's v-strip does
-		// nothing to them. When the tag parses as a package release, render
-		// the short package name + bare version ("core 1.6.1") instead; the
-		// per-repo display name still provides the project context. Plain
-		// tags are formatted exactly as before.
-		$parsed = Tag_Pattern_Matcher::derive_display_package( $tag, $package_naming );
-		if ( null !== $parsed ) {
-			$package = Tag_Pattern_Matcher::short_name( $parsed['package'] );
-			$version = self::format_version_tag( $parsed['version'] );
-			$tag     = "{$package} {$version}";
-
-			$title = match ( $format ) {
-				'none'    => $ai_title,
-				// "Version 1.6.1" alone is ambiguous across packages — keep
-				// the package name in the version-only format. It leads the
-				// title here, so capitalize it (npm names are ASCII-safe).
-				'version' => ucfirst( $package ) . ' ' . ltrim( $version, 'vV' ) . ' — ' . $ai_title,
-				default   => "{$display_name} {$package} {$version} — {$ai_title}",
-			};
-		} else {
-			$tag = self::format_version_tag( $tag );
-
-			$title = match ( $format ) {
-				'none'    => $ai_title,
-				'version' => 'Version ' . ltrim( $tag, 'vV' ) . ' — ' . $ai_title,
-				default   => "{$display_name} {$tag} — {$ai_title}",
-			};
-		}
+		$prefix = self::title_prefix( $display_name, $tag, $format, $package_naming );
+		$title  = '' === $prefix ? $ai_title : $prefix . $ai_title;
+		$tag    = self::display_tag( $tag, $package_naming );
 
 		/**
 		 * Filters the full post title before it is saved.
@@ -388,10 +429,10 @@ class Post_Creator {
 	 * @return bool
 	 */
 	private function repo_uses_package_naming( string $identifier ): bool {
-		$config = $this->repo_settings->get_repository( $identifier );
-		/** This filter is documented in includes/classes/GitHub/Release_Monitor.php */
-		$patterns = (string) apply_filters( 'ghrp_repo_tag_patterns', (string) ( $config['tag_patterns'] ?? '' ), $identifier, $config );
-		return ( new Release_State() )->uses_package_naming( $identifier, $patterns );
+		return ( new Release_State() )->uses_package_naming(
+			$identifier,
+			$this->repo_settings->get_effective_tag_patterns( $identifier )
+		);
 	}
 
 	/**
@@ -494,8 +535,14 @@ class Post_Creator {
 			$html
 		) ?? $html;
 
-		// Split remaining HTML into top-level elements.
-		$pattern = '%(<(?:p|ul|ol|h[1-6]|blockquote|img|hr|pre|table)[\s>].*?(?:</(?:p|ul|ol|h[1-6]|blockquote|pre|table)>|/>))%si';
+		// Split remaining HTML into top-level elements. Void elements (<hr>,
+		// <img>) are matched as a single tag whether or not they are
+		// self-closed — treating quoted attribute values as units, so a `>`
+		// inside alt text does not end the tag early — and container
+		// elements run to their own closing tag, never to a `/>` inside them,
+		// which used to cut a paragraph in half at a <br/> and let a bare
+		// <hr> swallow the paragraph after it.
+		$pattern = '%(<(?:hr|img)\b(?:[^>"\']|"[^"]*"|\'[^\']*\')*>|<(?:p|ul|ol|h[1-6]|blockquote|pre|table)[\s>].*?</(?:p|ul|ol|h[1-6]|blockquote|pre|table)>)%si';
 		$parts   = preg_split( $pattern, $html, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY );
 
 		if ( empty( $parts ) ) {
@@ -535,7 +582,7 @@ class Post_Creator {
 				continue;
 			}
 
-			if ( preg_match( '/^<(p|ul|ol|h[1-6]|blockquote|img|hr|pre|table)[\s>]/i', $part, $tag_match ) ) {
+			if ( preg_match( '/^<(p|ul|ol|h[1-6]|blockquote|img|hr|pre|table)\b/i', $part, $tag_match ) ) {
 				$tag      = strtolower( $tag_match[1] );
 				$blocks[] = self::wrap_in_block( $tag, $part );
 			} else {
@@ -568,7 +615,10 @@ class Post_Creator {
 			'blockquote' => "<!-- wp:quote -->\n{$html}\n<!-- /wp:quote -->",
 			'figure'     => self::wrap_figure_block( $html ),
 			'img'        => self::wrap_img_block( $html ),
-			'hr'         => '<!-- wp:separator -->',
+			// A complete separator block: the bare opener that used to be
+			// emitted here had no closer, so the block parser nested every
+			// following block inside an invalid separator.
+			'hr'         => "<!-- wp:separator -->\n<hr class=\"wp-block-separator has-alpha-channel-opacity\"/>\n<!-- /wp:separator -->",
 			'pre'        => "<!-- wp:code -->\n{$html}\n<!-- /wp:code -->",
 			'table'      => "<!-- wp:table -->\n<figure class=\"wp-block-table\">{$html}</figure>\n<!-- /wp:table -->",
 			default      => "<!-- wp:html -->\n{$html}\n<!-- /wp:html -->",
@@ -902,10 +952,12 @@ class Post_Creator {
 		// for the unfiltered_html admin case (see KSES note in create()).
 		if ( $content !== $post->post_content ) {
 			wp_update_post(
-				[
-					'ID'           => $post_id,
-					'post_content' => wp_kses_post( $content ),
-				]
+				wp_slash(
+					[
+						'ID'           => $post_id,
+						'post_content' => wp_kses_post( $content ),
+					]
+				)
 			);
 		}
 

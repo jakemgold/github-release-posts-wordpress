@@ -159,6 +159,17 @@ Both source and build outputs ship with the plugin, so the source is available l
 
 == Changelog ==
 
+= 1.2.1 =
+
+* Fixed backslashes being stripped from generated posts — code samples with PHP namespaces, regular expressions, or Windows paths now save intact.
+* Fixed empty "Review draft" links in notification emails.
+* Fixed ordinary words such as "source" or "resource" causing a release to be treated as a security fix.
+* Fixed a horizontal rule in AI-written content producing a broken separator block that swallowed the rest of the post; a line break inside a paragraph no longer splits it into two blocks.
+* Fixed a generation failure that could recur on every retry when a linked pull request description was cut mid-character.
+* Links to other GitHub repositories in release notes are now looked up without the site's token, so only public content can be summarized.
+* The AI is now told the exact title prefix the post will carry, including package names for monorepo releases.
+* Project names with underscores (like `wp_mock_helpers`) taken from a README heading are no longer mangled.
+
 = 1.2.0 =
 
 * Monorepo support for GitHub repositories that release multiple packages. Edit the repository settings in WordPress for detected monorepos to choose which packages get posts. Developers can customize the release tag patterns the plugin uses with the `ghrp_repo_tag_patterns` filter. Full details in the Help tab on the Release Posts admin screen.
