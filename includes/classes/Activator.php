@@ -64,18 +64,20 @@ class Activator {
 		// give it the option rows activation would have written. Without them
 		// the first Settings save hit a core quirk — update_option() on a
 		// missing row sanitizes twice — so the token was encrypted twice and
-		// an unchecked box could not be saved at all.
-		self::write_default_options();
-
-		self::schedule_check();
+		// an unchecked box could not be saved at all. Only once scheduling
+		// succeeds: with an unregistered check frequency it fails on every
+		// request, and the rows must not be rewritten on every request too.
+		if ( self::schedule_check() ) {
+			self::write_default_options();
+		}
 	}
 
 	/**
 	 * Schedules the recurring release check at the configured interval.
 	 *
-	 * @return void
+	 * @return bool Whether the event was scheduled.
 	 */
-	private static function schedule_check(): void {
+	private static function schedule_check(): bool {
 		/**
 		 * Filters the WP-Cron schedule used for release checks.
 		 *
@@ -101,6 +103,8 @@ class Activator {
 				)
 			);
 		}
+
+		return false !== $result;
 	}
 
 	/**
