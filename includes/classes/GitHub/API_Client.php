@@ -224,22 +224,31 @@ class API_Client {
 	 * If exhausted, logs a warning, schedules a one-hour retry, and returns
 	 * a WP_Error so the caller can stop processing further repos (AC-010, AC-011).
 	 *
-	 * @param array|\WP_Error $response wp_remote_get() response.
+	 * A deliberately anonymous request (a link to another repository) draws
+	 * on the server's shared per-IP quota, not the site's: exhausting it
+	 * still fails that request, but must not schedule a retry run or stand in
+	 * for the site's remaining count.
+	 *
+	 * @param array|\WP_Error $response      wp_remote_get() response.
+	 * @param bool            $authenticated Whether the request used the site's credentials.
 	 * @return true|\WP_Error True if within limit; WP_Error if exhausted.
 	 */
-	private function handle_rate_limit( array|\WP_Error $response ): true|\WP_Error {
+	private function handle_rate_limit( array|\WP_Error $response, bool $authenticated = true ): true|\WP_Error {
 		$remaining = wp_remote_retrieve_header( $response, 'x-ratelimit-remaining' );
 
 		if ( '' === $remaining ) {
 			return true; // Header absent — unauthenticated or header not sent.
 		}
 
-		set_transient( Cache_Keys::rate_limit_remaining(), (int) $remaining, HOUR_IN_SECONDS );
+		if ( $authenticated ) {
+			set_transient( Cache_Keys::rate_limit_remaining(), (int) $remaining, HOUR_IN_SECONDS );
+		}
 
-		if ( 0 === (int) $remaining ) {
-			// Log as warning — never fatal (AC-011).
-			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-			error_log( '[auto-release-posts-for-github] GitHub API rate limit exhausted. A retry has been scheduled.' );
+		if ( 0 === (int) $remaining && $authenticated ) {
+			if ( defined( 'WP_DEBUG' ) && WP_DEBUG && defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
+				// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+				error_log( '[auto-release-posts-for-github] GitHub API rate limit exhausted. A retry has been scheduled.' );
+			}
 
 			// Schedule one-time retry (AC-010) — only if not already queued.
 			if ( ! wp_next_scheduled( Plugin_Constants::CRON_HOOK_RATE_LIMIT_RETRY ) ) {
@@ -248,7 +257,9 @@ class API_Client {
 					Plugin_Constants::CRON_HOOK_RATE_LIMIT_RETRY
 				);
 			}
+		}
 
+		if ( 0 === (int) $remaining ) {
 			// GitHub reports the remaining count *after* serving this request, so a
 			// successful (2xx) response that reports zero remaining still contains
 			// the release we asked for. Only abort when the response itself is
@@ -259,7 +270,9 @@ class API_Client {
 			if ( $code < 200 || $code >= 300 ) {
 				return new \WP_Error(
 					'github_rate_limit_exhausted',
-					__( 'GitHub API rate limit exhausted. A retry has been scheduled for one hour from now.', 'auto-release-posts-for-github' )
+					$authenticated
+						? __( 'GitHub API rate limit exhausted. A retry has been scheduled for one hour from now.', 'auto-release-posts-for-github' )
+						: __( 'GitHub API rate limit exhausted.', 'auto-release-posts-for-github' )
 				);
 			}
 		}
@@ -613,7 +626,7 @@ class API_Client {
 			return $response;
 		}
 
-		$rate_limit = $this->handle_rate_limit( $response );
+		$rate_limit = $this->handle_rate_limit( $response, $authenticated );
 		if ( is_wp_error( $rate_limit ) ) {
 			return $rate_limit;
 		}

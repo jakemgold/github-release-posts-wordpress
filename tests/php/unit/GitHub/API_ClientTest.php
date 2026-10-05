@@ -1019,4 +1019,28 @@ class API_ClientTest extends TestCase {
 		$this->assertInstanceOf( Release::class, $picked );
 		$this->assertSame( '@acme/b@1.0.0', $picked->tag );
 	}
+
+	/**
+	 * A deliberately anonymous lookup (a link to another repository) draws on
+	 * the server's shared per-IP quota. Exhausting it fails that lookup, but
+	 * must not schedule a retry run, log, or overwrite the site's own
+	 * remaining-count.
+	 *
+	 * @covers API_Client::fetch_issue
+	 */
+	public function test_anonymous_lookup_exhaustion_has_no_side_effects(): void {
+		\WP_Mock::userFunction( 'wp_remote_get' )->andReturn( $this->mock_response( 403 ) );
+		\WP_Mock::userFunction( 'is_wp_error' )->andReturn( false );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_response_code' )->andReturn( 403 );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_header' )->andReturn( '0' );
+		\WP_Mock::userFunction( '__' )->andReturnArg( 0 );
+		\WP_Mock::userFunction( 'set_transient' )->never();
+		\WP_Mock::userFunction( 'wp_schedule_single_event' )->never();
+
+		$client = new API_Client( $this->settings_mock( 'ghp_site_token' ) );
+		$result = $client->fetch_issue( 'other-org/other-repo', 7, false );
+
+		$this->assertInstanceOf( \WP_Error::class, $result );
+		$this->assertSame( 'github_rate_limit_exhausted', $result->get_error_code() );
+	}
 }
