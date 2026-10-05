@@ -223,7 +223,7 @@ class Post_Creator {
 			return '';
 		}
 
-		$text = __( 'This post was generated from release notes with the help of AI using GitHub Release Posts plugin for WordPress.', 'auto-release-posts-for-github' );
+		$text = __( 'This post was generated from release notes with the help of AI using the Auto Release Posts for GitHub plugin for WordPress.', 'auto-release-posts-for-github' );
 
 		/**
 		 * Filters the AI disclosure text appended to generated posts.
