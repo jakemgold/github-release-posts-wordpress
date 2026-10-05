@@ -182,7 +182,7 @@ Both source and build outputs ship with the plugin, so the source is available l
 * Clearing a repository's Name in Quick Edit falls back to the derived name instead of a blank row, and saving Quick Edit no longer resets the post author when the stored author is not in the dropdown.
 * A failure to save a newly added repository is reported instead of showing "Settings saved."
 * Pressing Escape on the version picker or the "post already exists" dialog no longer leaves its action armed — the next confirmation could also regenerate the post you had just declined.
-* An AI response cut off at the length limit, stopped by a content filter, or missing its body is reported as a failed generation instead of being saved (or published) as an incomplete post, and a response wrapped in a code fence is unwrapped.
+* An AI response that did not finish normally (cut off at the length limit, stopped by a content filter or a provider error) or has no body is reported as a failed generation instead of being saved (or published) as an incomplete post, and a response wrapped in a code fence is unwrapped.
 * "Generate draft" always creates a draft, even when a `ghrp_post_status` filter would publish it.
 * A scheduled check stopped by GitHub's rate limit is now reported, leftovers from an interrupted check are no longer posted for repositories paused or removed since, and a renamed or transferred repository gets a clear explanation (and is not added under its old name).
 * On sites that never ran activation (subsites of a network activation, Composer installs), the first settings save no longer double-encrypts the GitHub token or ignores an unchecked box.

@@ -160,9 +160,11 @@ class WP_AI_Client_Connector implements AIProviderInterface {
 		if ( '' !== $stopped ) {
 			return new \WP_Error(
 				'ghrp_wp_ai_client_incomplete',
-				'length' === $stopped
-					? __( 'The AI response was cut off at the length limit, so no post was saved. Please try again.', 'auto-release-posts-for-github' )
-					: __( 'The AI provider stopped the response early (content filter), so no post was saved.', 'auto-release-posts-for-github' )
+				match ( $stopped ) {
+					'length'         => __( 'The AI response was cut off at the length limit, so no post was saved. Please try again.', 'auto-release-posts-for-github' ),
+					'content_filter' => __( 'The AI provider stopped the response early (content filter), so no post was saved.', 'auto-release-posts-for-github' ),
+					default          => __( 'The AI provider did not finish the response, so no post was saved. Please try again.', 'auto-release-posts-for-github' ),
+				}
 			);
 		}
 
@@ -189,14 +191,15 @@ class WP_AI_Client_Connector implements AIProviderInterface {
 	}
 
 	/**
-	 * Why a generation stopped short, or '' when it finished normally.
+	 * Why a generation did not finish normally, or '' when it did.
 	 *
 	 * The text of a response is returned even when the provider stopped at
-	 * the token limit or a content filter — a post cut off mid-sentence (and
-	 * mid-list) was saved and, on repositories set to publish, published.
+	 * the token limit, a content filter, or an error — a post cut off
+	 * mid-sentence (and mid-list) was saved and, on repositories set to
+	 * publish, published. Only a normal stop becomes a post.
 	 *
 	 * @param object $result The builder's GenerativeAiResult.
-	 * @return string 'length', 'content_filter', or ''.
+	 * @return string 'length', 'content_filter', 'other', or ''.
 	 */
 	private static function incomplete_reason( object $result ): string {
 		$candidates = method_exists( $result, 'getCandidates' ) ? (array) $result->getCandidates() : [];
@@ -206,11 +209,14 @@ class WP_AI_Client_Connector implements AIProviderInterface {
 		}
 
 		$reason = $candidate->getFinishReason();
+		if ( $reason->isStop() ) {
+			return '';
+		}
 		if ( $reason->isLength() ) {
 			return 'length';
 		}
 
-		return $reason->isContentFilter() ? 'content_filter' : '';
+		return $reason->isContentFilter() ? 'content_filter' : 'other';
 	}
 
 	/**

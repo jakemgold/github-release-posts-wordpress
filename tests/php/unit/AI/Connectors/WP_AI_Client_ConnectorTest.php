@@ -168,6 +168,9 @@ class WP_AI_Client_ConnectorTest extends TestCase {
 	private function make_result( string $text, string $finish ): object {
 		$reason = new class( $finish ) {
 			public function __construct( private string $finish ) {}
+			public function isStop(): bool {
+				return 'stop' === $this->finish;
+			}
 			public function isLength(): bool {
 				return 'length' === $this->finish;
 			}
@@ -202,8 +205,9 @@ class WP_AI_Client_ConnectorTest extends TestCase {
 	}
 
 	/**
-	 * A response cut off at the token limit (or stopped by a content filter)
-	 * is an error, never a post — it was saved and, on repositories set to
+	 * A response that did not finish normally — cut off at the token limit,
+	 * stopped by a content filter or a provider error — is an error, never a
+	 * post — it was saved and, on repositories set to
 	 * publish, published mid-sentence.
 	 *
 	 * @dataProvider incomplete_finish_provider
@@ -219,6 +223,7 @@ class WP_AI_Client_ConnectorTest extends TestCase {
 		return [
 			'token limit'    => [ 'length' ],
 			'content filter' => [ 'content_filter' ],
+			'provider error' => [ 'error' ],
 		];
 	}
 
