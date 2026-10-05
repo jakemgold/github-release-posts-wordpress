@@ -808,27 +808,30 @@ class Post_Creator {
 	}
 
 	/**
-	 * Builds a core/heading block. An id is kept as the heading's anchor, so
-	 * in-post links to it keep working.
+	 * Builds a core/heading block. Its id is kept as the heading's anchor, so
+	 * in-post links to it keep working. The id is read by an HTML parser, as
+	 * a browser reads it: any characters, references decoded, and never text
+	 * that only looks like an id inside another attribute.
 	 *
 	 * @param string $tag  Heading tag, h1–h6.
 	 * @param string $html The full heading element.
 	 * @return string
 	 */
 	private static function build_heading_block( string $tag, string $html ): string {
-		$level  = (int) substr( $tag, 1 );
-		$anchor = preg_match( '/\sid\s*=\s*(["\']?)([\w:.-]+)\1(?=[\s\/>])/i', self::opening_tag( $html, $tag ), $id ) ? $id[2] : '';
+		$level   = (int) substr( $tag, 1 );
+		$heading = self::parse_single_element( $html, $tag );
+		$anchor  = null === $heading ? '' : $heading->getAttribute( 'id' );
 
 		$attrs = [];
 		if ( 2 !== $level ) {
-			$attrs[] = '"level":' . $level;
+			$attrs['level'] = $level;
 		}
 		if ( '' !== $anchor ) {
-			$attrs[] = '"anchor":"' . $anchor . '"';
+			$attrs['anchor'] = $anchor;
 		}
 
-		$comment_attrs = empty( $attrs ) ? '' : ' {' . implode( ',', $attrs ) . '}';
-		$id_attr       = '' === $anchor ? '' : ' id="' . $anchor . '"';
+		$comment_attrs = empty( $attrs ) ? '' : ' ' . serialize_block_attributes( $attrs );
+		$id_attr       = '' === $anchor ? '' : ' id="' . esc_attr( $anchor ) . '"';
 		$inner         = trim( self::element_inner( $html, $tag ) );
 
 		return "<!-- wp:heading{$comment_attrs} -->\n<{$tag}{$id_attr} class=\"wp-block-heading\">{$inner}</{$tag}>\n<!-- /wp:heading -->";

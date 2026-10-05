@@ -111,6 +111,23 @@ class Post_CreatorTest extends TestCase {
 		// validated by WordPress core itself in integration.
 		\WP_Mock::userFunction( 'wp_kses_post' )->andReturnUsing( fn( $v ) => $v )->byDefault();
 		\WP_Mock::userFunction( 'wp_strip_all_tags' )->andReturnUsing( fn( $v ) => $v )->byDefault();
+
+		// Block attributes are serialized with core's helper; this mirrors its
+		// implementation so the block markup asserted below is what WordPress
+		// itself produces.
+		\WP_Mock::userFunction( 'serialize_block_attributes' )->andReturnUsing(
+			static fn( array $attrs ): string => strtr(
+				(string) json_encode( $attrs, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ),
+				[
+					'\\\\' => '\\u005c',
+					'--'   => '\\u002d\\u002d',
+					'<'    => '\\u003c',
+					'>'    => '\\u003e',
+					'&'    => '\\u0026',
+					'\\"'  => '\\u0022',
+				]
+			)
+		)->byDefault();
 	}
 
 	public function tearDown(): void {
@@ -1163,15 +1180,37 @@ class Post_CreatorTest extends TestCase {
 	}
 
 	/**
-	 * A heading's id is kept as its anchor, so in-post links to it work.
+	 * A heading's id is kept as its anchor, so in-post links to it work. It
+	 * is read the way a browser reads it: any characters, references decoded,
+	 * and never "id=" text inside another attribute.
+	 *
+	 * @dataProvider heading_anchor_provider
 	 */
-	public function test_convert_html_to_blocks_keeps_heading_anchors(): void {
+	public function test_convert_html_to_blocks_keeps_heading_anchors( string $html, string $comment, string $id, string $text ): void {
+		// Escape as core does (WP_Mock's default esc_attr() passes through).
+		\WP_Mock::userFunction( 'esc_attr' )->andReturnUsing( static fn( $v ) => htmlspecialchars( (string) $v, ENT_QUOTES, 'UTF-8', false ) );
+
 		$this->assertSame(
-			"<!-- wp:heading {\"anchor\":\"migration\"} -->\n<h2 id=\"migration\" class=\"wp-block-heading\">Migration</h2>\n<!-- /wp:heading -->",
-			Post_Creator::convert_html_to_blocks( '<h2 id="migration">Migration</h2>' )
+			"<!-- wp:heading {$comment} -->\n<h2 id=\"{$id}\" class=\"wp-block-heading\">{$text}</h2>\n<!-- /wp:heading -->",
+			Post_Creator::convert_html_to_blocks( $html )
 		);
-		$this->assertStringStartsWith(
-			"<!-- wp:heading {\"level\":3,\"anchor\":\"step-2\"} -->\n<h3 id=\"step-2\" class=\"wp-block-heading\">",
+	}
+
+	public static function heading_anchor_provider(): array {
+		return [
+			'simple id'                    => [ '<h2 id="migration">Migration</h2>', '{"anchor":"migration"}', 'migration', 'Migration' ],
+			'symbols'                      => [ '<h2 id="c++">C++ support</h2>', '{"anchor":"c++"}', 'c++', 'C++ support' ],
+			'non-ASCII'                    => [ '<h2 id="café">Café integration</h2>', '{"anchor":"café"}', 'café', 'Café integration' ],
+			'character reference'          => [ '<h2 id="migr&#97;tion">Migration</h2>', '{"anchor":"migration"}', 'migration', 'Migration' ],
+			'brackets'                     => [ '<h2 id="config[api]">API config</h2>', '{"anchor":"config[api]"}', 'config[api]', 'API config' ],
+			'id text in another attribute' => [ '<h2 title="An id=example attribute" id="actual">Details</h2>', '{"anchor":"actual"}', 'actual', 'Details' ],
+			'quote and markup characters'  => [ "<h2 id='say\"hi&lt;&amp;'>Odd</h2>", '{"anchor":"say\\u0022hi\\u003c\\u0026"}', 'say&quot;hi&lt;&amp;', 'Odd' ],
+		];
+	}
+
+	public function test_convert_html_to_blocks_heading_anchor_keeps_the_level(): void {
+		$this->assertSame(
+			"<!-- wp:heading {\"level\":3,\"anchor\":\"step-2\"} -->\n<h3 id=\"step-2\" class=\"wp-block-heading\">Step 2</h3>\n<!-- /wp:heading -->",
 			Post_Creator::convert_html_to_blocks( '<h3 id="step-2">Step 2</h3>' )
 		);
 	}
