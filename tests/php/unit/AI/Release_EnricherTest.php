@@ -86,4 +86,30 @@ class Release_EnricherTest extends TestCase {
 		$this->assertContains( [ 'acme-org/private-app', 7, false ], $calls );
 		$this->assertContains( [ 'owner/repo', 5, true ], $calls );
 	}
+
+	/**
+	 * GitHub identifiers are case-insensitive, and generated release notes
+	 * link with the canonical casing. The tracked repository's own links use
+	 * the token whatever their casing — fetched anonymously, a private
+	 * repository's pull requests were a 404 and their context was lost.
+	 */
+	public function test_own_repo_references_use_the_token_regardless_of_case(): void {
+		$calls = [];
+
+		$api = $this->createMock( API_Client::class );
+		$api->method( 'fetch_issue' )->willReturnCallback(
+			function ( string $identifier, int $number, bool $authenticated = true ) use ( &$calls ) {
+				$calls[] = [ $identifier, $number, $authenticated ];
+				return [
+					'title' => 'Ref',
+					'body'  => 'Body',
+				];
+			}
+		);
+
+		$body = 'See https://github.com/Owner/Repo/pull/41.';
+		( new Release_Enricher( $api ) )->enrich( $body, $this->release_data( $body ) );
+
+		$this->assertSame( [ [ 'Owner/Repo', 41, true ] ], $calls );
+	}
 }
