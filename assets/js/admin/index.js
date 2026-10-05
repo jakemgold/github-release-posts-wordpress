@@ -337,7 +337,8 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	// "Settings saved." appears, and the repository is never added.
 	if ( repoInput ) {
 		repoInput.addEventListener( 'keydown', function ( e ) {
-			if ( e.key !== 'Enter' ) {
+			// An Enter that commits an IME composition is not a submit.
+			if ( e.key !== 'Enter' || e.isComposing || e.keyCode === 229 ) {
 				return;
 			}
 			// The picker's own handler selects a highlighted option.
@@ -345,6 +346,10 @@ document.addEventListener( 'DOMContentLoaded', function () {
 				return;
 			}
 			e.preventDefault();
+			// A held key repeats Enter: add once.
+			if ( e.repeat ) {
+				return;
+			}
 			const addButton = repoInput.form
 				? repoInput.form.querySelector( 'button[name="ghrp_add_repo"]' )
 				: null;
