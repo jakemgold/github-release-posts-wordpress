@@ -120,6 +120,11 @@ class Release_Monitor {
 			// publications from earlier runs stay until the admin has seen them.
 			Publish_Workflow::reset_run_errors();
 
+			// Entries left by a run that died mid-way are stale: the repository
+			// may have been paused or removed since. Nothing is lost — cursors
+			// only advance once a post exists, so this run detects them again.
+			$this->queue->clear();
+
 			$repos = $this->repo_settings->get_repositories();
 
 			foreach ( $repos as $repo ) {
@@ -143,8 +148,10 @@ class Release_Monitor {
 
 				if ( is_wp_error( $snapshot ) ) {
 					if ( 'github_rate_limit_exhausted' === $snapshot->get_error_code() ) {
-						// API_Client already scheduled the retry event. Stop the run.
+						// API_Client already scheduled the retry event. Stop the run,
+						// but say why — otherwise the run summary is simply empty.
 						$this->log( $identifier, 'rate limit exhausted — stopping run' );
+						Publish_Workflow::record_error( $identifier, '', $snapshot->get_error_message() );
 						break;
 					}
 

@@ -1378,4 +1378,45 @@ class Release_MonitorTest extends TestCase {
 
 		$monitor->run();
 	}
+
+	/**
+	 * Queue entries left by a run that died mid-way are discarded at the
+	 * start of the next run — the repository may since have been paused or
+	 * removed. Nothing is lost: an unposted release is detected again.
+	 */
+	public function test_run_discards_a_stale_queue(): void {
+		$this->repo_settings->method( 'get_repositories' )->willReturn( [] );
+		$this->queue->expects( $this->once() )->method( 'clear' );
+		$this->queue->method( 'dequeue_all' )->willReturn( [] );
+		$this->mock_run_plumbing();
+
+		$this->monitor->run();
+	}
+
+	/**
+	 * A run stopped by GitHub's rate limit says so in the run summary;
+	 * otherwise the admin saw a recent "last run" and nothing else, forever.
+	 */
+	public function test_rate_limit_stop_is_recorded(): void {
+		$this->repo_settings->method( 'get_repositories' )->willReturn( [ [ 'identifier' => 'acme/limited' ] ] );
+		$this->api_client->method( 'fetch_release_snapshot' )->willReturn(
+			new \WP_Error( 'github_rate_limit_exhausted', 'GitHub API rate limit exhausted.' )
+		);
+		$this->queue->method( 'dequeue_all' )->willReturn( [] );
+		$this->mock_run_plumbing();
+
+		$saved = null;
+		\WP_Mock::userFunction( 'set_transient' )
+			->with( Cache_Keys::cron_results(), \Mockery::type( 'array' ), \Mockery::any() )
+			->andReturnUsing(
+				function ( $key, $value ) use ( &$saved ) {
+					$saved = $value;
+					return true;
+				}
+			);
+
+		$this->monitor->run();
+
+		$this->assertSame( 'acme/limited', $saved['errors'][0]['identifier'] ?? null );
+	}
 }

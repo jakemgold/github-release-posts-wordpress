@@ -37,6 +37,15 @@ class Release_Queue {
 	}
 
 	/**
+	 * Empties the queue without processing it.
+	 *
+	 * @return void
+	 */
+	public function clear(): void {
+		$this->save( [] );
+	}
+
+	/**
 	 * Returns all queued entries and clears the queue.
 	 *
 	 * @return array<int, array<string, mixed>>
