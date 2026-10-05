@@ -1035,4 +1035,110 @@ class Post_CreatorTest extends TestCase {
 		$post->post_status = 'draft';
 		\WP_Mock::userFunction( 'get_posts' )->andReturn( [ $post ] )->byDefault();
 	}
+
+	// -------------------------------------------------------------------------
+	// convert_html_to_blocks() — core block markup
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Headings carry the class the editor saves; without it every heading
+	 * loaded through a deprecation and kept the bare markup on the front end.
+	 */
+	public function test_convert_html_to_blocks_emits_core_heading_markup(): void {
+		$this->assertSame(
+			"<!-- wp:heading {\"level\":3} -->\n<h3 class=\"wp-block-heading\">Details</h3>\n<!-- /wp:heading -->",
+			Post_Creator::convert_html_to_blocks( '<h3>Details</h3>' )
+		);
+	}
+
+	/**
+	 * A nested list is matched to its own closing tag (it used to end at the
+	 * inner </ul>, leaving "</li></ul>" behind as a broken paragraph), and
+	 * comes out as list-item blocks with the nested list inside its item —
+	 * byte-for-byte what the editor serializes.
+	 */
+	public function test_convert_html_to_blocks_builds_nested_lists(): void {
+		$result = Post_Creator::convert_html_to_blocks( "<ul>\n<li>Parent<ul><li>Child</li></ul></li>\n<li>Next</li>\n</ul>" );
+
+		$this->assertSame(
+			"<!-- wp:list -->\n<ul class=\"wp-block-list\"><!-- wp:list-item -->\n<li>Parent<!-- wp:list -->\n<ul class=\"wp-block-list\"><!-- wp:list-item -->\n<li>Child</li>\n<!-- /wp:list-item --></ul>\n<!-- /wp:list --></li>\n<!-- /wp:list-item -->\n\n<!-- wp:list-item -->\n<li>Next</li>\n<!-- /wp:list-item --></ul>\n<!-- /wp:list -->",
+			$result
+		);
+	}
+
+	public function test_convert_html_to_blocks_ordered_list_keeps_start_and_reversed(): void {
+		$result = Post_Creator::convert_html_to_blocks( '<ol reversed start="3"><li>C</li></ol>' );
+
+		$this->assertStringStartsWith( "<!-- wp:list {\"ordered\":true,\"start\":3,\"reversed\":true} -->\n<ol reversed start=\"3\" class=\"wp-block-list\">", $result );
+	}
+
+	/**
+	 * A list item can hold only text and nested lists: paragraphs inside it
+	 * become line breaks, and a code block (common in "migration steps")
+	 * becomes inline code instead of cutting the list in half.
+	 */
+	public function test_convert_html_to_blocks_flattens_block_markup_inside_list_items(): void {
+		$result = Post_Creator::convert_html_to_blocks( "<ol><li><p>One.</p><p>Two.</p></li><li>Run:\n<pre><code>wp cache flush</code></pre></li><li>Done.</li></ol>" );
+
+		$this->assertStringContainsString( '<li>One.<br>Two.</li>', $result );
+		$this->assertStringContainsString( "<li>Run:\n<code>wp cache flush</code></li>", $result );
+		$this->assertStringContainsString( '<li>Done.</li>', $result );
+		$this->assertSame( 1, substr_count( $result, '<!-- wp:list ' ) );
+	}
+
+	/**
+	 * A quote holds paragraph blocks; it used to end at the first </p>,
+	 * leaving "</blockquote>" behind as a broken paragraph.
+	 */
+	public function test_convert_html_to_blocks_quote_holds_paragraph_blocks(): void {
+		$this->assertSame(
+			"<!-- wp:quote -->\n<blockquote class=\"wp-block-quote\"><!-- wp:paragraph -->\n<p>Quoted.</p>\n<!-- /wp:paragraph --></blockquote>\n<!-- /wp:quote -->",
+			Post_Creator::convert_html_to_blocks( '<blockquote><p>Quoted.</p></blockquote>' )
+		);
+		$this->assertStringContainsString(
+			"<blockquote class=\"wp-block-quote\"><!-- wp:paragraph -->\n<p>Bare text.</p>",
+			Post_Creator::convert_html_to_blocks( '<blockquote>Bare text.</blockquote>' )
+		);
+	}
+
+	/**
+	 * Code blocks carry the class the editor requires (every one used to be
+	 * "invalid content"), a language class on <code> is dropped, and a bare
+	 * <pre> becomes a preformatted block.
+	 */
+	public function test_convert_html_to_blocks_code_and_preformatted_blocks(): void {
+		$this->assertSame(
+			"<!-- wp:code -->\n<pre class=\"wp-block-code\"><code>echo 1;</code></pre>\n<!-- /wp:code -->",
+			Post_Creator::convert_html_to_blocks( '<pre><code class="language-php">echo 1;</code></pre>' )
+		);
+		$this->assertSame(
+			"<!-- wp:preformatted -->\n<pre class=\"wp-block-preformatted\">Plain text</pre>\n<!-- /wp:preformatted -->",
+			Post_Creator::convert_html_to_blocks( '<pre>Plain text</pre>' )
+		);
+	}
+
+	public function test_convert_html_to_blocks_unwraps_paragraph_around_a_list(): void {
+		$result = Post_Creator::convert_html_to_blocks( '<p><ul><li>Item</li></ul></p>' );
+
+		$this->assertStringStartsWith( '<!-- wp:list -->', $result );
+		$this->assertStringNotContainsString( 'wp:paragraph', $result );
+	}
+
+	/**
+	 * An element the model never closed ends where the next block starts,
+	 * and is closed there.
+	 */
+	public function test_convert_html_to_blocks_closes_an_unclosed_paragraph(): void {
+		$result = Post_Creator::convert_html_to_blocks( '<p>Never closed<h2>Next</h2>' );
+
+		$this->assertStringContainsString( "<p>Never closed</p>\n<!-- /wp:paragraph -->", $result );
+		$this->assertStringContainsString( '<h2 class="wp-block-heading">Next</h2>', $result );
+	}
+
+	public function test_convert_html_to_blocks_table_keeps_auto_layout(): void {
+		$this->assertStringStartsWith(
+			"<!-- wp:table {\"hasFixedLayout\":false} -->\n<figure class=\"wp-block-table\"><table>",
+			Post_Creator::convert_html_to_blocks( '<table><tbody><tr><td>A</td></tr></tbody></table>' )
+		);
+	}
 }
