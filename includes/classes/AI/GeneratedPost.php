@@ -57,7 +57,7 @@ readonly class GeneratedPost {
 	 * @return self
 	 */
 	public static function from_raw_text( string $raw, ReleaseData $data, string $provider_slug ): self {
-		$raw   = trim( $raw );
+		$raw   = self::strip_code_fence( trim( $raw ) );
 		$lines = explode( "\n", $raw );
 
 		// Line 1 is the title by contract; strip any tags and cap the length so a
@@ -88,7 +88,7 @@ readonly class GeneratedPost {
 		while ( isset( $lines[ $body_start ] ) && '' === trim( $lines[ $body_start ] ) ) {
 			++$body_start;
 		}
-		$body = trim( implode( "\n", array_slice( $lines, $body_start ) ) );
+		$body = self::strip_code_fence( trim( implode( "\n", array_slice( $lines, $body_start ) ) ) );
 
 		// Validate slug keywords — should be lowercase hyphenated words, no HTML.
 		if ( preg_match( '/</', $slug_keywords ) || strlen( $slug_keywords ) > 80 ) {
@@ -131,5 +131,17 @@ readonly class GeneratedPost {
 			slug_keywords: $slug_keywords,
 			excerpt:       $excerpt,
 		);
+	}
+
+	/**
+	 * Removes a Markdown code fence (``` or ```html) wrapped around the whole
+	 * text, which some models add around HTML output. Left in place, the
+	 * fence became the post title, or visible "```html" paragraphs.
+	 *
+	 * @param string $text Response text or body.
+	 * @return string
+	 */
+	private static function strip_code_fence( string $text ): string {
+		return preg_match( '/^```[a-z]*[ \t]*\R(.*?)\R?```\s*$/is', $text, $fenced ) ? trim( $fenced[1] ) : $text;
 	}
 }
