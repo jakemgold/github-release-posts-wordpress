@@ -373,4 +373,26 @@ class Repository_SettingsTest extends TestCase {
 
 		$this->assertFalse( $result, 'A write that did not persist must report failure.' );
 	}
+
+	/**
+	 * A renamed or transferred repository is rejected with a message saying
+	 * so — it used to be added, then fail every check with "HTTP 301".
+	 */
+	public function test_add_repository_rejects_moved_repo(): void {
+		\WP_Mock::userFunction( 'get_option' )
+			->with( Plugin_Constants::OPTION_REPOSITORIES, [] )
+			->andReturn( [] );
+		\WP_Mock::userFunction( 'apply_filters' )
+			->with( 'ghrp_max_repositories', Repository_Settings::MAX_REPOSITORIES )
+			->andReturn( Repository_Settings::MAX_REPOSITORIES );
+		\WP_Mock::userFunction( 'update_option' )->never();
+
+		$client = $this->createMock( \GitHubReleasePosts\GitHub\API_Client::class );
+		$client->method( 'repo_exists' )->willReturn( new \WP_Error( 'github_moved', 'moved' ) );
+
+		$result = ( new Repository_Settings() )->add_repository( 'acme/old-name', $client );
+
+		$this->assertFalse( $result['success'] );
+		$this->assertStringContainsString( 'renamed or transferred', $result['error'] );
+	}
 }

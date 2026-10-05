@@ -129,6 +129,10 @@ class API_Client {
 				return $this->not_found_error();
 			}
 
+			if ( $code >= 300 && $code < 400 ) {
+				return $this->moved_error();
+			}
+
 			if ( 403 === $code ) {
 				// Private repo or authentication error.
 				return new \WP_Error(
@@ -301,6 +305,20 @@ class API_Client {
 	}
 
 	/**
+	 * The error for a redirect from the API. Requests never follow redirects
+	 * (that would replay the token to another URL), and GitHub only redirects
+	 * a repository URL when the repository was renamed or transferred.
+	 *
+	 * @return \WP_Error
+	 */
+	private function moved_error(): \WP_Error {
+		return new \WP_Error(
+			'github_moved',
+			__( 'GitHub reports this repository was renamed or transferred. Remove it and add it again under its current name.', 'auto-release-posts-for-github' )
+		);
+	}
+
+	/**
 	 * Checks whether a repository exists (and is visible to current credentials).
 	 *
 	 * Asked of `GET /repos/{owner}/{repo}` directly at add time so a mistyped
@@ -338,6 +356,9 @@ class API_Client {
 		}
 		if ( 404 === $code ) {
 			return false;
+		}
+		if ( $code >= 300 && $code < 400 ) {
+			return $this->moved_error();
 		}
 
 		return new \WP_Error(
@@ -393,6 +414,9 @@ class API_Client {
 		$code = (int) wp_remote_retrieve_response_code( $response );
 		if ( 404 === $code ) {
 			return $this->not_found_error();
+		}
+		if ( $code >= 300 && $code < 400 ) {
+			return $this->moved_error();
 		}
 		if ( 200 !== $code ) {
 			return new \WP_Error(
@@ -499,6 +523,9 @@ class API_Client {
 		$code = (int) wp_remote_retrieve_response_code( $response );
 		if ( 404 === $code ) {
 			return null;
+		}
+		if ( $code >= 300 && $code < 400 ) {
+			return $this->moved_error();
 		}
 		if ( 200 !== $code ) {
 			return new \WP_Error(

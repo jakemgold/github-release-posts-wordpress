@@ -1043,4 +1043,32 @@ class API_ClientTest extends TestCase {
 		$this->assertInstanceOf( \WP_Error::class, $result );
 		$this->assertSame( 'github_rate_limit_exhausted', $result->get_error_code() );
 	}
+
+	/**
+	 * Requests never follow redirects (that would replay the token), and
+	 * GitHub only redirects a repository URL when it was renamed or
+	 * transferred — so a 301 gets an error that says so, instead of a bare
+	 * "HTTP 301" every day.
+	 *
+	 * @covers API_Client::fetch_release_snapshot
+	 * @covers API_Client::repo_exists
+	 */
+	public function test_moved_repository_gets_a_clear_error(): void {
+		\WP_Mock::userFunction( 'get_transient' )->andReturn( false );
+		\WP_Mock::userFunction( 'wp_remote_get' )->andReturn( $this->mock_response( 301 ) );
+		\WP_Mock::userFunction( 'is_wp_error' )->andReturn( false );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_response_code' )->andReturn( 301 );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_header' )->andReturn( '' );
+		\WP_Mock::userFunction( '__' )->andReturnArg( 0 );
+
+		$client = new API_Client( $this->settings_mock() );
+
+		$snapshot = $client->fetch_release_snapshot( 'acme/old-name' );
+		$this->assertInstanceOf( \WP_Error::class, $snapshot );
+		$this->assertSame( 'github_moved', $snapshot->get_error_code() );
+
+		$exists = $client->repo_exists( 'acme/old-name' );
+		$this->assertInstanceOf( \WP_Error::class, $exists );
+		$this->assertSame( 'github_moved', $exists->get_error_code() );
+	}
 }
