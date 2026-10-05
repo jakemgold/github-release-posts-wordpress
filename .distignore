@@ -50,3 +50,6 @@ README.md
 
 # Stray archives
 *.zip
+
+# One-time SVN maintenance scripts (run from a developer checkout, never on a site)
+bin

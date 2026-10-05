@@ -3,7 +3,7 @@
 Contributors:      jakemgold, 10up, retlehs, tott
 Tags:              github, releases, blog post, ai, automation
 Requires at least: 7.0
-Tested up to:      7.0
+Tested up to:      7.1
 Requires PHP:      8.2
 Stable tag:        1.2.1
 License:           GPL-2.0-or-later
