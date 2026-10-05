@@ -149,6 +149,18 @@ class Release_MonitorTest extends TestCase {
 	}
 
 	/**
+	 * Tracks repositories whose scan finds no releases, so a test can focus
+	 * on entries already in the queue.
+	 *
+	 * @param array<int, array<string, mixed>> $repos Repository configs.
+	 */
+	private function track_quiet_repositories( array $repos ): void {
+		$this->repo_settings->method( 'get_repositories' )->willReturn( $repos );
+		$this->api_client->method( 'fetch_release_snapshot' )->willReturn( [] );
+		$this->release_state->method( 'get_state' )->willReturn( $this->base_state() );
+	}
+
+	/**
 	 * Replaces the $wpdb query mock with one that records every query.
 	 *
 	 * @return array<int, string> Captured queries (by reference).
@@ -278,7 +290,7 @@ class Release_MonitorTest extends TestCase {
 	 * @covers Release_Monitor::run
 	 */
 	public function test_run_fires_process_release_action_for_queued_entries(): void {
-		$this->repo_settings->method( 'get_repositories' )->willReturn( [] );
+		$this->track_quiet_repositories( [ [ 'identifier' => 'owner/repo' ] ] );
 
 		$entry = [
 			'identifier'   => 'owner/repo',
@@ -314,7 +326,7 @@ class Release_MonitorTest extends TestCase {
 	 * @covers Release_Monitor::run
 	 */
 	public function test_run_updates_cursors_only_when_post_created(): void {
-		$this->repo_settings->method( 'get_repositories' )->willReturn( [] );
+		$this->track_quiet_repositories( [ [ 'identifier' => 'owner/repo' ] ] );
 
 		$entry = [
 			'identifier'   => 'owner/repo',
@@ -1269,18 +1281,10 @@ class Release_MonitorTest extends TestCase {
 	 * long healthy run is never mistaken for an abandoned one.
 	 */
 	public function test_lock_is_refreshed_before_each_queued_release(): void {
-		$this->repo_settings->method( 'get_repositories' )->willReturn( [] );
-
-		$entry = [
-			'identifier'   => 'owner/repo',
-			'tag'          => 'v1.0.0',
-			'name'         => 'v1.0.0',
-			'body'         => '',
-			'html_url'     => '',
-			'published_at' => '2026-01-01T00:00:00Z',
-			'assets'       => [],
-		];
-		$this->queue->method( 'dequeue_all' )->willReturn( [ $entry, $entry ] );
+		$this->track_quiet_repositories( [ [ 'identifier' => 'owner/repo' ] ] );
+		$this->queue->method( 'dequeue_all' )->willReturn(
+			[ $this->queue_entry( 'owner/repo', 'v1.0.0' ), $this->queue_entry( 'owner/repo', 'v1.1.0' ) ]
+		);
 
 		$queries = &$this->capture_queries();
 		\WP_Mock::userFunction( 'get_posts' )->andReturn( [ new \WP_Post( (object) [ 'ID' => 5 ] ) ] );
@@ -1321,19 +1325,38 @@ class Release_MonitorTest extends TestCase {
 	}
 
 	/**
-	 * The run summary is cleared at the start of each run so a repository
-	 * that fails every day does not accumulate errors without bound.
+	 * Each run starts the summary's error list afresh, so a repository that
+	 * fails every day does not accumulate errors without bound — but drafts
+	 * and publications from an earlier run stay until the admin has seen
+	 * them (a retry run or an hourly schedule used to wipe them unseen).
 	 */
-	public function test_run_clears_previous_results_summary(): void {
+	public function test_run_resets_errors_but_keeps_unseen_results(): void {
 		$this->repo_settings->method( 'get_repositories' )->willReturn( [] );
 		$this->queue->method( 'dequeue_all' )->willReturn( [] );
 		$this->mock_run_plumbing();
 
-		\WP_Mock::userFunction( 'delete_transient' )->once()->with( Cache_Keys::cron_results() )->andReturn( true );
+		$previous = [
+			'drafted'   => [ [ 'post_id' => 7, 'identifier' => 'acme/x', 'tag' => 'v1.0.0' ] ],
+			'published' => [],
+			'errors'    => [ [ 'identifier' => 'acme/y', 'tag' => '', 'message' => 'GitHub returned 404' ] ],
+		];
+		\WP_Mock::userFunction( 'get_transient' )->with( Cache_Keys::cron_results() )->andReturn( $previous );
+
+		$saved = null;
+		\WP_Mock::userFunction( 'set_transient' )
+			->with( Cache_Keys::cron_results(), \Mockery::type( 'array' ), \Mockery::any() )
+			->andReturnUsing(
+				function ( $key, $value ) use ( &$saved ) {
+					$saved = $value;
+					return true;
+				}
+			);
+		\WP_Mock::userFunction( 'delete_transient' )->with( Cache_Keys::cron_results() )->never();
 
 		$this->monitor->run();
 
-		$this->assertConditionsMet();
+		$this->assertSame( [], $saved['errors'] );
+		$this->assertSame( $previous['drafted'], $saved['drafted'] );
 	}
 
 	/**
@@ -1358,5 +1381,117 @@ class Release_MonitorTest extends TestCase {
 		$this->mock_run_plumbing();
 
 		$monitor->run();
+	}
+
+	/**
+	 * Builds a queue entry.
+	 *
+	 * @param string $identifier Repository identifier.
+	 * @param string $tag        Release tag.
+	 * @return array<string, mixed>
+	 */
+	private function queue_entry( string $identifier, string $tag ): array {
+		return [
+			'identifier'   => $identifier,
+			'tag'          => $tag,
+			'name'         => $tag,
+			'body'         => '',
+			'html_url'     => '',
+			'published_at' => '2026-03-21T00:00:00Z',
+			'assets'       => [],
+		];
+	}
+
+	/**
+	 * Records which tags were processed: process_queue() looks up the post
+	 * for each one it fires generation for.
+	 *
+	 * @return array<int, string> Processed tags (by reference).
+	 */
+	private function &capture_processed_tags(): array {
+		$tags = [];
+		\WP_Mock::userFunction( 'get_posts' )->andReturnUsing(
+			function ( array $args ) use ( &$tags ) {
+				$tags[] = $args['meta_query'][1]['value'];
+				return [];
+			}
+		);
+		\WP_Mock::userFunction( '__' )->andReturnArg( 0 );
+		return $tags;
+	}
+
+	/**
+	 * A release queued by a run that died before processing it is still
+	 * generated, alongside a newer release of the same stream — a scan only
+	 * generates each stream's newest, so dropping the queued one would lose
+	 * it for good.
+	 */
+	public function test_queued_release_from_an_interrupted_run_is_still_generated(): void {
+		$this->track_quiet_repositories( [ [ 'identifier' => 'owner/repo' ] ] );
+		$this->queue->method( 'dequeue_all' )->willReturn(
+			[ $this->queue_entry( 'owner/repo', 'v1.1.0' ), $this->queue_entry( 'owner/repo', 'v1.2.0' ) ]
+		);
+		$processed = &$this->capture_processed_tags();
+		$this->mock_run_plumbing();
+
+		$this->monitor->run();
+
+		$this->assertSame( [ 'v1.1.0', 'v1.2.0' ], $processed );
+	}
+
+	/**
+	 * A queued entry is skipped once its repository has been removed or
+	 * paused; the admin no longer wants posts for it.
+	 */
+	public function test_queued_entries_for_removed_or_paused_repositories_are_skipped(): void {
+		$this->track_quiet_repositories(
+			[
+				[ 'identifier' => 'owner/active' ],
+				[
+					'identifier' => 'owner/paused',
+					'paused'     => true,
+				],
+			]
+		);
+		$this->queue->method( 'dequeue_all' )->willReturn(
+			[
+				$this->queue_entry( 'owner/removed', 'v1.0.0' ),
+				$this->queue_entry( 'owner/paused', 'v2.0.0' ),
+				$this->queue_entry( 'owner/active', 'v3.0.0' ),
+			]
+		);
+		$processed = &$this->capture_processed_tags();
+		$this->mock_run_plumbing();
+
+		$this->monitor->run();
+
+		$this->assertSame( [ 'v3.0.0' ], $processed );
+	}
+
+	/**
+	 * A run stopped by GitHub's rate limit says so in the run summary;
+	 * otherwise the admin saw a recent "last run" and nothing else, forever.
+	 */
+	public function test_rate_limit_stop_is_recorded(): void {
+		$this->repo_settings->method( 'get_repositories' )->willReturn( [ [ 'identifier' => 'acme/limited' ] ] );
+		$this->api_client->method( 'fetch_release_snapshot' )->willReturn(
+			new \WP_Error( 'github_rate_limit_exhausted', 'GitHub API rate limit exhausted.' )
+		);
+		$this->queue->method( 'dequeue_all' )->willReturn( [] );
+		$this->mock_run_plumbing();
+
+		$saved = null;
+		\WP_Mock::userFunction( 'set_transient' )
+			->with( Cache_Keys::cron_results(), \Mockery::type( 'array' ), \Mockery::any() )
+			->andReturnUsing(
+				function ( $key, $value ) use ( &$saved ) {
+					$saved = $value;
+					return true;
+				}
+			);
+
+		$this->monitor->run();
+
+		$this->assertSame( 'acme/limited', $saved['errors'][0]['identifier'] ?? null );
 	}
 }

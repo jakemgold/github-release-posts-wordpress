@@ -50,3 +50,10 @@ README.md
 
 # Stray archives
 *.zip
+
+# One-time SVN maintenance scripts (run from a developer checkout, never on a site)
+bin
+
+# Placeholder that keeps the empty languages/ directory in git. WordPress.org's
+# Plugin Check rejects hidden files; the directory itself still ships.
+.gitkeep

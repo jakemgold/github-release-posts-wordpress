@@ -59,12 +59,18 @@ class ActivatorTest extends TestCase {
 
 	/**
 	 * The self-heal schedules the check when it is missing — this is how a
-	 * subsite of a network-activated plugin gets its event on first boot.
+	 * subsite of a network-activated plugin gets its event on first boot —
+	 * and writes the option rows activation would have written there.
 	 */
 	public function test_ensure_cron_event_schedules_when_missing(): void {
 		\WP_Mock::userFunction( 'wp_next_scheduled' )
 			->with( Plugin_Constants::CRON_HOOK_RELEASE_CHECK )
 			->andReturn( false );
+		foreach ( Plugin_Constants::get_defaults() as $key => $value ) {
+			\WP_Mock::userFunction( 'add_option' )
+				->with( $key, $value, '', false )
+				->once();
+		}
 		\WP_Mock::userFunction( 'wp_schedule_event' )
 			->once()
 			->with( \WP_Mock\Functions::type( 'int' ), 'daily', Plugin_Constants::CRON_HOOK_RELEASE_CHECK )
@@ -181,6 +187,21 @@ class ActivatorTest extends TestCase {
 			->once();
 
 		Activator::deactivate();
+
+		$this->assertConditionsMet();
+	}
+
+	/**
+	 * With an unregistered check frequency, scheduling fails on every
+	 * request — so the first-boot defaults must not be rewritten each time.
+	 */
+	public function test_ensure_cron_event_skips_defaults_when_scheduling_fails(): void {
+		\WP_Mock::userFunction( 'wp_next_scheduled' )->andReturn( false );
+		\WP_Mock::onFilter( 'ghrp_check_frequency' )->with( 'daily' )->reply( 'every_ninety_seconds' );
+		\WP_Mock::userFunction( 'wp_schedule_event' )->once()->andReturn( false );
+		\WP_Mock::userFunction( 'add_option' )->never();
+
+		Activator::ensure_cron_event();
 
 		$this->assertConditionsMet();
 	}

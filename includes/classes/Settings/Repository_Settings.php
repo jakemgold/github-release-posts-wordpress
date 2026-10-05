@@ -279,6 +279,17 @@ class Repository_Settings {
 		// rate limit) fail open rather than blocking a legitimate add.
 		if ( null !== $api_client ) {
 			$exists = $api_client->repo_exists( $identifier );
+			if ( is_wp_error( $exists ) && 'github_moved' === $exists->get_error_code() ) {
+				return [
+					'success' => false,
+					'error'   => sprintf(
+						/* translators: %s: repository identifier */
+						__( 'GitHub reports "%s" was renamed or transferred. Add it under its current name.', 'auto-release-posts-for-github' ),
+						$identifier
+					),
+					'repos'   => $repos,
+				];
+			}
 			if ( false === $exists ) {
 				return [
 					'success' => false,

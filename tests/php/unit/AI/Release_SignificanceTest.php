@@ -213,4 +213,29 @@ class Release_SignificanceTest extends TestCase {
 			assets:       [],
 		);
 	}
+
+	/**
+	 * Whole-word matching still accepts plurals: "patched two CVEs" is a
+	 * security release.
+	 *
+	 * @dataProvider plural_security_provider
+	 */
+	public function test_classify_security_keyword_plurals( string $body ): void {
+		$data = $this->make_release_data( 'v1.2.3', $body );
+
+		\WP_Mock::onFilter( 'ghrp_release_significance' )
+			->with( 'security', 'v1.2.3', $body )
+			->reply( 'security' );
+
+		$this->assertSame( 'security', $this->significance->classify( $data ) );
+	}
+
+	public static function plural_security_provider(): array {
+		return [
+			'CVEs'                    => [ 'Patches two CVEs.' ],
+			'injections'              => [ 'Prevents SQL injections in search.' ],
+			'vulnerabilities'         => [ 'Fixes several vulnerabilities.' ],
+			'authentication bypasses' => [ 'Closes two authentication bypasses.' ],
+		];
+	}
 }

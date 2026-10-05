@@ -76,11 +76,10 @@ class Release_Enricher {
 			// pull a private issue's text into a (possibly auto-published)
 			// post. Off-repo references are fetched anonymously: public
 			// content still enriches, private content stays private.
-			$result = $this->api_client->fetch_issue(
-				$ref['identifier'],
-				$ref['number'],
-				$ref['identifier'] === $data->identifier
-			);
+			// GitHub identifiers are case-insensitive, and generated release
+			// notes link with the canonical casing.
+			$same_repo = 0 === strcasecmp( $ref['identifier'], $data->identifier );
+			$result    = $this->api_client->fetch_issue( $ref['identifier'], $ref['number'], $same_repo );
 
 			if ( is_wp_error( $result ) ) {
 				continue;

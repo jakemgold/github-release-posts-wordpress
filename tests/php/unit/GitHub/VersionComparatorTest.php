@@ -372,6 +372,15 @@ class VersionComparatorTest extends TestCase {
 			'numeric metadata vs a longer core'    => [ 'v1.2.3.4-preview.1', 'v1.2.3+4', true ],
 			'same for package tags'                => [ '@acme/core@1.2.3.4-preview.1', '@acme/core@1.2.3+4', true ],
 			'numeric metadata vs a shorter core'   => [ '1.2.3-pre.1', '1.2+3', true ],
+			// Post-releases — a re-release of the same version published as
+			// final — keep PHP's ordering, which ranks them above the bare
+			// version: a hotfix after its release must still be posted.
+			'hotfix re-release after its final'    => [ '1.5.0-1', '1.5.0', true ],
+			'final is not newer than its hotfix'   => [ '1.5.0', '1.5.0-1', false ],
+			'-p1 post-release'                     => [ '1.5.0-p1', '1.5.0', true ],
+			'-patch.1 post-release'                => [ 'v1.5.0-patch.1', 'v1.5.0', true ],
+			'-post1 post-release'                  => [ '1.5.0-post1', '1.5.0', true ],
+			'final after rc, both with metadata'   => [ 'v1.28.3+k3s1', 'v1.28.3-rc1+k3s1', true ],
 		];
 	}
 

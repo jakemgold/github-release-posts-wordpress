@@ -332,4 +332,27 @@ class Publish_WorkflowTest extends TestCase {
 		\WP_Mock::userFunction( 'get_edit_post_link' )->andReturn( 'https://example.com/wp-admin/post.php?post=42' );
 		\WP_Mock::userFunction( 'set_transient' )->andReturn( true );
 	}
+
+	/**
+	 * Manual generation always yields a draft — even when a ghrp_post_status
+	 * callback (say, "publish major releases") returns publish.
+	 */
+	public function test_force_draft_wins_over_the_status_filter(): void {
+		$this->repo_settings->shouldReceive( 'get_repository' )->andReturn( [ 'post_status' => 'publish' ] );
+		\WP_Mock::onFilter( 'ghrp_post_status' )->withAnyArgs()->reply( 'publish' );
+		\WP_Mock::userFunction( 'wp_update_post' )
+			->once()
+			->with(
+				[
+					'ID'          => 42,
+					'post_status' => 'draft',
+				]
+			)
+			->andReturn( 42 );
+		$this->stub_result_recording();
+
+		$this->workflow->handle( 42, $this->make_post(), $this->make_data(), [ 'force_draft' => true ] );
+
+		$this->assertConditionsMet();
+	}
 }

@@ -115,9 +115,10 @@ class Release_Monitor {
 			// Record start time before processing so a partial run still updates the display (BR-004).
 			update_option( Plugin_Constants::OPTION_LAST_RUN_AT, time(), false );
 
-			// The results summary describes THIS run: start it empty so errors
-			// from a repository that fails every day do not stack forever.
-			delete_transient( Cache_Keys::cron_results() );
+			// Errors in the run summary describe THIS run, so a repository that
+			// fails every day does not stack up errors forever. Drafts and
+			// publications from earlier runs stay until the admin has seen them.
+			Publish_Workflow::reset_run_errors();
 
 			$repos = $this->repo_settings->get_repositories();
 
@@ -142,8 +143,10 @@ class Release_Monitor {
 
 				if ( is_wp_error( $snapshot ) ) {
 					if ( 'github_rate_limit_exhausted' === $snapshot->get_error_code() ) {
-						// API_Client already scheduled the retry event. Stop the run.
+						// API_Client already scheduled the retry event. Stop the run,
+						// but say why — otherwise the run summary is simply empty.
 						$this->log( $identifier, 'rate limit exhausted — stopping run' );
+						Publish_Workflow::record_error( $identifier, '', $snapshot->get_error_message() );
 						break;
 					}
 
@@ -211,7 +214,7 @@ class Release_Monitor {
 				$this->state->update_last_checked( $identifier );
 			}
 
-			$this->process_queue();
+			$this->process_queue( $repos );
 		} finally {
 			$this->release_lock();
 		}
@@ -540,16 +543,33 @@ class Release_Monitor {
 	 * and the repo-wide display cursor (BR-001: only post-creation advances
 	 * cursors).
 	 *
+	 * @param array<int, array<string, mixed>> $repos Tracked repositories, as loaded for this run.
 	 * @return void
 	 */
-	private function process_queue(): void {
+	private function process_queue( array $repos ): void {
 		$entries = $this->queue->dequeue_all();
+
+		$active = [];
+		foreach ( $repos as $repo ) {
+			if ( empty( $repo['paused'] ) ) {
+				$active[ (string) ( $repo['identifier'] ?? '' ) ] = true;
+			}
+		}
 
 		foreach ( $entries as $entry ) {
 			$identifier = $entry['identifier'] ?? '';
 			$tag        = $entry['tag'] ?? '';
 
 			if ( '' === $identifier || '' === $tag ) {
+				continue;
+			}
+
+			// Entries left by a run that died mid-way are generated like any
+			// other — dropping one would lose it for good, since a scan queues
+			// only each stream's newest release — unless the repository has
+			// since been removed or paused.
+			if ( ! isset( $active[ $identifier ] ) ) {
+				$this->log( $identifier, 'queued release ' . $tag . ' skipped — repository removed or paused' );
 				continue;
 			}
 

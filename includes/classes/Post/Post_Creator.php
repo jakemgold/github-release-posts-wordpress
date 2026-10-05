@@ -118,7 +118,7 @@ class Post_Creator {
 		}
 
 		if ( '' !== $post->excerpt ) {
-			$insert_args['post_excerpt'] = wp_kses_post( $post->excerpt );
+			$insert_args['post_excerpt'] = wp_kses_post( self::neutralize_ai_html( $post->excerpt ) );
 		}
 
 		if ( '' !== $slug ) {
@@ -223,7 +223,7 @@ class Post_Creator {
 			return '';
 		}
 
-		$text = __( 'This post was generated from release notes with the help of AI using GitHub Release Posts plugin for WordPress.', 'auto-release-posts-for-github' );
+		$text = __( 'This post was generated from release notes with the help of AI using the Auto Release Posts for GitHub plugin for WordPress.', 'auto-release-posts-for-github' );
 
 		/**
 		 * Filters the AI disclosure text appended to generated posts.
@@ -511,16 +511,69 @@ class Post_Creator {
 	}
 
 	/**
+	 * Block-level markup, or a figure placeholder. A list item, a paragraph,
+	 * or a quote's paragraph that holds any of these has no native block
+	 * equivalent as written, so it is kept as HTML.
+	 */
+	private const BLOCK_LEVEL = '/<(?:p|ul|ol|li|pre|blockquote|table|h[1-6]|div|figure|hr|dl|details|section|article|aside|header|footer|nav|form)(?=[\s\/>])|<!--GHRP_FIGURE_/i';
+
+	/**
+	 * Opening tag of an element that becomes a block of its own. Quoted
+	 * attribute values are consumed as units, so a `>` inside alt text does
+	 * not end the tag early.
+	 */
+	private const BLOCK_START_TAG = '%<(hr|img|p|ul|ol|h[1-6]|blockquote|pre|table)(?=[\s/>])(?:[^>"\']|"[^"]*"|\'[^\']*\')*>%i';
+
+	/**
+	 * HTML element names. A "<" followed by anything else is text.
+	 *
+	 * @var string[]
+	 */
+	private const HTML_ELEMENT_NAMES = [ 'a', 'abbr', 'acronym', 'address', 'area', 'article', 'aside', 'audio', 'b', 'base', 'bdi', 'bdo', 'big', 'blockquote', 'body', 'br', 'button', 'canvas', 'caption', 'center', 'cite', 'code', 'col', 'colgroup', 'data', 'datalist', 'dd', 'del', 'details', 'dfn', 'dialog', 'dir', 'div', 'dl', 'dt', 'em', 'embed', 'fieldset', 'figcaption', 'figure', 'font', 'footer', 'form', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'head', 'header', 'hgroup', 'hr', 'html', 'i', 'iframe', 'img', 'input', 'ins', 'kbd', 'label', 'legend', 'li', 'link', 'main', 'map', 'mark', 'marquee', 'math', 'menu', 'meta', 'meter', 'nav', 'noscript', 'object', 'ol', 'optgroup', 'option', 'output', 'p', 'param', 'picture', 'pre', 'progress', 'q', 'rp', 'rt', 'ruby', 's', 'samp', 'script', 'search', 'section', 'select', 'slot', 'small', 'source', 'span', 'strike', 'strong', 'style', 'sub', 'summary', 'sup', 'svg', 'table', 'tbody', 'td', 'template', 'textarea', 'tfoot', 'th', 'thead', 'time', 'title', 'tr', 'track', 'tt', 'u', 'ul', 'var', 'video', 'wbr' ];
+
+	/**
+	 * Neutralizes text in AI-written HTML that WordPress would otherwise
+	 * read as markup. Applied to the post body and the excerpt.
+	 *
+	 * - A "<" that does not open an HTML element is text: "PHP < 8.2",
+	 *   "array<int, string>", "<?php". KSES deletes everything from such a
+	 *   "<" to the next ">", so "Requires PHP < 8.2 or WordPress >= 6.0" was
+	 *   saved as "Requires PHP = 6.0".
+	 * - HTML comments are dropped. The model never needs one, and a block
+	 *   delimiter smuggled in through release notes (<!-- wp:rss {…} /-->)
+	 *   would otherwise render as a live dynamic block with its attributes.
+	 * - "[" is encoded, so a shortcode quoted in release notes displays as
+	 *   text instead of running on the site.
+	 *
+	 * @param string $html AI-written HTML or text.
+	 * @return string
+	 */
+	public static function neutralize_ai_html( string $html ): string {
+		$html = preg_replace( '/<!--.*?-->/s', '', $html ) ?? $html;
+		$html = preg_replace_callback(
+			'%</?([a-zA-Z][a-zA-Z0-9-]*)?%',
+			static fn( array $lt ): string => in_array( strtolower( $lt[1] ?? '' ), self::HTML_ELEMENT_NAMES, true ) ? $lt[0] : '&lt;' . substr( $lt[0], 1 ),
+			$html
+		) ?? $html;
+
+		return str_replace( '[', '&#91;', $html );
+	}
+
+	/**
 	 * Converts HTML content into Gutenberg block markup.
 	 *
-	 * Wraps top-level HTML elements in their corresponding block comments
-	 * so WordPress treats the post as native block editor content.
+	 * Each top-level element becomes the block the editor itself would save
+	 * for it, when it maps onto one 1:1: paragraphs, headings, flat lists,
+	 * quotes made of paragraphs, code, tables, separators, images. Anything
+	 * else — a nested list, block markup inside a list item, a list with
+	 * per-item numbering — is kept as an HTML block exactly as written, so
+	 * conversion never reorders or drops content.
 	 *
 	 * @param string $html Raw HTML content from the AI provider.
 	 * @return string Block-formatted content.
 	 */
 	public static function convert_html_to_blocks( string $html ): string {
-		$html = trim( $html );
+		$html = trim( self::neutralize_ai_html( $html ) );
 		if ( '' === $html ) {
 			return '';
 		}
@@ -545,25 +598,16 @@ class Post_Creator {
 			$html
 		) ?? $html;
 
-		// Split remaining HTML into top-level elements. Void elements (<hr>,
-		// <img>) are matched as a single tag whether or not they are
-		// self-closed — treating quoted attribute values as units, so a `>`
-		// inside alt text does not end the tag early — and container
-		// elements run to their own closing tag, never to a `/>` inside them,
-		// which used to cut a paragraph in half at a <br/> and let a bare
-		// <hr> swallow the paragraph after it.
-		$pattern = '%(<(?:hr|img)\b(?:[^>"\']|"[^"]*"|\'[^\']*\')*>|<(?:p|ul|ol|h[1-6]|blockquote|pre|table)[\s>].*?</(?:p|ul|ol|h[1-6]|blockquote|pre|table)>)%si';
-		$parts   = preg_split( $pattern, $html, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY );
-
-		if ( empty( $parts ) ) {
-			return "<!-- wp:paragraph -->\n<p>" . $html . "</p>\n<!-- /wp:paragraph -->";
-		}
-
 		$blocks = [];
 
-		foreach ( $parts as $part ) {
+		foreach ( self::split_top_level( $html ) as $part ) {
 			$part = trim( $part );
 			if ( '' === $part ) {
+				continue;
+			}
+
+			if ( preg_match( '/^<(p|ul|ol|h[1-6]|blockquote|img|hr|pre|table)(?=[\s\/>])/i', $part, $tag_match ) ) {
+				$blocks[] = self::wrap_in_block( strtolower( $tag_match[1] ), $part );
 				continue;
 			}
 
@@ -592,16 +636,144 @@ class Post_Creator {
 				continue;
 			}
 
-			if ( preg_match( '/^<(p|ul|ol|h[1-6]|blockquote|img|hr|pre|table)\b/i', $part, $tag_match ) ) {
-				$tag      = strtolower( $tag_match[1] );
-				$blocks[] = self::wrap_in_block( $tag, $part );
-			} else {
-				// Leftover text — wrap as paragraph.
-				$blocks[] = "<!-- wp:paragraph -->\n<p>" . $part . "</p>\n<!-- /wp:paragraph -->";
+			// Leftover text — wrap as paragraph.
+			$blocks[] = "<!-- wp:paragraph -->\n<p>" . $part . "</p>\n<!-- /wp:paragraph -->";
+		}
+
+		// A figure inside an element kept as HTML (a list item, say) is
+		// restored there, rather than vanishing as a placeholder comment.
+		return strtr( implode( "\n\n", $blocks ), $figure_placeholders );
+	}
+
+	/**
+	 * Splits HTML into its top-level block elements and the text between them.
+	 *
+	 * Each container element runs to its own closing tag, counting nested
+	 * elements of the same name. (A single regex used to end an element at
+	 * the first closing tag of any container, so a nested list, a <p> inside
+	 * a <blockquote>, or code inside a list item cut the block in half and
+	 * left the rest of it behind as a broken paragraph.) Void elements —
+	 * <hr>, <img> — are a single tag.
+	 *
+	 * @param string $html HTML fragment.
+	 * @return string[] Elements and the text between them, in order.
+	 */
+	private static function split_top_level( string $html ): array {
+		$parts      = [];
+		$offset     = 0;
+		$length     = strlen( $html );
+		$last_close = [];
+
+		while ( $offset < $length && preg_match( self::BLOCK_START_TAG, $html, $start, PREG_OFFSET_CAPTURE, $offset ) ) {
+			$tag_offset = (int) $start[0][1];
+			$tag        = strtolower( $start[1][0] );
+			$body_start = $tag_offset + strlen( $start[0][0] );
+
+			if ( $tag_offset > $offset ) {
+				$parts[] = substr( $html, $offset, $tag_offset - $offset );
+			}
+
+			if ( 'hr' === $tag || 'img' === $tag ) {
+				$parts[] = $start[0][0];
+				$offset  = $body_start;
+				continue;
+			}
+
+			// With no closing tag of this name anywhere after the element, skip
+			// the scan: repeating it for every unclosed element made a run of
+			// them quadratic.
+			$last_close[ $tag ] ??= strripos( $html, '</' . $tag );
+			$close                = false === $last_close[ $tag ] || $last_close[ $tag ] < $body_start
+				? null
+				: self::find_closing_tag( $html, $tag, $body_start );
+
+			if ( null === $close ) {
+				// Never closed: as an HTML parser would, end it where the next
+				// block element starts (or at the end), and close it there.
+				$end     = preg_match( self::BLOCK_START_TAG, $html, $next, PREG_OFFSET_CAPTURE, $body_start ) ? (int) $next[0][1] : $length;
+				$parts[] = rtrim( substr( $html, $tag_offset, $end - $tag_offset ) ) . '</' . $tag . '>';
+				$offset  = $end;
+				continue;
+			}
+
+			$parts[] = substr( $html, $tag_offset, $close[1] - $tag_offset );
+			$offset  = $close[1];
+		}
+
+		if ( $offset < $length ) {
+			$parts[] = substr( $html, $offset );
+		}
+
+		return $parts;
+	}
+
+	/**
+	 * Finds the closing tag that matches an element's opening tag, counting
+	 * nested elements of the same name. A <p> cannot contain another <p>, so
+	 * its first closing tag always ends it.
+	 *
+	 * @param string $html HTML being scanned.
+	 * @param string $tag  Lowercase element name.
+	 * @param int    $from Offset just past the element's opening tag.
+	 * @return array{0: int, 1: int}|null Start and end offsets of the closing
+	 *                                    tag, or null when it is never closed.
+	 */
+	private static function find_closing_tag( string $html, string $tag, int $from ): ?array {
+		$pattern = '%<(/?)' . $tag . '(?=[\s/>])(?:[^>"\']|"[^"]*"|\'[^\']*\')*>%i';
+		$depth   = 1;
+
+		while ( preg_match( $pattern, $html, $match, PREG_OFFSET_CAPTURE, $from ) ) {
+			$match_start = (int) $match[0][1];
+			$from        = $match_start + strlen( $match[0][0] );
+
+			if ( '/' === $match[1][0] ) {
+				--$depth;
+				if ( 0 === $depth ) {
+					return [ $match_start, $from ];
+				}
+			} elseif ( 'p' !== $tag ) {
+				++$depth;
 			}
 		}
 
-		return implode( "\n\n", $blocks );
+		return null;
+	}
+
+	/**
+	 * Returns an element's opening tag.
+	 *
+	 * @param string $html Element HTML, starting with its opening tag.
+	 * @param string $tag  Lowercase element name.
+	 * @return string
+	 */
+	private static function opening_tag( string $html, string $tag ): string {
+		return preg_match( '%^<' . $tag . '(?:[^>"\']|"[^"]*"|\'[^\']*\')*>%i', $html, $open ) ? $open[0] : '';
+	}
+
+	/**
+	 * Returns what lies between an element's opening tag and its final
+	 * closing tag.
+	 *
+	 * @param string $html Element HTML, starting with its opening tag.
+	 * @param string $tag  Lowercase element name.
+	 * @return string
+	 */
+	private static function element_inner( string $html, string $tag ): string {
+		$inner = substr( $html, strlen( self::opening_tag( $html, $tag ) ) );
+		$close = strripos( $inner, '</' . $tag );
+
+		return false === $close ? $inner : substr( $inner, 0, $close );
+	}
+
+	/**
+	 * Wraps markup that no native block can represent faithfully in an HTML
+	 * block, unchanged.
+	 *
+	 * @param string $html HTML.
+	 * @return string
+	 */
+	private static function html_block( string $html ): string {
+		return "<!-- wp:html -->\n{$html}\n<!-- /wp:html -->";
 	}
 
 	/**
@@ -613,26 +785,162 @@ class Post_Creator {
 	 */
 	private static function wrap_in_block( string $tag, string $html ): string {
 		return match ( $tag ) {
-			'p'          => "<!-- wp:paragraph -->\n{$html}\n<!-- /wp:paragraph -->",
-			'ul'         => "<!-- wp:list -->\n{$html}\n<!-- /wp:list -->",
-			'ol'         => "<!-- wp:list {\"ordered\":true} -->\n{$html}\n<!-- /wp:list -->",
-			'h1'         => "<!-- wp:heading {\"level\":1} -->\n{$html}\n<!-- /wp:heading -->",
-			'h2'         => "<!-- wp:heading -->\n{$html}\n<!-- /wp:heading -->",
-			'h3'         => "<!-- wp:heading {\"level\":3} -->\n{$html}\n<!-- /wp:heading -->",
-			'h4'         => "<!-- wp:heading {\"level\":4} -->\n{$html}\n<!-- /wp:heading -->",
-			'h5'         => "<!-- wp:heading {\"level\":5} -->\n{$html}\n<!-- /wp:heading -->",
-			'h6'         => "<!-- wp:heading {\"level\":6} -->\n{$html}\n<!-- /wp:heading -->",
-			'blockquote' => "<!-- wp:quote -->\n{$html}\n<!-- /wp:quote -->",
-			'figure'     => self::wrap_figure_block( $html ),
-			'img'        => self::wrap_img_block( $html ),
+			// A paragraph the model wrapped around block markup (<p><ul>…) is
+			// not a paragraph block; it is kept as written.
+			'p'                                => preg_match( self::BLOCK_LEVEL, self::element_inner( $html, 'p' ) )
+				? self::html_block( $html )
+				: "<!-- wp:paragraph -->\n{$html}\n<!-- /wp:paragraph -->",
+			'ul', 'ol'                         => self::build_list_block( $html ) ?? self::html_block( $html ),
+			'h1', 'h2', 'h3', 'h4', 'h5', 'h6' => self::build_heading_block( $tag, $html ),
+			'blockquote'                       => self::build_quote_block( $html ) ?? self::html_block( $html ),
+			'figure'                           => self::wrap_figure_block( $html ),
+			'img'                              => self::wrap_img_block( $html ),
 			// A complete separator block: the bare opener that used to be
 			// emitted here had no closer, so the block parser nested every
 			// following block inside an invalid separator.
-			'hr'         => "<!-- wp:separator -->\n<hr class=\"wp-block-separator has-alpha-channel-opacity\"/>\n<!-- /wp:separator -->",
-			'pre'        => "<!-- wp:code -->\n{$html}\n<!-- /wp:code -->",
-			'table'      => "<!-- wp:table -->\n<figure class=\"wp-block-table\">{$html}</figure>\n<!-- /wp:table -->",
-			default      => "<!-- wp:html -->\n{$html}\n<!-- /wp:html -->",
+			'hr'                               => "<!-- wp:separator -->\n<hr class=\"wp-block-separator has-alpha-channel-opacity\"/>\n<!-- /wp:separator -->",
+			'pre'                              => self::build_pre_block( $html ),
+			// Auto layout keeps the table as the model wrote it; the block's
+			// default (fixed layout) would require a class it does not have.
+			'table'                            => "<!-- wp:table {\"hasFixedLayout\":false} -->\n<figure class=\"wp-block-table\">{$html}</figure>\n<!-- /wp:table -->",
+			default                            => self::html_block( $html ),
 		};
+	}
+
+	/**
+	 * Builds a core/heading block. Its id is kept as the heading's anchor, so
+	 * in-post links to it keep working. The id is read by an HTML parser, as
+	 * a browser reads it: any characters, references decoded, and never text
+	 * that only looks like an id inside another attribute.
+	 *
+	 * @param string $tag  Heading tag, h1–h6.
+	 * @param string $html The full heading element.
+	 * @return string
+	 */
+	private static function build_heading_block( string $tag, string $html ): string {
+		$level   = (int) substr( $tag, 1 );
+		$heading = self::parse_single_element( $html, $tag );
+		$anchor  = null === $heading ? '' : $heading->getAttribute( 'id' );
+
+		$attrs = [];
+		if ( 2 !== $level ) {
+			$attrs['level'] = $level;
+		}
+		if ( '' !== $anchor ) {
+			$attrs['anchor'] = $anchor;
+		}
+
+		$comment_attrs = empty( $attrs ) ? '' : ' ' . serialize_block_attributes( $attrs );
+		$id_attr       = '' === $anchor ? '' : ' id="' . esc_attr( $anchor ) . '"';
+		$inner         = trim( self::element_inner( $html, $tag ) );
+
+		return "<!-- wp:heading{$comment_attrs} -->\n<{$tag}{$id_attr} class=\"wp-block-heading\">{$inner}</{$tag}>\n<!-- /wp:heading -->";
+	}
+
+	/**
+	 * Builds a core/list block from a flat list: each <li> becomes a
+	 * core/list-item block, the shape the editor itself saves.
+	 *
+	 * Returns null for any list that does not map onto that 1:1 — a nested
+	 * list or other block markup inside an item, an unclosed item or stray
+	 * text, numbering set per item (<li value>), a list style (type) — so the
+	 * caller keeps it as HTML instead of reshaping it.
+	 *
+	 * @param string $html The full <ul> or <ol> element.
+	 * @return string|null
+	 */
+	private static function build_list_block( string $html ): ?string {
+		$tag   = 0 === stripos( $html, '<ol' ) ? 'ol' : 'ul';
+		$open  = self::opening_tag( $html, $tag );
+		$inner = self::element_inner( $html, $tag );
+
+		$item_pattern = '%<li(?=[\s>])((?:[^>"\']|"[^"]*"|\'[^\']*\')*)>(.*?)</li>%is';
+		if ( preg_match( '/\stype\s*=/i', $open ) || ! preg_match_all( $item_pattern, $inner, $items, PREG_SET_ORDER ) ) {
+			return null;
+		}
+		if ( '' !== trim( (string) preg_replace( $item_pattern, '', $inner ) ) ) {
+			return null;
+		}
+
+		$blocks = [];
+		foreach ( $items as $item ) {
+			if ( preg_match( '/\svalue\s*=/i', $item[1] ) || preg_match( self::BLOCK_LEVEL, $item[2] ) ) {
+				return null;
+			}
+			$blocks[] = "<!-- wp:list-item -->\n<li>" . trim( $item[2] ) . "</li>\n<!-- /wp:list-item -->";
+		}
+
+		$attrs     = [];
+		$tag_attrs = '';
+		if ( 'ol' === $tag ) {
+			$attrs[] = '"ordered":true';
+			$start   = preg_match( '/\sstart\s*=\s*["\']?(-?\d+)/i', $open, $start_match ) ? (int) $start_match[1] : null;
+			if ( null !== $start ) {
+				$attrs[] = '"start":' . $start;
+			}
+			if ( preg_match( '/\sreversed(?=[\s=\/>])/i', $open ) ) {
+				$attrs[]    = '"reversed":true';
+				$tag_attrs .= ' reversed';
+			}
+			if ( null !== $start ) {
+				$tag_attrs .= ' start="' . $start . '"';
+			}
+		}
+
+		$comment_attrs = empty( $attrs ) ? '' : ' {' . implode( ',', $attrs ) . '}';
+
+		return "<!-- wp:list{$comment_attrs} -->\n<{$tag}{$tag_attrs} class=\"wp-block-list\">"
+			. implode( "\n\n", $blocks )
+			. "</{$tag}>\n<!-- /wp:list -->";
+	}
+
+	/**
+	 * Builds a core/quote block from a quote made of paragraphs (or bare
+	 * text, which becomes one). Returns null for anything else, so the caller
+	 * keeps it as HTML.
+	 *
+	 * @param string $html The full <blockquote> element.
+	 * @return string|null
+	 */
+	private static function build_quote_block( string $html ): ?string {
+		$inner = trim( self::element_inner( $html, 'blockquote' ) );
+
+		if ( ! preg_match( self::BLOCK_LEVEL, $inner ) ) {
+			$paragraphs = '' === $inner ? [] : [ "<p>{$inner}</p>" ];
+		} else {
+			$paragraph_pattern = '%<p(?=[\s>])(?:[^>"\']|"[^"]*"|\'[^\']*\')*>(.*?)</p>%is';
+			if ( ! preg_match_all( $paragraph_pattern, $inner, $found, PREG_SET_ORDER ) || '' !== trim( (string) preg_replace( $paragraph_pattern, '', $inner ) ) ) {
+				return null;
+			}
+			foreach ( $found as $paragraph ) {
+				if ( preg_match( self::BLOCK_LEVEL, $paragraph[1] ) ) {
+					return null;
+				}
+			}
+			$paragraphs = array_column( $found, 0 );
+		}
+
+		$blocks = array_map( static fn( string $paragraph ): string => "<!-- wp:paragraph -->\n{$paragraph}\n<!-- /wp:paragraph -->", $paragraphs );
+
+		return "<!-- wp:quote -->\n<blockquote class=\"wp-block-quote\">" . implode( "\n\n", $blocks ) . "</blockquote>\n<!-- /wp:quote -->";
+	}
+
+	/**
+	 * Builds a core/code block from <pre><code>, or a core/preformatted block
+	 * from a bare <pre>. Attributes on the elements (a language class, say)
+	 * are dropped — neither block can store them.
+	 *
+	 * @param string $html The full <pre> element.
+	 * @return string
+	 */
+	private static function build_pre_block( string $html ): string {
+		$inner = self::element_inner( $html, 'pre' );
+
+		if ( preg_match( '%^\s*<code(?:\s[^>]*)?>(.*)</code>\s*$%is', $inner, $code ) ) {
+			return "<!-- wp:code -->\n<pre class=\"wp-block-code\"><code>{$code[1]}</code></pre>\n<!-- /wp:code -->";
+		}
+
+		return "<!-- wp:preformatted -->\n<pre class=\"wp-block-preformatted\">{$inner}</pre>\n<!-- /wp:preformatted -->";
 	}
 
 	/**

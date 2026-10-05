@@ -146,4 +146,20 @@ class GeneratedPostTest extends TestCase {
 		$this->assertSame( '', $post->excerpt );
 		$this->assertSame( "<p>First paragraph.</p>\n<p>Second.</p>", $post->content );
 	}
+
+	/**
+	 * A Markdown fence around the whole response, or around just the body,
+	 * is removed: left in place it became the title, or visible "```html"
+	 * paragraphs in the post.
+	 */
+	public function test_from_raw_text_strips_code_fences(): void {
+		\WP_Mock::userFunction( 'wp_strip_all_tags' )->andReturnUsing( static fn( $text ) => trim( strip_tags( (string) $text ) ) );
+
+		$whole = GeneratedPost::from_raw_text( "```html\nThe title\nthe-keywords\nThe excerpt.\n\n<p>Body.</p>\n```", $this->release_data(), 'wp_ai_client' );
+		$this->assertSame( 'The title', $whole->title );
+		$this->assertSame( '<p>Body.</p>', $whole->content );
+
+		$body = GeneratedPost::from_raw_text( "The title\nthe-keywords\nThe excerpt.\n\n```html\n<p>Body.</p>\n```", $this->release_data(), 'wp_ai_client' );
+		$this->assertSame( '<p>Body.</p>', $body->content );
+	}
 }

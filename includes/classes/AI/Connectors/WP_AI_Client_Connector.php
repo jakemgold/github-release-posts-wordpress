@@ -91,7 +91,7 @@ class WP_AI_Client_Connector implements AIProviderInterface {
 		if ( ! $this->is_available() ) {
 			return new \WP_Error(
 				'ghrp_wp_ai_client_unavailable',
-				__( 'The WordPress AI Client API is not available. On WordPress 7.0+ it is built in — make sure at least one AI connector is activated under Settings → AI Credentials. On older versions, install and activate the wp-ai-client plugin.', 'auto-release-posts-for-github' )
+				__( 'The WordPress AI Client API is not available. On WordPress 7.0+ it is built in — make sure at least one AI connector is activated under Settings → Connectors. On older versions, install and activate the wp-ai-client plugin.', 'auto-release-posts-for-github' )
 			);
 		}
 
@@ -114,7 +114,7 @@ class WP_AI_Client_Connector implements AIProviderInterface {
 
 		// Temporarily override the default request timeout for this call.
 		// Blog post generation typically needs 60-120s, well above the 30s default.
-		// The filter must remain installed until generate_text() returns —
+		// The filter must remain installed until generate_text_result() returns —
 		// the underlying HTTP request reads the timeout at request-fire time,
 		// not at builder construction.
 		$timeout_override = static function () {
@@ -125,7 +125,9 @@ class WP_AI_Client_Connector implements AIProviderInterface {
 			$builder = wp_ai_client_prompt( $prompt ) // phpcs:ignore
 				->using_max_tokens( 16384 );
 			$this->configure_model( $builder );
-			$response = $builder->generate_text();
+			$result = $builder->generate_text_result();
+
+			return is_wp_error( $result ) ? $result : $this->post_from_result( $result, $data );
 		} catch ( \Throwable $e ) {
 			// The WP AI Client builder throws on transport/quota/provider errors
 			// rather than returning a WP_Error. Convert it so the caller
@@ -143,12 +145,30 @@ class WP_AI_Client_Connector implements AIProviderInterface {
 		} finally {
 			remove_filter( 'wp_ai_client_default_request_timeout', $timeout_override );
 		}
+	}
 
-		if ( is_wp_error( $response ) ) {
-			return $response;
+	/**
+	 * Turns a generation result into a post — or an error when the result
+	 * is not a complete post, so it is never saved, cached, or published.
+	 *
+	 * @param object      $result The builder's GenerativeAiResult.
+	 * @param ReleaseData $data   Structured release data.
+	 * @return GeneratedPost|\WP_Error
+	 */
+	private function post_from_result( object $result, ReleaseData $data ): GeneratedPost|\WP_Error {
+		$stopped = self::incomplete_reason( $result );
+		if ( '' !== $stopped ) {
+			return new \WP_Error(
+				'ghrp_wp_ai_client_incomplete',
+				match ( $stopped ) {
+					'length'         => __( 'The AI response was cut off at the length limit, so no post was saved. Please try again.', 'auto-release-posts-for-github' ),
+					'content_filter' => __( 'The AI provider stopped the response early (content filter), so no post was saved.', 'auto-release-posts-for-github' ),
+					default          => __( 'The AI provider did not finish the response, so no post was saved. Please try again.', 'auto-release-posts-for-github' ),
+				}
+			);
 		}
 
-		$text = (string) $response;
+		$text = (string) $result->toText();
 		if ( '' === trim( $text ) ) {
 			return new \WP_Error(
 				'ghrp_wp_ai_client_empty_response',
@@ -156,7 +176,47 @@ class WP_AI_Client_Connector implements AIProviderInterface {
 			);
 		}
 
-		return $this->parse_response( $text, $data );
+		$post = $this->parse_response( $text, $data );
+
+		// A title with no body — a refusal ("I'm sorry, but…"), or a reply
+		// that stopped after the metadata lines — is not a post.
+		if ( '' === trim( wp_strip_all_tags( $post->content ) ) ) {
+			return new \WP_Error(
+				'ghrp_wp_ai_client_no_body',
+				__( 'The AI response had no post body, so no post was saved. Please try again.', 'auto-release-posts-for-github' )
+			);
+		}
+
+		return $post;
+	}
+
+	/**
+	 * Why a generation did not finish normally, or '' when it did.
+	 *
+	 * The text of a response is returned even when the provider stopped at
+	 * the token limit, a content filter, or an error — a post cut off
+	 * mid-sentence (and mid-list) was saved and, on repositories set to
+	 * publish, published. Only a normal stop becomes a post.
+	 *
+	 * @param object $result The builder's GenerativeAiResult.
+	 * @return string 'length', 'content_filter', 'other', or ''.
+	 */
+	private static function incomplete_reason( object $result ): string {
+		$candidates = method_exists( $result, 'getCandidates' ) ? (array) $result->getCandidates() : [];
+		$candidate  = $candidates[0] ?? null;
+		if ( ! is_object( $candidate ) || ! method_exists( $candidate, 'getFinishReason' ) ) {
+			return '';
+		}
+
+		$reason = $candidate->getFinishReason();
+		if ( $reason->isStop() ) {
+			return '';
+		}
+		if ( $reason->isLength() ) {
+			return 'length';
+		}
+
+		return $reason->isContentFilter() ? 'content_filter' : 'other';
 	}
 
 	/**

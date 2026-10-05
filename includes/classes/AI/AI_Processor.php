@@ -268,6 +268,8 @@ This notification will not be sent again for this release unless the issue is re
 	 * @return void
 	 */
 	private function clear_failure_count( ReleaseData $data ): void {
+		self::clear_failure_notice( $data->identifier, $data->tag );
+
 		$counts = (array) get_option( Plugin_Constants::OPTION_AI_FAILURE_COUNTS, [] );
 
 		if ( ! isset( $counts[ $data->identifier ][ $data->tag ] ) ) {
@@ -285,6 +287,26 @@ This notification will not be sent again for this release unless the issue is re
 	}
 
 	/**
+	 * Clears the "AI generation keeps failing" notice once the failure it
+	 * reports is resolved: the release generated, or its repository removed.
+	 *
+	 * @param string $identifier Repository identifier.
+	 * @param string $tag        Release tag, or '' for any release of the repository.
+	 * @return void
+	 */
+	private static function clear_failure_notice( string $identifier, string $tag = '' ): void {
+		$notice = get_transient( Cache_Keys::ai_failure_notice() );
+		if ( ! is_array( $notice ) || ( $notice['identifier'] ?? '' ) !== $identifier ) {
+			return;
+		}
+		if ( '' !== $tag && ( $notice['tag'] ?? '' ) !== $tag ) {
+			return;
+		}
+
+		delete_transient( Cache_Keys::ai_failure_notice() );
+	}
+
+	/**
 	 * Removes all failure-count entries for a repository.
 	 *
 	 * Called from the remove-repo flow so re-adding the same repo doesn't
@@ -295,6 +317,8 @@ This notification will not be sent again for this release unless the issue is re
 	 * @return void
 	 */
 	public static function clear_failure_counts_for_identifier( string $identifier ): void {
+		self::clear_failure_notice( $identifier );
+
 		$counts = (array) get_option( Plugin_Constants::OPTION_AI_FAILURE_COUNTS, [] );
 		if ( ! isset( $counts[ $identifier ] ) ) {
 			return;

@@ -35,10 +35,10 @@ class Activator {
 		// skipping defaults and cron registration.
 		//
 		// A network activation fires this hook ONCE, in the main site's
-		// context, while the cron event is per-site. Subsites are provisioned
-		// lazily instead: ensure_cron_event() runs from Plugin::init() on every
-		// request, so each site schedules its own check the first time it
-		// boots (settings accessors already supply defaults for absent options).
+		// context, while options and the cron event are per-site. Subsites are
+		// provisioned lazily instead: ensure_cron_event() runs from
+		// Plugin::init() on every request, so each site writes its defaults
+		// and schedules its own check the first time it boots.
 		self::write_default_options();
 		self::register_cron_event();
 	}
@@ -60,6 +60,24 @@ class Activator {
 			return;
 		}
 
+		// A site with no scheduled check was never activated here either, so
+		// give it the option rows activation would have written. Without them
+		// the first Settings save hit a core quirk — update_option() on a
+		// missing row sanitizes twice — so the token was encrypted twice and
+		// an unchecked box could not be saved at all. Only once scheduling
+		// succeeds: with an unregistered check frequency it fails on every
+		// request, and the rows must not be rewritten on every request too.
+		if ( self::schedule_check() ) {
+			self::write_default_options();
+		}
+	}
+
+	/**
+	 * Schedules the recurring release check at the configured interval.
+	 *
+	 * @return bool Whether the event was scheduled.
+	 */
+	private static function schedule_check(): bool {
 		/**
 		 * Filters the WP-Cron schedule used for release checks.
 		 *
@@ -85,6 +103,8 @@ class Activator {
 				)
 			);
 		}
+
+		return false !== $result;
 	}
 
 	/**
@@ -122,6 +142,8 @@ class Activator {
 		// Clear stale event first (handles crash-reinstall scenario).
 		wp_clear_scheduled_hook( Plugin_Constants::CRON_HOOK_RELEASE_CHECK );
 
-		self::ensure_cron_event();
+		if ( ! wp_next_scheduled( Plugin_Constants::CRON_HOOK_RELEASE_CHECK ) ) {
+			self::schedule_check();
+		}
 	}
 }

@@ -159,4 +159,56 @@ class AI_ProcessorTest extends TestCase {
 
 		$this->assertConditionsMet();
 	}
+
+	/**
+	 * The "AI generation keeps failing" notice disappears once the release
+	 * it reports generates successfully; a notice about a different release
+	 * stays.
+	 *
+	 * @dataProvider failure_notice_provider
+	 */
+	public function test_success_clears_the_matching_failure_notice( string $notice_tag, bool $cleared ): void {
+		\WP_Mock::userFunction( 'get_transient' )->andReturnUsing(
+			static fn( string $key ) => \GitHubReleasePosts\Cache_Keys::ai_failure_notice() === $key
+				? [ 'identifier' => 'owner/repo', 'tag' => $notice_tag, 'message' => 'Quota exceeded' ]
+				: false
+		);
+		\WP_Mock::userFunction( 'set_transient' )->andReturn( true );
+		\WP_Mock::userFunction( 'get_option' )->andReturn( [] );
+		\WP_Mock::userFunction( 'delete_transient' )
+			->times( $cleared ? 1 : 0 )
+			->with( \GitHubReleasePosts\Cache_Keys::ai_failure_notice() );
+
+		$generated = new GeneratedPost( 'New Title', '<p>body</p>', 'wp_ai_client' );
+		$this->provider->method( 'generate_post' )->willReturn( $generated );
+		$this->provider->method( 'get_slug' )->willReturn( 'wp_ai_client' );
+		$this->factory->method( 'get_provider' )->willReturn( $this->provider );
+		\WP_Mock::onFilter( 'ghrp_generate_prompt' )->withAnyArgs()->reply( 'Test prompt content' );
+
+		$this->processor->handle( $this->base_entry, [] );
+
+		$this->assertConditionsMet();
+	}
+
+	public static function failure_notice_provider(): array {
+		return [
+			'notice for this release' => [ 'v1.0.0', true ],
+			'notice for another tag'  => [ 'v0.9.0', false ],
+		];
+	}
+
+	/**
+	 * Removing a repository clears a failure notice that names it.
+	 */
+	public function test_removing_a_repository_clears_its_failure_notice(): void {
+		\WP_Mock::userFunction( 'get_transient' )
+			->with( \GitHubReleasePosts\Cache_Keys::ai_failure_notice() )
+			->andReturn( [ 'identifier' => 'owner/repo', 'tag' => 'v1.0.0', 'message' => 'Quota exceeded' ] );
+		\WP_Mock::userFunction( 'delete_transient' )->once()->with( \GitHubReleasePosts\Cache_Keys::ai_failure_notice() );
+		\WP_Mock::userFunction( 'get_option' )->andReturn( [] );
+
+		AI_Processor::clear_failure_counts_for_identifier( 'owner/repo' );
+
+		$this->assertConditionsMet();
+	}
 }

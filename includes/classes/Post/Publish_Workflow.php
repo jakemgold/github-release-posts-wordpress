@@ -54,10 +54,8 @@ class Publish_Workflow {
 	 * @return void
 	 */
 	public function handle( int $post_id, GeneratedPost $post, ReleaseData $data, array $context ): void {
-		// Respect deliberately-trashed posts. Post_Creator::handle() fires
-		// ghrp_post_created even when the existing post is in trash so that
-		// the dedup signal can be observed; without this guard the workflow
-		// would then update the trashed post's status back to draft/publish.
+		// Respect deliberately-trashed posts: never move one back to
+		// draft/publish, whatever fired ghrp_post_created for it.
 		if ( 'trash' === get_post_status( $post_id ) ) {
 			return;
 		}
@@ -76,6 +74,13 @@ class Publish_Workflow {
 		 * @param string $tag        Release tag.
 		 */
 		$status = (string) apply_filters( 'ghrp_post_status', $status, $post_id, $data->identifier, $data->tag );
+
+		// Manual generation always produces a draft for review — even when a
+		// ghrp_post_status callback (say, "publish major releases") would
+		// publish it, and reset a backdated date to now.
+		if ( ! empty( $context['force_draft'] ) ) {
+			$status = 'draft';
+		}
 
 		$update_args = [
 			'ID'          => $post_id,
@@ -152,9 +157,8 @@ class Publish_Workflow {
 	/**
 	 * Records a post result for the admin notice transient.
 	 *
-	 * Release_Monitor::run() clears the transient at the start of every
-	 * scheduled run, so it always describes the most recent run and never
-	 * stacks (AC-010).
+	 * Entries stay until the admin notice has shown them; Release_Monitor::run()
+	 * resets only the error list at the start of each run (AC-010).
 	 *
 	 * @param int         $post_id WordPress post ID.
 	 * @param string      $status  Final post status.
@@ -188,6 +192,23 @@ class Publish_Workflow {
 		}
 
 		// Store for 24 hours — overwritten on next cron run.
+		set_transient( Cache_Keys::cron_results(), $results, DAY_IN_SECONDS );
+	}
+
+	/**
+	 * Empties the run summary's error list at the start of a run, so errors
+	 * describe the latest run rather than accumulating across daily runs.
+	 * Drafted and published entries are left for the admin notice.
+	 *
+	 * @return void
+	 */
+	public static function reset_run_errors(): void {
+		$results = get_transient( Cache_Keys::cron_results() );
+		if ( ! is_array( $results ) || empty( $results['errors'] ) ) {
+			return;
+		}
+
+		$results['errors'] = [];
 		set_transient( Cache_Keys::cron_results(), $results, DAY_IN_SECONDS );
 	}
 

@@ -3,7 +3,7 @@
 Contributors:      jakemgold, 10up, retlehs, tott
 Tags:              github, releases, blog post, ai, automation
 Requires at least: 7.0
-Tested up to:      7.0
+Tested up to:      7.1
 Requires PHP:      8.2
 Stable tag:        1.2.1
 License:           GPL-2.0-or-later
@@ -30,7 +30,7 @@ You can also generate a post on demand at any time from the Repositories tab.
 * Monitor multiple GitHub repositories for new releases
 * AI-powered post generation via WordPress Connectors — works with Anthropic, OpenAI, Google, and any other configured connector
 * Significance-aware content — patch, minor, major, and security releases get tailored tone and structure
-* Choose the research depth — Standard reviews release notes, linked issues and PRs, metadata, and the README; Deep adds commit messages and file changes since the last release
+* Choose the research depth — Standard reviews the release notes and the issues and pull requests they link to; Deep adds commit messages and file changes since the last release
 * SEO-friendly post slugs and excerpts generated automatically by AI
 * Configurable publish/draft workflow with per-repository overrides
 * Per-repository post defaults (categories, tags, post status)
@@ -38,7 +38,7 @@ You can also generate a post on demand at any time from the Repositories tab.
 * Generate posts on demand for any historical release — pick from a version dropdown when a repo has multiple releases; older releases are automatically backdated to keep the archive in chronological order
 * Custom prompt instructions to guide AI writing style, tone, and voice
 * Regenerate posts with feedback — refine AI output directly from the block editor sidebar
-* Email notifications on draft creation, publication, or both
+* Email notifications when posts are created, to the site owner and up to five more addresses
 * Source attribution in the block editor — see which GitHub release generated each post
 * Idempotency — the same release never creates duplicate posts
 * Optional project link support — enter a URL or WordPress.org slug for download CTAs
@@ -88,7 +88,7 @@ This plugin connects to external services to fetch release data and (via WordPre
 **AI providers (via WordPress Connectors)**
 
 * What it is: AI-generated post content is produced by whichever AI connector you have configured under **Settings → Connectors** in WordPress 7.0+. The plugin does not call AI provider APIs directly — it dispatches prompts through the WordPress AI Client API.
-* What is sent: The release title, release notes body, repository metadata (owner/name, language, description), and any custom prompt instructions you have configured are sent to the AI provider selected by your connector. Optional Deep research mode additionally sends recent commit messages and file change summaries between releases.
+* What is sent: The repository's name and project link, the release tag, title, and notes, the titles and the first 500 characters of issues and pull requests the notes link to (including private ones from the tracked repository when a GitHub token is configured), and any custom prompt instructions you have configured are sent to the AI provider selected by your connector. Optional Deep research mode additionally sends recent commit messages and file change summaries between releases.
 * When it is sent: When a new release is detected by the daily scheduled check, when you click "Generate post" or "Regenerate," and when regenerating from the block editor sidebar.
 
 Privacy and terms for the AI provider depend on which connector is configured. Common providers:
@@ -101,7 +101,7 @@ Privacy and terms for the AI provider depend on which connector is configured. C
 
 = Which AI providers are supported? =
 
-The plugin uses WordPress Connectors (built into WordPress 7.0+) to communicate with AI providers. Any connector installed on your site will work. We recommend Anthropic (Claude Opus 4.7), OpenAI (GPT-5.5), or Google (Gemini 2.5 Pro) for best results. Configure your connector under Settings → Connectors.
+The plugin uses WordPress Connectors (built into WordPress 7.0+) to communicate with AI providers. Any connector installed on your site will work. We recommend Anthropic, OpenAI, or Google for best results — the plugin automatically uses each provider's newest flagship model (the latest Claude Opus, GPT, or Gemini Pro). Configure your connector under Settings → Connectors.
 
 = Do I need a GitHub API key? =
 
@@ -113,7 +113,7 @@ Yes. Add a GitHub Personal Access Token in the Settings tab. A fine-grained toke
 
 = How often does the plugin check for new releases? =
 
-By default, the plugin checks daily via WP-Cron. Developers can change this to hourly, twice daily, or weekly using the `ghrp_check_frequency` filter.
+By default, the plugin checks daily via WP-Cron. Developers can change this to hourly, twice daily, or weekly using the `ghrp_check_frequency` filter; a new frequency takes effect once the plugin is deactivated and reactivated.
 
 = Can I customize the AI-generated content? =
 
@@ -165,6 +165,8 @@ Both source and build outputs ship with the plugin, so the source is available l
 * Fixed empty "Review draft" links in notification emails.
 * Fixed ordinary words such as "source" or "resource" causing a release to be treated as a security fix.
 * Fixed a horizontal rule in AI-written content producing a broken separator block that swallowed the rest of the post; a line break inside a paragraph no longer splits it into two blocks.
+* Generated posts now use exactly the block markup the editor saves: code blocks and quotes no longer open with "This block contains unexpected or invalid content", nested lists, paragraphs inside quotes, and code inside list items are no longer cut in half (a list or quote the editor cannot store as written is kept intact as an HTML block), and headings and lists pick up the theme's block styles on the live site.
+* Text the AI writes is no longer misread as markup: a comparison such as "PHP < 8.2" or a type such as array<int, string> is kept instead of being deleted along with the text after it, a shortcode quoted from release notes is shown as text instead of running, and HTML comments in the AI's output — including block markup smuggled in through release notes — are removed.
 * Fixed a generation failure that could recur on every retry when a linked pull request description was cut mid-character.
 * Links to other GitHub repositories in release notes are now looked up without the site's token, so only public content can be summarized.
 * The AI is now told the exact title prefix the post will carry, including package names for monorepo releases.
@@ -179,11 +181,17 @@ Both source and build outputs ship with the plugin, so the source is available l
 * Pressing Enter in the Add Repository field now adds the repository (it previously submitted the form without adding anything).
 * Clearing a repository's Name in Quick Edit falls back to the derived name instead of a blank row, and saving Quick Edit no longer resets the post author when the stored author is not in the dropdown.
 * A failure to save a newly added repository is reported instead of showing "Settings saved."
+* Pressing Escape on the version picker or the "post already exists" dialog no longer leaves its action armed — the next confirmation could also regenerate the post you had just declined.
+* An AI response that did not finish normally (cut off at the length limit, stopped by a content filter or a provider error) or has no body is reported as a failed generation instead of being saved (or published) as an incomplete post, and a response wrapped in a code fence is unwrapped.
+* "Generate draft" always creates a draft, even when a `ghrp_post_status` filter would publish it.
+* A scheduled check stopped by GitHub's rate limit is now reported, leftovers from an interrupted check are no longer posted for repositories paused or removed since, and a renamed or transferred repository gets a clear explanation (and is not added under its old name).
+* On sites that never ran activation (subsites of a network activation, Composer installs), the first settings save no longer double-encrypts the GitHub token or ignores an unchecked box.
+* The AI disclosure names the plugin correctly, the block editor panel can be translated, and the help text and this readme's description of what is sent to GitHub and the AI provider now match what the plugin does.
 * Fixed a final release being skipped after its own pre-release when the tag suffix starts with "p" (`-pre`, `-preview`): PHP ranked `2.0.0-preview.1` above `2.0.0`, so the release was never posted and the version picker crowned the preview as latest.
 * A repository that GitHub reports as not found (deleted, renamed, or no longer visible to the token) is now reported as an error in the scheduled-run summary instead of being treated as having no releases — which could baseline the repository empty and post every package's current release once access returned.
 * The settings screen now says so when the saved GitHub token can no longer be decrypted (the site's `AUTH_KEY` changed), instead of showing it as saved while every request went out unauthenticated.
 * Release data — including what the plugin's generation hooks receive — now carries only each asset's name, download URL, and size instead of GitHub's full asset objects; on Memcached-backed sites a download-heavy repository's cached snapshot exceeded the 1 MB item limit and was refetched on every check.
-* Upgrading from 1.1.x now carries the previously tracked release into the new per-stream monitoring, so a release published between the last pre-upgrade check and the first post-upgrade check is posted instead of being treated as history.
+* Upgrading from 1.1.x now carries the previously tracked release into the new per-stream monitoring, so a new release of the package it was tracking, published between the last pre-upgrade check and the first post-upgrade check, is posted instead of being treated as history.
 
 = 1.2.0 =
 

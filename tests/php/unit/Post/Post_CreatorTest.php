@@ -111,6 +111,23 @@ class Post_CreatorTest extends TestCase {
 		// validated by WordPress core itself in integration.
 		\WP_Mock::userFunction( 'wp_kses_post' )->andReturnUsing( fn( $v ) => $v )->byDefault();
 		\WP_Mock::userFunction( 'wp_strip_all_tags' )->andReturnUsing( fn( $v ) => $v )->byDefault();
+
+		// Block attributes are serialized with core's helper; this mirrors its
+		// implementation so the block markup asserted below is what WordPress
+		// itself produces.
+		\WP_Mock::userFunction( 'serialize_block_attributes' )->andReturnUsing(
+			static fn( array $attrs ): string => strtr(
+				(string) json_encode( $attrs, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ),
+				[
+					'\\\\' => '\\u005c',
+					'--'   => '\\u002d\\u002d',
+					'<'    => '\\u003c',
+					'>'    => '\\u003e',
+					'&'    => '\\u0026',
+					'\\"'  => '\\u0022',
+				]
+			)
+		)->byDefault();
 	}
 
 	public function tearDown(): void {
@@ -1034,5 +1051,221 @@ class Post_CreatorTest extends TestCase {
 		$post->ID          = $post_id;
 		$post->post_status = 'draft';
 		\WP_Mock::userFunction( 'get_posts' )->andReturn( [ $post ] )->byDefault();
+	}
+
+	// -------------------------------------------------------------------------
+	// convert_html_to_blocks() — core block markup
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Headings carry the class the editor saves; without it every heading
+	 * loaded through a deprecation and kept the bare markup on the front end.
+	 */
+	public function test_convert_html_to_blocks_emits_core_heading_markup(): void {
+		$this->assertSame(
+			"<!-- wp:heading {\"level\":3} -->\n<h3 class=\"wp-block-heading\">Details</h3>\n<!-- /wp:heading -->",
+			Post_Creator::convert_html_to_blocks( '<h3>Details</h3>' )
+		);
+	}
+
+	/**
+	 * A flat list comes out as list-item blocks, byte-for-byte what the
+	 * editor serializes; inline markup and line breaks the model wrote stay.
+	 */
+	public function test_convert_html_to_blocks_builds_flat_lists(): void {
+		$this->assertSame(
+			"<!-- wp:list -->\n<ul class=\"wp-block-list\"><!-- wp:list-item -->\n<li>One <code>a</code></li>\n<!-- /wp:list-item -->\n\n<!-- wp:list-item -->\n<li>A<br><br>B</li>\n<!-- /wp:list-item --></ul>\n<!-- /wp:list -->",
+			Post_Creator::convert_html_to_blocks( "<ul>\n<li>One <code>a</code></li>\n<li>A<br><br>B</li>\n</ul>" )
+		);
+	}
+
+	public function test_convert_html_to_blocks_ordered_list_keeps_start_and_reversed(): void {
+		$result = Post_Creator::convert_html_to_blocks( '<ol reversed start="3"><li>C</li></ol>' );
+
+		$this->assertStringStartsWith( "<!-- wp:list {\"ordered\":true,\"start\":3,\"reversed\":true} -->\n<ol reversed start=\"3\" class=\"wp-block-list\">", $result );
+	}
+
+	/**
+	 * A quote holds paragraph blocks; it used to end at the first </p>,
+	 * leaving "</blockquote>" behind as a broken paragraph.
+	 */
+	public function test_convert_html_to_blocks_quote_holds_paragraph_blocks(): void {
+		$this->assertSame(
+			"<!-- wp:quote -->\n<blockquote class=\"wp-block-quote\"><!-- wp:paragraph -->\n<p>Quoted.</p>\n<!-- /wp:paragraph --></blockquote>\n<!-- /wp:quote -->",
+			Post_Creator::convert_html_to_blocks( '<blockquote><p>Quoted.</p></blockquote>' )
+		);
+		$this->assertStringContainsString(
+			"<blockquote class=\"wp-block-quote\"><!-- wp:paragraph -->\n<p>Bare text.</p>",
+			Post_Creator::convert_html_to_blocks( '<blockquote>Bare text.</blockquote>' )
+		);
+	}
+
+	/**
+	 * Code blocks carry the class the editor requires (every one used to be
+	 * "invalid content"), a language class on <code> is dropped, and a bare
+	 * <pre> becomes a preformatted block.
+	 */
+	public function test_convert_html_to_blocks_code_and_preformatted_blocks(): void {
+		$this->assertSame(
+			"<!-- wp:code -->\n<pre class=\"wp-block-code\"><code>echo 1;</code></pre>\n<!-- /wp:code -->",
+			Post_Creator::convert_html_to_blocks( '<pre><code class="language-php">echo 1;</code></pre>' )
+		);
+		$this->assertSame(
+			"<!-- wp:preformatted -->\n<pre class=\"wp-block-preformatted\">Plain text</pre>\n<!-- /wp:preformatted -->",
+			Post_Creator::convert_html_to_blocks( '<pre>Plain text</pre>' )
+		);
+	}
+
+	/**
+	 * An element the model never closed ends where the next block starts,
+	 * and is closed there.
+	 */
+	public function test_convert_html_to_blocks_closes_an_unclosed_paragraph(): void {
+		$result = Post_Creator::convert_html_to_blocks( '<p>Never closed<h2>Next</h2>' );
+
+		$this->assertStringContainsString( "<p>Never closed</p>\n<!-- /wp:paragraph -->", $result );
+		$this->assertStringContainsString( '<h2 class="wp-block-heading">Next</h2>', $result );
+	}
+
+	public function test_convert_html_to_blocks_table_keeps_auto_layout(): void {
+		$this->assertStringStartsWith(
+			"<!-- wp:table {\"hasFixedLayout\":false} -->\n<figure class=\"wp-block-table\"><table>",
+			Post_Creator::convert_html_to_blocks( '<table><tbody><tr><td>A</td></tr></tbody></table>' )
+		);
+	}
+
+	/**
+	 * Block markup written by the model is converted once, not wrapped again.
+	 */
+	public function test_convert_html_to_blocks_ignores_block_comments_from_the_model(): void {
+		$result = Post_Creator::convert_html_to_blocks( "<!-- wp:paragraph -->\n<p>Already blocks.</p>\n<!-- /wp:paragraph -->" );
+
+		$this->assertSame( "<!-- wp:paragraph -->\n<p>Already blocks.</p>\n<!-- /wp:paragraph -->", $result );
+	}
+
+	/**
+	 * Markup with no native block equivalent as written stays one HTML
+	 * block, exactly as written, rather than being reshaped: each element is
+	 * still matched to its own closing tag (a nested list used to end at the
+	 * inner </ul>, leaving "</li></ul>" behind as a broken paragraph), and a
+	 * figure inside it is restored in place.
+	 *
+	 * @dataProvider unrepresentable_markup_provider
+	 */
+	public function test_convert_html_to_blocks_keeps_unrepresentable_markup_as_html( string $html ): void {
+		\WP_Mock::userFunction( 'esc_url' )->andReturnUsing( fn( $v ) => $v )->byDefault();
+		\WP_Mock::userFunction( 'esc_attr' )->andReturnUsing( fn( $v ) => $v )->byDefault();
+
+		$this->assertSame( "<!-- wp:html -->\n{$html}\n<!-- /wp:html -->", Post_Creator::convert_html_to_blocks( $html ) );
+	}
+
+	public static function unrepresentable_markup_provider(): array {
+		return [
+			'nested list'                => [ "<ul>\n<li>Parent<ul><li>Child</li></ul></li>\n<li>Next</li>\n</ul>" ],
+			'text after a nested list'   => [ '<ul><li>First<ul><li>Second</li></ul>Third</li></ul>' ],
+			'paragraphs inside an item'  => [ '<ol><li><p>One.</p><p>Two.</p></li><li>Done.</li></ol>' ],
+			'paragraph between text'     => [ '<ul><li>Before<p>Inside</p>After</li></ul>' ],
+			'code block inside an item'  => [ "<ol><li>Run:\n<pre><code>wp cache flush</code></pre></li><li>Done.</li></ol>" ],
+			'quote inside an item'       => [ '<ul><li>Note:<blockquote><p>Quoted.</p></blockquote></li></ul>' ],
+			'figure inside an item'      => [ '<ul><li>Screenshot: <figure><img src="https://example.com/a.png" alt=""></figure></li></ul>' ],
+			'unclosed items'             => [ '<ul><li>One<li>Two</ul>' ],
+			'numbering set per item'     => [ '<ol><li value="3">Three</li><li value="7">Seven</li></ol>' ],
+			'list style'                 => [ '<ol type="a"><li>A</li><li>B</li></ol>' ],
+			'quote holding a list'       => [ '<blockquote><p>Note:</p><ul><li>One</li></ul></blockquote>' ],
+			'nested quote'               => [ '<blockquote><blockquote><p>Inner.</p></blockquote></blockquote>' ],
+			'quote with a citation'      => [ '<blockquote><p>Quoted.</p><cite>Someone</cite></blockquote>' ],
+			'paragraph around a list'    => [ '<p><ul><li>Item</li></ul></p>' ],
+			'paragraph around a figure'  => [ '<p>See <figure><img src="https://example.com/b.png" alt=""></figure></p>' ],
+		];
+	}
+
+	/**
+	 * A heading's id is kept as its anchor, so in-post links to it work. It
+	 * is read the way a browser reads it: any characters, references decoded,
+	 * and never "id=" text inside another attribute.
+	 *
+	 * @dataProvider heading_anchor_provider
+	 */
+	public function test_convert_html_to_blocks_keeps_heading_anchors( string $html, string $comment, string $id, string $text ): void {
+		// Escape as core does (WP_Mock's default esc_attr() passes through).
+		\WP_Mock::userFunction( 'esc_attr' )->andReturnUsing( static fn( $v ) => htmlspecialchars( (string) $v, ENT_QUOTES, 'UTF-8', false ) );
+
+		$this->assertSame(
+			"<!-- wp:heading {$comment} -->\n<h2 id=\"{$id}\" class=\"wp-block-heading\">{$text}</h2>\n<!-- /wp:heading -->",
+			Post_Creator::convert_html_to_blocks( $html )
+		);
+	}
+
+	public static function heading_anchor_provider(): array {
+		return [
+			'simple id'                    => [ '<h2 id="migration">Migration</h2>', '{"anchor":"migration"}', 'migration', 'Migration' ],
+			'symbols'                      => [ '<h2 id="c++">C++ support</h2>', '{"anchor":"c++"}', 'c++', 'C++ support' ],
+			'non-ASCII'                    => [ '<h2 id="café">Café integration</h2>', '{"anchor":"café"}', 'café', 'Café integration' ],
+			'character reference'          => [ '<h2 id="migr&#97;tion">Migration</h2>', '{"anchor":"migration"}', 'migration', 'Migration' ],
+			'brackets'                     => [ '<h2 id="config[api]">API config</h2>', '{"anchor":"config[api]"}', 'config[api]', 'API config' ],
+			'id text in another attribute' => [ '<h2 title="An id=example attribute" id="actual">Details</h2>', '{"anchor":"actual"}', 'actual', 'Details' ],
+			'quote and markup characters'  => [ "<h2 id='say\"hi&lt;&amp;'>Odd</h2>", '{"anchor":"say\\u0022hi\\u003c\\u0026"}', 'say&quot;hi&lt;&amp;', 'Odd' ],
+		];
+	}
+
+	public function test_convert_html_to_blocks_heading_anchor_keeps_the_level(): void {
+		$this->assertSame(
+			"<!-- wp:heading {\"level\":3,\"anchor\":\"step-2\"} -->\n<h3 id=\"step-2\" class=\"wp-block-heading\">Step 2</h3>\n<!-- /wp:heading -->",
+			Post_Creator::convert_html_to_blocks( '<h3 id="step-2">Step 2</h3>' )
+		);
+	}
+
+	/**
+	 * Deeply nested quotes and lists are a single HTML block: nothing is
+	 * recursed into, so depth costs no more than length.
+	 */
+	public function test_convert_html_to_blocks_keeps_deep_nesting_as_one_html_block(): void {
+		$quotes = str_repeat( '<blockquote>', 2000 ) . 'Deep' . str_repeat( '</blockquote>', 2000 );
+		$this->assertSame( "<!-- wp:html -->\n{$quotes}\n<!-- /wp:html -->", Post_Creator::convert_html_to_blocks( $quotes ) );
+
+		$lists = str_repeat( '<ul><li>Level', 2000 ) . str_repeat( '</li></ul>', 2000 );
+		$this->assertSame( "<!-- wp:html -->\n{$lists}\n<!-- /wp:html -->", Post_Creator::convert_html_to_blocks( $lists ) );
+	}
+
+	/**
+	 * Many unclosed elements convert in linear time: each one used to rescan
+	 * the rest of the content for a closing tag that did not exist.
+	 */
+	public function test_convert_html_to_blocks_handles_many_unclosed_paragraphs(): void {
+		$started = microtime( true );
+		$result  = Post_Creator::convert_html_to_blocks( str_repeat( '<p>x', 5000 ) );
+
+		$this->assertSame( 5000, substr_count( $result, '<!-- wp:paragraph -->' ) );
+		$this->assertLessThan( 2.0, microtime( true ) - $started );
+	}
+
+	// -------------------------------------------------------------------------
+	// neutralize_ai_html()
+	// -------------------------------------------------------------------------
+
+	/**
+	 * A "<" that does not open an HTML element is text. KSES deletes from
+	 * such a "<" to the next ">", which turned "Requires PHP < 8.2 or
+	 * WordPress >= 6.0" into "Requires PHP = 6.0".
+	 */
+	public function test_neutralize_ai_html_encodes_a_stray_less_than(): void {
+		$this->assertSame(
+			'<p>Requires PHP &lt; 8.2 or WordPress >= 6.0; returns <code>array&lt;int, string></code>, <code>Vec&lt;T></code>, <code>&lt;?php</code>.</p>',
+			Post_Creator::neutralize_ai_html( '<p>Requires PHP < 8.2 or WordPress >= 6.0; returns <code>array<int, string></code>, <code>Vec<T></code>, <code><?php</code>.</p>' )
+		);
+	}
+
+	/**
+	 * Comments are dropped (a smuggled block delimiter would render as a
+	 * live dynamic block), an unterminated "<!--" is shown as text rather
+	 * than swallowing the rest, and "[" is encoded so a quoted shortcode
+	 * cannot run.
+	 */
+	public function test_neutralize_ai_html_drops_comments_and_disarms_shortcodes(): void {
+		$this->assertSame(
+			'<p>Intro</p><p>Use &#91;gallery ids="1,2"] here.</p>',
+			Post_Creator::neutralize_ai_html( '<p>Intro</p><!-- wp:rss {"feedURL":"https://attacker.example/feed"} /--><p>Use [gallery ids="1,2"] here.</p>' )
+		);
+		$this->assertSame( '<p>A</p>&lt;!-- dangling <p>B</p>', Post_Creator::neutralize_ai_html( '<p>A</p><!-- dangling <p>B</p>' ) );
 	}
 }
