@@ -251,6 +251,13 @@ class Settings_Page {
 			return '';
 		}
 
+		// When the option row does not exist yet, update_option() sanitizes the
+		// value twice (once itself, once in add_option()), so this can receive
+		// its own ciphertext: keep it rather than encrypting it again.
+		if ( '' !== $this->global_settings->decrypt( $value ) ) {
+			return $value;
+		}
+
 		$encrypted = $this->global_settings->encrypt( $value );
 
 		if ( '' === $encrypted ) {

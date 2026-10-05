@@ -175,4 +175,18 @@ class Settings_PageTest extends TestCase {
 			'rate-limited 403' => [ 403, MINUTE_IN_SECONDS ],
 		];
 	}
+
+	/**
+	 * When the option row does not exist yet, core sanitizes the submitted
+	 * value twice, so the sanitizer can receive its own ciphertext. It must
+	 * keep it — encrypting it again stored a token GitHub rejected.
+	 */
+	public function test_sanitize_keeps_its_own_ciphertext(): void {
+		$global = $this->createMock( Global_Settings::class );
+		$global->method( 'get_github_pat_source' )->willReturn( 'none' );
+		$global->method( 'decrypt' )->with( 'OUR_CIPHERTEXT' )->willReturn( 'ghp_real_token' );
+		$global->expects( $this->never() )->method( 'encrypt' );
+
+		$this->assertSame( 'OUR_CIPHERTEXT', ( new Settings_Page( $global ) )->sanitize_github_pat( 'OUR_CIPHERTEXT' ) );
+	}
 }
