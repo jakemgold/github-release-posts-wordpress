@@ -165,6 +165,8 @@ Both source and build outputs ship with the plugin, so the source is available l
 * Fixed empty "Review draft" links in notification emails.
 * Fixed ordinary words such as "source" or "resource" causing a release to be treated as a security fix.
 * Fixed a horizontal rule in AI-written content producing a broken separator block that swallowed the rest of the post; a line break inside a paragraph no longer splits it into two blocks.
+* Generated posts now use exactly the block markup the editor saves: code blocks and quotes no longer open with "This block contains unexpected or invalid content", nested lists, paragraphs inside quotes, and code inside list items are no longer cut in half, and headings and lists pick up the theme's block styles on the live site.
+* Text the AI writes is no longer misread as markup: a comparison such as "PHP < 8.2" or a type such as array<int, string> is kept instead of being deleted along with the text after it, a shortcode quoted from release notes is shown as text instead of running, and HTML comments in the AI's output — including block markup smuggled in through release notes — are removed.
 * Fixed a generation failure that could recur on every retry when a linked pull request description was cut mid-character.
 * Links to other GitHub repositories in release notes are now looked up without the site's token, so only public content can be summarized.
 * The AI is now told the exact title prefix the post will carry, including package names for monorepo releases.
@@ -183,7 +185,7 @@ Both source and build outputs ship with the plugin, so the source is available l
 * A repository that GitHub reports as not found (deleted, renamed, or no longer visible to the token) is now reported as an error in the scheduled-run summary instead of being treated as having no releases — which could baseline the repository empty and post every package's current release once access returned.
 * The settings screen now says so when the saved GitHub token can no longer be decrypted (the site's `AUTH_KEY` changed), instead of showing it as saved while every request went out unauthenticated.
 * Release data — including what the plugin's generation hooks receive — now carries only each asset's name, download URL, and size instead of GitHub's full asset objects; on Memcached-backed sites a download-heavy repository's cached snapshot exceeded the 1 MB item limit and was refetched on every check.
-* Upgrading from 1.1.x now carries the previously tracked release into the new per-stream monitoring, so a release published between the last pre-upgrade check and the first post-upgrade check is posted instead of being treated as history.
+* Upgrading from 1.1.x now carries the previously tracked release into the new per-stream monitoring, so a new release of the package it was tracking, published between the last pre-upgrade check and the first post-upgrade check, is posted instead of being treated as history.
 
 = 1.2.0 =
 
