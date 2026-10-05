@@ -132,7 +132,10 @@ class Release_Significance {
 			// Whole-word matching: as a bare substring, "rce" is inside
 			// "source", "resource" and "force", and "cve" inside "curve" —
 			// enough to classify most ordinary release notes as security.
-			if ( preg_match( '/\b' . preg_quote( $keyword, '/' ) . '\b/iu', $text ) ) {
+			$word = str_ends_with( $keyword, 'y' )
+				? preg_quote( substr( $keyword, 0, -1 ), '/' ) . '(?:y|ies)'
+				: preg_quote( $keyword, '/' ) . '(?:e?s)?';
+			if ( preg_match( '/\b' . $word . '\b/iu', $text ) ) {
 				return true;
 			}
 		}
