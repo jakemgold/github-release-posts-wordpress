@@ -148,13 +148,15 @@ class Version_Comparator {
 	 * Compares two semver-shaped versions.
 	 *
 	 * PHP's version_compare() does the work, with one correction: it reads a
-	 * pre-release suffix that begins with "p" (-pre, -preview, -patch) as
-	 * "patch level" and ranks it ABOVE the release, so 2.0.0 was never newer
-	 * than 2.0.0-preview.1 and a final release that followed its own preview
-	 * was skipped for good. When two versions share a core and exactly one is
-	 * a final, the final wins (semver §11.3). Every other pair — two
-	 * pre-releases, different cores, build metadata — keeps PHP's ordering
-	 * unchanged; this is deliberately not a full semver comparator.
+	 * pre-release suffix that begins with "p" (-pre, -preview) as "patch
+	 * level" and ranks it ABOVE the release, so 2.0.0 was never newer than
+	 * 2.0.0-preview.1 and a final release that followed its own preview was
+	 * skipped for good. When two versions share a core and exactly one is a
+	 * final, the final wins (semver §11.3) — unless the other is a
+	 * post-release (see is_post_release()), which PHP already ranks above
+	 * the bare version, correctly. Every other pair — two pre-releases,
+	 * different cores, build metadata — keeps PHP's ordering unchanged; this
+	 * is deliberately not a full semver comparator.
 	 *
 	 * @param string $a Version without a leading v.
 	 * @param string $b Version without a leading v.
@@ -164,11 +166,28 @@ class Version_Comparator {
 		[ $a_core, $a_pre ] = $this->split_prerelease( $a );
 		[ $b_core, $b_pre ] = $this->split_prerelease( $b );
 
-		if ( 0 === version_compare( $a_core, $b_core ) && ( '' === $a_pre ) !== ( '' === $b_pre ) ) {
+		if (
+			0 === version_compare( $a_core, $b_core )
+			&& ( '' === $a_pre ) !== ( '' === $b_pre )
+			&& ! $this->is_post_release( '' === $a_pre ? $b_pre : $a_pre )
+		) {
 			return '' === $a_pre ? 1 : -1;
 		}
 
 		return version_compare( $a, $b );
+	}
+
+	/**
+	 * Whether a version suffix marks a post-release — a re-release of the
+	 * same version, published as final — rather than a pre-release: a
+	 * leading number (1.5.0-1) or a patch-level word (-p1, -pl2, -patch.1,
+	 * -post1).
+	 *
+	 * @param string $suffix Version suffix, without the leading "-".
+	 * @return bool
+	 */
+	private function is_post_release( string $suffix ): bool {
+		return (bool) preg_match( '/^(?:\d|(?:p|pl|patch|post)(?:$|[\d.\-_]))/i', $suffix );
 	}
 
 	/**
