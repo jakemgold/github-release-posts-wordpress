@@ -1503,6 +1503,9 @@ document.addEventListener( 'DOMContentLoaded', function () {
 						if ( conflictCancel ) {
 							conflictCancel.removeEventListener( 'click', onCancel );
 						}
+						if ( conflictDialog ) {
+							conflictDialog.removeEventListener( 'cancel', onEscape );
+						}
 					};
 					/* eslint-enable no-use-before-define */
 					const onConfirm = () => {
@@ -1521,6 +1524,13 @@ document.addEventListener( 'DOMContentLoaded', function () {
 						enableRowActions( btn );
 						btn.focus();
 					};
+					// Escape closes the dialog without either button: treat it as
+					// Cancel, or this row's confirm handler stays attached and also
+					// fires on the next row's confirm.
+					const onEscape = ( event ) => {
+						event.preventDefault();
+						onCancel();
+					};
 
 					if ( conflictConfirm ) {
 						conflictConfirm.addEventListener( 'click', onConfirm );
@@ -1530,6 +1540,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 					}
 
 					if ( conflictDialog ) {
+						conflictDialog.addEventListener( 'cancel', onEscape );
 						conflictDialog.showModal();
 					} else if (
 						// eslint-disable-next-line no-alert -- intentional fallback when <dialog> is unsupported.
@@ -1648,6 +1659,13 @@ document.addEventListener( 'DOMContentLoaded', function () {
 			enableRowActions( btn );
 			btn.focus();
 		}
+		// Escape closes the dialog without either button: treat it as Cancel,
+		// or this row's confirm handler stays attached and also fires on the
+		// next confirm.
+		function onEscape( event ) {
+			event.preventDefault();
+			onCancel();
+		}
 		function cleanup() {
 			if ( versionConfirm ) {
 				versionConfirm.removeEventListener( 'click', onConfirm );
@@ -1655,6 +1673,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 			if ( versionCancel ) {
 				versionCancel.removeEventListener( 'click', onCancel );
 			}
+			versionDialog.removeEventListener( 'cancel', onEscape );
 		}
 
 		if ( versionConfirm ) {
@@ -1663,6 +1682,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
 		if ( versionCancel ) {
 			versionCancel.addEventListener( 'click', onCancel );
 		}
+		versionDialog.addEventListener( 'cancel', onEscape );
 
 		versionDialog.showModal();
 	}
