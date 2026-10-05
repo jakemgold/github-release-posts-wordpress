@@ -136,4 +136,43 @@ class Settings_PageTest extends TestCase {
 		$this->assertStringContainsString( 'ghrp-pat-status--none', $html );
 		$this->assertStringNotContainsString( 'decrypted', $html );
 	}
+
+	/**
+	 * A definitive token check (valid, or rejected with 401) is cached for
+	 * 15 minutes; a timeout or GitHub outage only for a minute, so a
+	 * transient failure does not show the token as invalid for 15 minutes.
+	 *
+	 * @dataProvider token_check_ttl_provider
+	 */
+	public function test_token_check_caches_only_definitive_answers( int $http_code, int $expected_ttl ): void {
+		$global = $this->createMock( Global_Settings::class );
+		$global->method( 'get_masked_github_pat' )->willReturn( Global_Settings::MASKED_PLACEHOLDER );
+		$global->method( 'get_github_pat_source' )->willReturn( 'db' );
+		$global->method( 'get_github_pat' )->willReturn( 'ghp_token' );
+		$global->method( 'can_encrypt' )->willReturn( true );
+
+		\WP_Mock::userFunction( 'disabled' )->andReturn( '' );
+		\WP_Mock::userFunction( 'get_transient' )->andReturn( false );
+		\WP_Mock::userFunction( 'wp_remote_get' )->andReturn( [] );
+		\WP_Mock::userFunction( 'is_wp_error' )->andReturn( false );
+		\WP_Mock::userFunction( 'wp_remote_retrieve_response_code' )->andReturn( $http_code );
+		\WP_Mock::userFunction( 'set_transient' )
+			->once()
+			->with( \Mockery::type( 'string' ), \Mockery::type( 'array' ), $expected_ttl );
+
+		ob_start();
+		( new Settings_Page( $global ) )->render_github_pat_field();
+		ob_end_clean();
+
+		$this->assertConditionsMet();
+	}
+
+	public static function token_check_ttl_provider(): array {
+		return [
+			'valid token'      => [ 200, 15 * MINUTE_IN_SECONDS ],
+			'rejected token'   => [ 401, 15 * MINUTE_IN_SECONDS ],
+			'GitHub 503'       => [ 503, MINUTE_IN_SECONDS ],
+			'rate-limited 403' => [ 403, MINUTE_IN_SECONDS ],
+		];
+	}
 }

@@ -213,7 +213,10 @@ class Settings_Page {
 		// only bounds how often an unchanged token is re-checked against GitHub.
 		// The settings tab renders on every plugin-page load (both tabs), so
 		// a 60-second TTL made nearly every load a live api.github.com call.
-		set_transient( $cache_key, $status, 15 * MINUTE_IN_SECONDS );
+		// Only a definitive answer (valid, or rejected with 401) is worth 15
+		// minutes; a timeout or a GitHub outage is re-checked within a minute.
+		$definitive = true === $result || 'github_unauthorized' === $result->get_error_code();
+		set_transient( $cache_key, $status, $definitive ? 15 * MINUTE_IN_SECONDS : MINUTE_IN_SECONDS );
 		return $status;
 	}
 
