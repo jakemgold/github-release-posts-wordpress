@@ -1081,7 +1081,7 @@ class Post_CreatorTest extends TestCase {
 		$result = Post_Creator::convert_html_to_blocks( "<ol><li><p>One.</p><p>Two.</p></li><li>Run:\n<pre><code>wp cache flush</code></pre></li><li>Done.</li></ol>" );
 
 		$this->assertStringContainsString( '<li>One.<br>Two.</li>', $result );
-		$this->assertStringContainsString( "<li>Run:\n<code>wp cache flush</code></li>", $result );
+		$this->assertStringContainsString( '<li>Run:<br><code>wp cache flush</code></li>', $result );
 		$this->assertStringContainsString( '<li>Done.</li>', $result );
 		$this->assertSame( 1, substr_count( $result, '<!-- wp:list ' ) );
 	}
@@ -1149,6 +1149,86 @@ class Post_CreatorTest extends TestCase {
 		$result = Post_Creator::convert_html_to_blocks( "<!-- wp:paragraph -->\n<p>Already blocks.</p>\n<!-- /wp:paragraph -->" );
 
 		$this->assertSame( "<!-- wp:paragraph -->\n<p>Already blocks.</p>\n<!-- /wp:paragraph -->", $result );
+	}
+
+	/**
+	 * A list the list-item block cannot represent without changing what it
+	 * says stays HTML, exactly as written: text after a nested list (a list
+	 * item saves its text before its nested lists, so "Third" moved ahead of
+	 * "Second"), numbering set per item, a list style, or block markup inside
+	 * an item.
+	 *
+	 * @dataProvider unrepresentable_list_provider
+	 */
+	public function test_convert_html_to_blocks_keeps_unrepresentable_lists_as_html( string $html ): void {
+		$this->assertSame( "<!-- wp:html -->\n{$html}\n<!-- /wp:html -->", Post_Creator::convert_html_to_blocks( $html ) );
+	}
+
+	public static function unrepresentable_list_provider(): array {
+		return [
+			'text after a nested list'     => [ '<ul><li>First<ul><li>Second</li></ul>Third</li></ul>' ],
+			'text between nested lists'    => [ '<ol><li>Before<ul><li>One</li></ul>Between<ol><li>Two</li></ol></li></ol>' ],
+			'numbering set per item'       => [ '<ol><li value="3">Three</li><li value="7">Seven</li></ol>' ],
+			'list style'                   => [ '<ol type="a"><li>A</li><li>B</li></ol>' ],
+			'quote inside an item'         => [ '<ul><li>Note:<blockquote><p>Quoted.</p></blockquote></li></ul>' ],
+			'unrepresentable nested list'  => [ '<ul><li>Parent<ol><li value="2">Two</li></ol></li></ul>' ],
+		];
+	}
+
+	/**
+	 * Paragraph boundaries inside a list item become line breaks, so the
+	 * text on either side never runs together ("BeforeInsideAfter"); line
+	 * breaks the model wrote itself are left alone.
+	 */
+	public function test_convert_html_to_blocks_keeps_text_boundaries_in_list_items(): void {
+		$this->assertStringContainsString(
+			'<li>Before<br>Inside<br>After</li>',
+			Post_Creator::convert_html_to_blocks( '<ul><li>Before<p>Inside</p>After</li></ul>' )
+		);
+		$this->assertStringContainsString(
+			'<li>A<br><br>B</li>',
+			Post_Creator::convert_html_to_blocks( '<ul><li>A<br><br>B</li></ul>' )
+		);
+	}
+
+	/**
+	 * A heading's id is kept as its anchor, so in-post links to it work.
+	 */
+	public function test_convert_html_to_blocks_keeps_heading_anchors(): void {
+		$this->assertSame(
+			"<!-- wp:heading {\"anchor\":\"migration\"} -->\n<h2 id=\"migration\" class=\"wp-block-heading\">Migration</h2>\n<!-- /wp:heading -->",
+			Post_Creator::convert_html_to_blocks( '<h2 id="migration">Migration</h2>' )
+		);
+		$this->assertStringStartsWith(
+			"<!-- wp:heading {\"level\":3,\"anchor\":\"step-2\"} -->\n<h3 id=\"step-2\" class=\"wp-block-heading\">",
+			Post_Creator::convert_html_to_blocks( '<h3 id="step-2">Step 2</h3>' )
+		);
+	}
+
+	/**
+	 * Lists and quotes nested deeper than any real post are kept as HTML
+	 * rather than recursed into without bound.
+	 */
+	public function test_convert_html_to_blocks_bounds_nesting(): void {
+		$quotes = str_repeat( '<blockquote>', 40 ) . 'Deep' . str_repeat( '</blockquote>', 40 );
+		$result = Post_Creator::convert_html_to_blocks( $quotes );
+		$this->assertStringContainsString( '<!-- wp:html -->', $result );
+		$this->assertStringContainsString( 'Deep', $result );
+
+		$lists = str_repeat( '<ul><li>Level', 40 ) . str_repeat( '</li></ul>', 40 );
+		$this->assertStringStartsWith( '<!-- wp:html -->', Post_Creator::convert_html_to_blocks( $lists ) );
+	}
+
+	/**
+	 * Many unclosed elements convert in linear time: each one used to rescan
+	 * the rest of the content for a closing tag that did not exist.
+	 */
+	public function test_convert_html_to_blocks_handles_many_unclosed_paragraphs(): void {
+		$started = microtime( true );
+		$result  = Post_Creator::convert_html_to_blocks( str_repeat( '<p>x', 5000 ) );
+
+		$this->assertSame( 5000, substr_count( $result, '<!-- wp:paragraph -->' ) );
+		$this->assertLessThan( 2.0, microtime( true ) - $started );
 	}
 
 	// -------------------------------------------------------------------------
