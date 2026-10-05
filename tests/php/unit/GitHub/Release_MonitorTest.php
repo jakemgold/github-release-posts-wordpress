@@ -1321,19 +1321,38 @@ class Release_MonitorTest extends TestCase {
 	}
 
 	/**
-	 * The run summary is cleared at the start of each run so a repository
-	 * that fails every day does not accumulate errors without bound.
+	 * Each run starts the summary's error list afresh, so a repository that
+	 * fails every day does not accumulate errors without bound — but drafts
+	 * and publications from an earlier run stay until the admin has seen
+	 * them (a retry run or an hourly schedule used to wipe them unseen).
 	 */
-	public function test_run_clears_previous_results_summary(): void {
+	public function test_run_resets_errors_but_keeps_unseen_results(): void {
 		$this->repo_settings->method( 'get_repositories' )->willReturn( [] );
 		$this->queue->method( 'dequeue_all' )->willReturn( [] );
 		$this->mock_run_plumbing();
 
-		\WP_Mock::userFunction( 'delete_transient' )->once()->with( Cache_Keys::cron_results() )->andReturn( true );
+		$previous = [
+			'drafted'   => [ [ 'post_id' => 7, 'identifier' => 'acme/x', 'tag' => 'v1.0.0' ] ],
+			'published' => [],
+			'errors'    => [ [ 'identifier' => 'acme/y', 'tag' => '', 'message' => 'GitHub returned 404' ] ],
+		];
+		\WP_Mock::userFunction( 'get_transient' )->with( Cache_Keys::cron_results() )->andReturn( $previous );
+
+		$saved = null;
+		\WP_Mock::userFunction( 'set_transient' )
+			->with( Cache_Keys::cron_results(), \Mockery::type( 'array' ), \Mockery::any() )
+			->andReturnUsing(
+				function ( $key, $value ) use ( &$saved ) {
+					$saved = $value;
+					return true;
+				}
+			);
+		\WP_Mock::userFunction( 'delete_transient' )->with( Cache_Keys::cron_results() )->never();
 
 		$this->monitor->run();
 
-		$this->assertConditionsMet();
+		$this->assertSame( [], $saved['errors'] );
+		$this->assertSame( $previous['drafted'], $saved['drafted'] );
 	}
 
 	/**

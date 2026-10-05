@@ -192,6 +192,23 @@ class Publish_Workflow {
 	}
 
 	/**
+	 * Empties the run summary's error list at the start of a run, so errors
+	 * describe the latest run rather than accumulating across daily runs.
+	 * Drafted and published entries are left for the admin notice.
+	 *
+	 * @return void
+	 */
+	public static function reset_run_errors(): void {
+		$results = get_transient( Cache_Keys::cron_results() );
+		if ( ! is_array( $results ) || empty( $results['errors'] ) ) {
+			return;
+		}
+
+		$results['errors'] = [];
+		set_transient( Cache_Keys::cron_results(), $results, DAY_IN_SECONDS );
+	}
+
+	/**
 	 * Records a release that failed to produce a post, for the admin notice.
 	 *
 	 * Appends to the same cron-results transient that record_result() writes and

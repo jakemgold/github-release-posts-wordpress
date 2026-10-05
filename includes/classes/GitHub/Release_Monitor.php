@@ -115,9 +115,10 @@ class Release_Monitor {
 			// Record start time before processing so a partial run still updates the display (BR-004).
 			update_option( Plugin_Constants::OPTION_LAST_RUN_AT, time(), false );
 
-			// The results summary describes THIS run: start it empty so errors
-			// from a repository that fails every day do not stack forever.
-			delete_transient( Cache_Keys::cron_results() );
+			// Errors in the run summary describe THIS run, so a repository that
+			// fails every day does not stack up errors forever. Drafts and
+			// publications from earlier runs stay until the admin has seen them.
+			Publish_Workflow::reset_run_errors();
 
 			$repos = $this->repo_settings->get_repositories();
 
