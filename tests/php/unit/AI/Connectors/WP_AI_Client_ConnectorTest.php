@@ -153,4 +153,90 @@ class WP_AI_Client_ConnectorTest extends TestCase {
 		$method = new \ReflectionMethod( WP_AI_Client_Connector::class, 'get_model_preferences' );
 		return (array) $method->invoke( $this->connector );
 	}
+
+	// -------------------------------------------------------------------------
+	// post_from_result() — only complete posts are saved
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Builds a stand-in for the builder's GenerativeAiResult.
+	 *
+	 * @param string $text   Response text.
+	 * @param string $finish 'stop', 'length', or 'content_filter'.
+	 * @return object
+	 */
+	private function make_result( string $text, string $finish ): object {
+		$reason = new class( $finish ) {
+			public function __construct( private string $finish ) {}
+			public function isLength(): bool {
+				return 'length' === $this->finish;
+			}
+			public function isContentFilter(): bool {
+				return 'content_filter' === $this->finish;
+			}
+		};
+		$candidate = new class( $reason ) {
+			public function __construct( private object $reason ) {}
+			public function getFinishReason(): object {
+				return $this->reason;
+			}
+		};
+
+		return new class( $candidate, $text ) {
+			public function __construct( private object $candidate, private string $text ) {}
+			public function getCandidates(): array {
+				return [ $this->candidate ];
+			}
+			public function toText(): string {
+				return $this->text;
+			}
+		};
+	}
+
+	private function post_from_result( object $result ): mixed {
+		\WP_Mock::userFunction( 'wp_strip_all_tags' )->andReturnUsing( static fn( $text ) => trim( strip_tags( (string) $text ) ) );
+		\WP_Mock::userFunction( '__' )->andReturnArg( 0 );
+
+		$method = new \ReflectionMethod( WP_AI_Client_Connector::class, 'post_from_result' );
+		return $method->invoke( $this->connector, $result, $this->release );
+	}
+
+	/**
+	 * A response cut off at the token limit (or stopped by a content filter)
+	 * is an error, never a post — it was saved and, on repositories set to
+	 * publish, published mid-sentence.
+	 *
+	 * @dataProvider incomplete_finish_provider
+	 */
+	public function test_cut_off_response_is_an_error( string $finish ): void {
+		$result = $this->post_from_result( $this->make_result( "Title\nkeywords\nExcerpt.\n\n<p>Half a sente", $finish ) );
+
+		$this->assertInstanceOf( \WP_Error::class, $result );
+		$this->assertSame( 'ghrp_wp_ai_client_incomplete', $result->get_error_code() );
+	}
+
+	public static function incomplete_finish_provider(): array {
+		return [
+			'token limit'    => [ 'length' ],
+			'content filter' => [ 'content_filter' ],
+		];
+	}
+
+	/**
+	 * A title with no body — a refusal, or a reply that stopped after the
+	 * metadata lines — is an error, not a post.
+	 */
+	public function test_response_without_a_body_is_an_error(): void {
+		$result = $this->post_from_result( $this->make_result( "I'm sorry, but I can't help with that.", 'stop' ) );
+
+		$this->assertInstanceOf( \WP_Error::class, $result );
+		$this->assertSame( 'ghrp_wp_ai_client_no_body', $result->get_error_code() );
+	}
+
+	public function test_complete_response_becomes_a_post(): void {
+		$result = $this->post_from_result( $this->make_result( "A title\nsome-keywords\nAn excerpt.\n\n<p>The body.</p>", 'stop' ) );
+
+		$this->assertInstanceOf( GeneratedPost::class, $result );
+		$this->assertSame( '<p>The body.</p>', $result->content );
+	}
 }
