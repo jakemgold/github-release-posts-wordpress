@@ -190,12 +190,12 @@ class Admin_Page {
 					. '<li><strong>' . esc_html__( 'Include pre-releases', 'auto-release-posts-for-github' ) . '</strong> — ' . esc_html__( 'Generate posts for releases marked as pre-release on GitHub (betas, release candidates, etc.). Off by default; most sites only highlight stable releases.', 'auto-release-posts-for-github' ) . '</li>'
 					. '<li><strong>' . esc_html__( 'Packages / Tag patterns', 'auto-release-posts-for-github' ) . '</strong> — ' . esc_html__( 'For repositories that release multiple packages (monorepos), choose which packages get posts. See the Monorepos help tab.', 'auto-release-posts-for-github' ) . '</li>'
 					. '</ul>'
-					. '<p>' . esc_html__( 'Use the Edit row action to change any of these inline, then click Save Repositories at the bottom of the page.', 'auto-release-posts-for-github' ) . '</p>'
+					. '<p>' . esc_html__( 'Use the Edit row action to change any of these inline, then click Update.', 'auto-release-posts-for-github' ) . '</p>'
 					. '<h4>' . esc_html__( 'Generate Draft', 'auto-release-posts-for-github' ) . '</h4>'
 					. '<p>' . esc_html__( 'Creates a post from a GitHub release immediately, bypassing the cron schedule. If the repository has multiple releases, a picker lets you choose any historical version — useful for backfilling an archive of past releases.', 'auto-release-posts-for-github' ) . '</p>'
 					. '<p>' . esc_html__( 'Manually generated posts are always created as drafts so you can review them before publishing — even when the repository\'s Status setting is Published. The Status setting applies to posts created automatically by the scheduled check.', 'auto-release-posts-for-github' ) . '</p>'
 					. '<p>' . esc_html__( 'Posts generated for older releases are automatically backdated to one hour after the release\'s GitHub publication time, so they slot into the archive in the correct chronological order. You can adjust the date in the editor before publishing.', 'auto-release-posts-for-github' ) . '</p>'
-					. '<p>' . esc_html__( 'If a post already exists for the selected version, the picker shows an inline warning and re-generation creates a new revision while preserving the existing post date and URL slug.', 'auto-release-posts-for-github' ) . '</p>'
+					. '<p>' . esc_html__( 'If a post already exists for the selected version, the picker shows an inline warning and re-generation creates a new revision while preserving the existing post date. A published post also keeps its URL slug.', 'auto-release-posts-for-github' ) . '</p>'
 					. '<p>' . esc_html__( 'After generation succeeds, a green checkmark appears next to the Generate draft button — click it to jump straight to the new post in the editor.', 'auto-release-posts-for-github' ) . '</p>',
 			]
 		);
@@ -250,9 +250,9 @@ class Admin_Page {
 				. '<h4>' . esc_html__( 'Recommended Models', 'auto-release-posts-for-github' ) . '</h4>'
 				. '<p>' . esc_html__( 'The plugin specifies a list of preferred models and automatically uses the best available one via your configured connector. For best results, your AI provider account should support one of these models:', 'auto-release-posts-for-github' ) . '</p>'
 				. '<ul>'
-				. '<li>' . esc_html__( 'Anthropic — Claude Opus 4.7', 'auto-release-posts-for-github' ) . '</li>'
-				. '<li>' . esc_html__( 'OpenAI — GPT-5.5', 'auto-release-posts-for-github' ) . '</li>'
-				. '<li>' . esc_html__( 'Google — Gemini 2.5 Pro', 'auto-release-posts-for-github' ) . '</li>'
+				. '<li>' . esc_html__( 'Anthropic — the newest Claude Opus model', 'auto-release-posts-for-github' ) . '</li>'
+				. '<li>' . esc_html__( 'OpenAI — the newest GPT model', 'auto-release-posts-for-github' ) . '</li>'
+				. '<li>' . esc_html__( 'Google — the newest stable Gemini Pro model', 'auto-release-posts-for-github' ) . '</li>'
 				. '</ul>'
 				. '<p>' . sprintf(
 					/* translators: %s: filter name wrapped in <code> tags */
@@ -449,6 +449,7 @@ class Admin_Page {
 			$asset['version'] ?? GHRP_VERSION,
 			true
 		);
+		wp_set_script_translations( 'github-release-posts-editor', 'auto-release-posts-for-github' );
 	}
 
 	/**
