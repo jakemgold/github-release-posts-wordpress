@@ -118,7 +118,7 @@ class Post_Creator {
 		}
 
 		if ( '' !== $post->excerpt ) {
-			$insert_args['post_excerpt'] = wp_kses_post( $post->excerpt );
+			$insert_args['post_excerpt'] = wp_kses_post( self::neutralize_ai_html( $post->excerpt ) );
 		}
 
 		if ( '' !== $slug ) {
@@ -518,6 +518,41 @@ class Post_Creator {
 	private const BLOCK_START_TAG = '%<(hr|img|p|ul|ol|h[1-6]|blockquote|pre|table)(?=[\s/>])(?:[^>"\']|"[^"]*"|\'[^\']*\')*>%i';
 
 	/**
+	 * HTML element names. A "<" followed by anything else is text.
+	 *
+	 * @var string[]
+	 */
+	private const HTML_ELEMENT_NAMES = [ 'a', 'abbr', 'acronym', 'address', 'area', 'article', 'aside', 'audio', 'b', 'base', 'bdi', 'bdo', 'big', 'blockquote', 'body', 'br', 'button', 'canvas', 'caption', 'center', 'cite', 'code', 'col', 'colgroup', 'data', 'datalist', 'dd', 'del', 'details', 'dfn', 'dialog', 'dir', 'div', 'dl', 'dt', 'em', 'embed', 'fieldset', 'figcaption', 'figure', 'font', 'footer', 'form', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'head', 'header', 'hgroup', 'hr', 'html', 'i', 'iframe', 'img', 'input', 'ins', 'kbd', 'label', 'legend', 'li', 'link', 'main', 'map', 'mark', 'marquee', 'math', 'menu', 'meta', 'meter', 'nav', 'noscript', 'object', 'ol', 'optgroup', 'option', 'output', 'p', 'param', 'picture', 'pre', 'progress', 'q', 'rp', 'rt', 'ruby', 's', 'samp', 'script', 'search', 'section', 'select', 'slot', 'small', 'source', 'span', 'strike', 'strong', 'style', 'sub', 'summary', 'sup', 'svg', 'table', 'tbody', 'td', 'template', 'textarea', 'tfoot', 'th', 'thead', 'time', 'title', 'tr', 'track', 'tt', 'u', 'ul', 'var', 'video', 'wbr' ];
+
+	/**
+	 * Neutralizes text in AI-written HTML that WordPress would otherwise
+	 * read as markup. Applied to the post body and the excerpt.
+	 *
+	 * - A "<" that does not open an HTML element is text: "PHP < 8.2",
+	 *   "array<int, string>", "<?php". KSES deletes everything from such a
+	 *   "<" to the next ">", so "Requires PHP < 8.2 or WordPress >= 6.0" was
+	 *   saved as "Requires PHP = 6.0".
+	 * - HTML comments are dropped. The model never needs one, and a block
+	 *   delimiter smuggled in through release notes (<!-- wp:rss {…} /-->)
+	 *   would otherwise render as a live dynamic block with its attributes.
+	 * - "[" is encoded, so a shortcode quoted in release notes displays as
+	 *   text instead of running on the site.
+	 *
+	 * @param string $html AI-written HTML or text.
+	 * @return string
+	 */
+	public static function neutralize_ai_html( string $html ): string {
+		$html = preg_replace( '/<!--.*?-->/s', '', $html ) ?? $html;
+		$html = preg_replace_callback(
+			'%</?([a-zA-Z][a-zA-Z0-9-]*)?%',
+			static fn( array $lt ): string => in_array( strtolower( $lt[1] ?? '' ), self::HTML_ELEMENT_NAMES, true ) ? $lt[0] : '&lt;' . substr( $lt[0], 1 ),
+			$html
+		) ?? $html;
+
+		return str_replace( '[', '&#91;', $html );
+	}
+
+	/**
 	 * Converts HTML content into Gutenberg block markup.
 	 *
 	 * Wraps top-level HTML elements in their corresponding block comments,
@@ -528,7 +563,7 @@ class Post_Creator {
 	 * @return string Block-formatted content.
 	 */
 	public static function convert_html_to_blocks( string $html ): string {
-		$html = trim( $html );
+		$html = trim( self::neutralize_ai_html( $html ) );
 		if ( '' === $html ) {
 			return '';
 		}

@@ -1141,4 +1141,43 @@ class Post_CreatorTest extends TestCase {
 			Post_Creator::convert_html_to_blocks( '<table><tbody><tr><td>A</td></tr></tbody></table>' )
 		);
 	}
+
+	/**
+	 * Block markup written by the model is converted once, not wrapped again.
+	 */
+	public function test_convert_html_to_blocks_ignores_block_comments_from_the_model(): void {
+		$result = Post_Creator::convert_html_to_blocks( "<!-- wp:paragraph -->\n<p>Already blocks.</p>\n<!-- /wp:paragraph -->" );
+
+		$this->assertSame( "<!-- wp:paragraph -->\n<p>Already blocks.</p>\n<!-- /wp:paragraph -->", $result );
+	}
+
+	// -------------------------------------------------------------------------
+	// neutralize_ai_html()
+	// -------------------------------------------------------------------------
+
+	/**
+	 * A "<" that does not open an HTML element is text. KSES deletes from
+	 * such a "<" to the next ">", which turned "Requires PHP < 8.2 or
+	 * WordPress >= 6.0" into "Requires PHP = 6.0".
+	 */
+	public function test_neutralize_ai_html_encodes_a_stray_less_than(): void {
+		$this->assertSame(
+			'<p>Requires PHP &lt; 8.2 or WordPress >= 6.0; returns <code>array&lt;int, string></code>, <code>Vec&lt;T></code>, <code>&lt;?php</code>.</p>',
+			Post_Creator::neutralize_ai_html( '<p>Requires PHP < 8.2 or WordPress >= 6.0; returns <code>array<int, string></code>, <code>Vec<T></code>, <code><?php</code>.</p>' )
+		);
+	}
+
+	/**
+	 * Comments are dropped (a smuggled block delimiter would render as a
+	 * live dynamic block), an unterminated "<!--" is shown as text rather
+	 * than swallowing the rest, and "[" is encoded so a quoted shortcode
+	 * cannot run.
+	 */
+	public function test_neutralize_ai_html_drops_comments_and_disarms_shortcodes(): void {
+		$this->assertSame(
+			'<p>Intro</p><p>Use &#91;gallery ids="1,2"] here.</p>',
+			Post_Creator::neutralize_ai_html( '<p>Intro</p><!-- wp:rss {"feedURL":"https://attacker.example/feed"} /--><p>Use [gallery ids="1,2"] here.</p>' )
+		);
+		$this->assertSame( '<p>A</p>&lt;!-- dangling <p>B</p>', Post_Creator::neutralize_ai_html( '<p>A</p><!-- dangling <p>B</p>' ) );
+	}
 }

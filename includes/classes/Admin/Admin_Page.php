@@ -1575,7 +1575,7 @@ class Admin_Page {
 
 		// Always update the excerpt.
 		if ( '' !== $result->excerpt ) {
-			$update_args['post_excerpt'] = wp_kses_post( $result->excerpt );
+			$update_args['post_excerpt'] = wp_kses_post( Post_Creator::neutralize_ai_html( $result->excerpt ) );
 		}
 
 		// Only update the slug if the post is not yet published (preserve live
