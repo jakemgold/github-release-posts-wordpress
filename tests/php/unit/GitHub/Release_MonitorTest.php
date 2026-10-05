@@ -1388,10 +1388,9 @@ class Release_MonitorTest extends TestCase {
 	 *
 	 * @param string $identifier Repository identifier.
 	 * @param string $tag        Release tag.
-	 * @param bool   $prerelease Whether GitHub marks it a pre-release.
 	 * @return array<string, mixed>
 	 */
-	private function queue_entry( string $identifier, string $tag, bool $prerelease = false ): array {
+	private function queue_entry( string $identifier, string $tag ): array {
 		return [
 			'identifier'   => $identifier,
 			'tag'          => $tag,
@@ -1400,7 +1399,6 @@ class Release_MonitorTest extends TestCase {
 			'html_url'     => '',
 			'published_at' => '2026-03-21T00:00:00Z',
 			'assets'       => [],
-			'prerelease'   => $prerelease,
 		];
 	}
 
@@ -1442,11 +1440,10 @@ class Release_MonitorTest extends TestCase {
 	}
 
 	/**
-	 * A queued entry is skipped once it is no longer eligible: its repository
-	 * was removed or paused, it is a pre-release and pre-releases are off, or
-	 * the package selection no longer includes it. Duplicates run once.
+	 * A queued entry is skipped once its repository has been removed or
+	 * paused; the admin no longer wants posts for it.
 	 */
-	public function test_queued_entries_no_longer_eligible_are_skipped(): void {
+	public function test_queued_entries_for_removed_or_paused_repositories_are_skipped(): void {
 		$this->track_quiet_repositories(
 			[
 				[ 'identifier' => 'owner/active' ],
@@ -1454,21 +1451,13 @@ class Release_MonitorTest extends TestCase {
 					'identifier' => 'owner/paused',
 					'paused'     => true,
 				],
-				[
-					'identifier'   => 'acme/mono',
-					'tag_patterns' => '@acme/core@*',
-				],
 			]
 		);
 		$this->queue->method( 'dequeue_all' )->willReturn(
 			[
 				$this->queue_entry( 'owner/removed', 'v1.0.0' ),
-				$this->queue_entry( 'owner/paused', 'v1.0.0' ),
-				$this->queue_entry( 'owner/active', 'v2.0.0-beta.1', true ),
-				$this->queue_entry( 'acme/mono', '@acme/utils@1.0.0' ),
-				$this->queue_entry( 'acme/mono', '@acme/core@3.0.0' ),
-				$this->queue_entry( 'owner/active', 'v1.0.0' ),
-				$this->queue_entry( 'owner/active', 'v1.0.0' ),
+				$this->queue_entry( 'owner/paused', 'v2.0.0' ),
+				$this->queue_entry( 'owner/active', 'v3.0.0' ),
 			]
 		);
 		$processed = &$this->capture_processed_tags();
@@ -1476,7 +1465,7 @@ class Release_MonitorTest extends TestCase {
 
 		$this->monitor->run();
 
-		$this->assertSame( [ '@acme/core@3.0.0', 'v1.0.0' ], $processed );
+		$this->assertSame( [ 'v3.0.0' ], $processed );
 	}
 
 	/**

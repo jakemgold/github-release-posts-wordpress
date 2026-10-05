@@ -551,27 +551,25 @@ class Release_Monitor {
 
 		$active = [];
 		foreach ( $repos as $repo ) {
-			if ( '' !== ( $repo['identifier'] ?? '' ) && empty( $repo['paused'] ) ) {
-				$active[ $repo['identifier'] ] = $repo;
+			if ( empty( $repo['paused'] ) ) {
+				$active[ (string) ( $repo['identifier'] ?? '' ) ] = true;
 			}
 		}
 
-		$seen = [];
 		foreach ( $entries as $entry ) {
 			$identifier = $entry['identifier'] ?? '';
 			$tag        = $entry['tag'] ?? '';
 
-			if ( '' === $identifier || '' === $tag || isset( $seen[ $identifier ][ $tag ] ) ) {
+			if ( '' === $identifier || '' === $tag ) {
 				continue;
 			}
-			$seen[ $identifier ][ $tag ] = true;
 
-			// An entry left by a run that died mid-way is kept — a newer release
-			// in its stream would otherwise hide it for good, since a scan only
-			// generates each stream's newest — unless the repository has since
-			// been removed or paused, or the release is no longer eligible.
-			if ( ! $this->still_eligible( $entry, $active ) ) {
-				$this->log( $identifier, 'queued release ' . $tag . ' is no longer eligible — skipped' );
+			// Entries left by a run that died mid-way are generated like any
+			// other — dropping one would lose it for good, since a scan queues
+			// only each stream's newest release — unless the repository has
+			// since been removed or paused.
+			if ( ! isset( $active[ $identifier ] ) ) {
+				$this->log( $identifier, 'queued release ' . $tag . ' skipped — repository removed or paused' );
 				continue;
 			}
 
@@ -608,29 +606,6 @@ class Release_Monitor {
 				);
 			}
 		}
-	}
-
-	/**
-	 * Whether a queued release may still be generated: its repository is
-	 * tracked and not paused, and the release passes the repository's
-	 * current pre-release setting and package selection.
-	 *
-	 * @param array<string, mixed>                $entry  Queue entry.
-	 * @param array<string, array<string, mixed>> $active Tracked, unpaused repositories by identifier.
-	 * @return bool
-	 */
-	private function still_eligible( array $entry, array $active ): bool {
-		$identifier = (string) $entry['identifier'];
-		if ( ! isset( $active[ $identifier ] ) ) {
-			return false;
-		}
-
-		$repo = $active[ $identifier ];
-		if ( ! empty( $entry['prerelease'] ) && empty( $repo['include_prereleases'] ) ) {
-			return false;
-		}
-
-		return Tag_Pattern_Matcher::matches( (string) $entry['tag'], $this->repo_settings->get_effective_tag_patterns( $identifier, $repo ) );
 	}
 
 	/**

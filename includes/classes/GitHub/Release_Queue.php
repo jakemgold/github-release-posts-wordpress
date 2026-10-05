@@ -63,7 +63,6 @@ class Release_Queue {
 			'html_url'     => $release->html_url,
 			'published_at' => $release->published_at,
 			'assets'       => $release->assets,
-			'prerelease'   => $release->prerelease,
 		];
 	}
 
