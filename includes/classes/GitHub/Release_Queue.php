@@ -37,15 +37,6 @@ class Release_Queue {
 	}
 
 	/**
-	 * Empties the queue without processing it.
-	 *
-	 * @return void
-	 */
-	public function clear(): void {
-		$this->save( [] );
-	}
-
-	/**
 	 * Returns all queued entries and clears the queue.
 	 *
 	 * @return array<int, array<string, mixed>>
@@ -72,6 +63,7 @@ class Release_Queue {
 			'html_url'     => $release->html_url,
 			'published_at' => $release->published_at,
 			'assets'       => $release->assets,
+			'prerelease'   => $release->prerelease,
 		];
 	}
 

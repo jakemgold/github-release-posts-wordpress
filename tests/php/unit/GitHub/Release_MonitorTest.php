@@ -149,6 +149,18 @@ class Release_MonitorTest extends TestCase {
 	}
 
 	/**
+	 * Tracks repositories whose scan finds no releases, so a test can focus
+	 * on entries already in the queue.
+	 *
+	 * @param array<int, array<string, mixed>> $repos Repository configs.
+	 */
+	private function track_quiet_repositories( array $repos ): void {
+		$this->repo_settings->method( 'get_repositories' )->willReturn( $repos );
+		$this->api_client->method( 'fetch_release_snapshot' )->willReturn( [] );
+		$this->release_state->method( 'get_state' )->willReturn( $this->base_state() );
+	}
+
+	/**
 	 * Replaces the $wpdb query mock with one that records every query.
 	 *
 	 * @return array<int, string> Captured queries (by reference).
@@ -278,7 +290,7 @@ class Release_MonitorTest extends TestCase {
 	 * @covers Release_Monitor::run
 	 */
 	public function test_run_fires_process_release_action_for_queued_entries(): void {
-		$this->repo_settings->method( 'get_repositories' )->willReturn( [] );
+		$this->track_quiet_repositories( [ [ 'identifier' => 'owner/repo' ] ] );
 
 		$entry = [
 			'identifier'   => 'owner/repo',
@@ -314,7 +326,7 @@ class Release_MonitorTest extends TestCase {
 	 * @covers Release_Monitor::run
 	 */
 	public function test_run_updates_cursors_only_when_post_created(): void {
-		$this->repo_settings->method( 'get_repositories' )->willReturn( [] );
+		$this->track_quiet_repositories( [ [ 'identifier' => 'owner/repo' ] ] );
 
 		$entry = [
 			'identifier'   => 'owner/repo',
@@ -1269,18 +1281,10 @@ class Release_MonitorTest extends TestCase {
 	 * long healthy run is never mistaken for an abandoned one.
 	 */
 	public function test_lock_is_refreshed_before_each_queued_release(): void {
-		$this->repo_settings->method( 'get_repositories' )->willReturn( [] );
-
-		$entry = [
-			'identifier'   => 'owner/repo',
-			'tag'          => 'v1.0.0',
-			'name'         => 'v1.0.0',
-			'body'         => '',
-			'html_url'     => '',
-			'published_at' => '2026-01-01T00:00:00Z',
-			'assets'       => [],
-		];
-		$this->queue->method( 'dequeue_all' )->willReturn( [ $entry, $entry ] );
+		$this->track_quiet_repositories( [ [ 'identifier' => 'owner/repo' ] ] );
+		$this->queue->method( 'dequeue_all' )->willReturn(
+			[ $this->queue_entry( 'owner/repo', 'v1.0.0' ), $this->queue_entry( 'owner/repo', 'v1.1.0' ) ]
+		);
 
 		$queries = &$this->capture_queries();
 		\WP_Mock::userFunction( 'get_posts' )->andReturn( [ new \WP_Post( (object) [ 'ID' => 5 ] ) ] );
@@ -1380,17 +1384,99 @@ class Release_MonitorTest extends TestCase {
 	}
 
 	/**
-	 * Queue entries left by a run that died mid-way are discarded at the
-	 * start of the next run — the repository may since have been paused or
-	 * removed. Nothing is lost: an unposted release is detected again.
+	 * Builds a queue entry.
+	 *
+	 * @param string $identifier Repository identifier.
+	 * @param string $tag        Release tag.
+	 * @param bool   $prerelease Whether GitHub marks it a pre-release.
+	 * @return array<string, mixed>
 	 */
-	public function test_run_discards_a_stale_queue(): void {
-		$this->repo_settings->method( 'get_repositories' )->willReturn( [] );
-		$this->queue->expects( $this->once() )->method( 'clear' );
-		$this->queue->method( 'dequeue_all' )->willReturn( [] );
+	private function queue_entry( string $identifier, string $tag, bool $prerelease = false ): array {
+		return [
+			'identifier'   => $identifier,
+			'tag'          => $tag,
+			'name'         => $tag,
+			'body'         => '',
+			'html_url'     => '',
+			'published_at' => '2026-03-21T00:00:00Z',
+			'assets'       => [],
+			'prerelease'   => $prerelease,
+		];
+	}
+
+	/**
+	 * Records which tags were processed: process_queue() looks up the post
+	 * for each one it fires generation for.
+	 *
+	 * @return array<int, string> Processed tags (by reference).
+	 */
+	private function &capture_processed_tags(): array {
+		$tags = [];
+		\WP_Mock::userFunction( 'get_posts' )->andReturnUsing(
+			function ( array $args ) use ( &$tags ) {
+				$tags[] = $args['meta_query'][1]['value'];
+				return [];
+			}
+		);
+		\WP_Mock::userFunction( '__' )->andReturnArg( 0 );
+		return $tags;
+	}
+
+	/**
+	 * A release queued by a run that died before processing it is still
+	 * generated, alongside a newer release of the same stream — a scan only
+	 * generates each stream's newest, so dropping the queued one would lose
+	 * it for good.
+	 */
+	public function test_queued_release_from_an_interrupted_run_is_still_generated(): void {
+		$this->track_quiet_repositories( [ [ 'identifier' => 'owner/repo' ] ] );
+		$this->queue->method( 'dequeue_all' )->willReturn(
+			[ $this->queue_entry( 'owner/repo', 'v1.1.0' ), $this->queue_entry( 'owner/repo', 'v1.2.0' ) ]
+		);
+		$processed = &$this->capture_processed_tags();
 		$this->mock_run_plumbing();
 
 		$this->monitor->run();
+
+		$this->assertSame( [ 'v1.1.0', 'v1.2.0' ], $processed );
+	}
+
+	/**
+	 * A queued entry is skipped once it is no longer eligible: its repository
+	 * was removed or paused, it is a pre-release and pre-releases are off, or
+	 * the package selection no longer includes it. Duplicates run once.
+	 */
+	public function test_queued_entries_no_longer_eligible_are_skipped(): void {
+		$this->track_quiet_repositories(
+			[
+				[ 'identifier' => 'owner/active' ],
+				[
+					'identifier' => 'owner/paused',
+					'paused'     => true,
+				],
+				[
+					'identifier'   => 'acme/mono',
+					'tag_patterns' => '@acme/core@*',
+				],
+			]
+		);
+		$this->queue->method( 'dequeue_all' )->willReturn(
+			[
+				$this->queue_entry( 'owner/removed', 'v1.0.0' ),
+				$this->queue_entry( 'owner/paused', 'v1.0.0' ),
+				$this->queue_entry( 'owner/active', 'v2.0.0-beta.1', true ),
+				$this->queue_entry( 'acme/mono', '@acme/utils@1.0.0' ),
+				$this->queue_entry( 'acme/mono', '@acme/core@3.0.0' ),
+				$this->queue_entry( 'owner/active', 'v1.0.0' ),
+				$this->queue_entry( 'owner/active', 'v1.0.0' ),
+			]
+		);
+		$processed = &$this->capture_processed_tags();
+		$this->mock_run_plumbing();
+
+		$this->monitor->run();
+
+		$this->assertSame( [ '@acme/core@3.0.0', 'v1.0.0' ], $processed );
 	}
 
 	/**

@@ -120,11 +120,6 @@ class Release_Monitor {
 			// publications from earlier runs stay until the admin has seen them.
 			Publish_Workflow::reset_run_errors();
 
-			// Entries left by a run that died mid-way are stale: the repository
-			// may have been paused or removed since. Nothing is lost — cursors
-			// only advance once a post exists, so this run detects them again.
-			$this->queue->clear();
-
 			$repos = $this->repo_settings->get_repositories();
 
 			foreach ( $repos as $repo ) {
@@ -219,7 +214,7 @@ class Release_Monitor {
 				$this->state->update_last_checked( $identifier );
 			}
 
-			$this->process_queue();
+			$this->process_queue( $repos );
 		} finally {
 			$this->release_lock();
 		}
@@ -548,16 +543,35 @@ class Release_Monitor {
 	 * and the repo-wide display cursor (BR-001: only post-creation advances
 	 * cursors).
 	 *
+	 * @param array<int, array<string, mixed>> $repos Tracked repositories, as loaded for this run.
 	 * @return void
 	 */
-	private function process_queue(): void {
+	private function process_queue( array $repos ): void {
 		$entries = $this->queue->dequeue_all();
 
+		$active = [];
+		foreach ( $repos as $repo ) {
+			if ( '' !== ( $repo['identifier'] ?? '' ) && empty( $repo['paused'] ) ) {
+				$active[ $repo['identifier'] ] = $repo;
+			}
+		}
+
+		$seen = [];
 		foreach ( $entries as $entry ) {
 			$identifier = $entry['identifier'] ?? '';
 			$tag        = $entry['tag'] ?? '';
 
-			if ( '' === $identifier || '' === $tag ) {
+			if ( '' === $identifier || '' === $tag || isset( $seen[ $identifier ][ $tag ] ) ) {
+				continue;
+			}
+			$seen[ $identifier ][ $tag ] = true;
+
+			// An entry left by a run that died mid-way is kept — a newer release
+			// in its stream would otherwise hide it for good, since a scan only
+			// generates each stream's newest — unless the repository has since
+			// been removed or paused, or the release is no longer eligible.
+			if ( ! $this->still_eligible( $entry, $active ) ) {
+				$this->log( $identifier, 'queued release ' . $tag . ' is no longer eligible — skipped' );
 				continue;
 			}
 
@@ -594,6 +608,29 @@ class Release_Monitor {
 				);
 			}
 		}
+	}
+
+	/**
+	 * Whether a queued release may still be generated: its repository is
+	 * tracked and not paused, and the release passes the repository's
+	 * current pre-release setting and package selection.
+	 *
+	 * @param array<string, mixed>                $entry  Queue entry.
+	 * @param array<string, array<string, mixed>> $active Tracked, unpaused repositories by identifier.
+	 * @return bool
+	 */
+	private function still_eligible( array $entry, array $active ): bool {
+		$identifier = (string) $entry['identifier'];
+		if ( ! isset( $active[ $identifier ] ) ) {
+			return false;
+		}
+
+		$repo = $active[ $identifier ];
+		if ( ! empty( $entry['prerelease'] ) && empty( $repo['include_prereleases'] ) ) {
+			return false;
+		}
+
+		return Tag_Pattern_Matcher::matches( (string) $entry['tag'], $this->repo_settings->get_effective_tag_patterns( $identifier, $repo ) );
 	}
 
 	/**
