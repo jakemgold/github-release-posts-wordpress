@@ -511,10 +511,11 @@ class Post_Creator {
 	}
 
 	/**
-	 * Deepest nesting of lists or quotes converted to native blocks; deeper
-	 * structures are kept as HTML. Bounds the recursion on hostile input.
+	 * Block-level markup, or a figure placeholder. A list item, a paragraph,
+	 * or a quote's paragraph that holds any of these has no native block
+	 * equivalent as written, so it is kept as HTML.
 	 */
-	private const MAX_NESTING = 16;
+	private const BLOCK_LEVEL = '/<(?:p|ul|ol|li|pre|blockquote|table|h[1-6]|div|figure|hr|dl|details|section|article|aside|header|footer|nav|form)(?=[\s\/>])|<!--GHRP_FIGURE_/i';
 
 	/**
 	 * Opening tag of an element that becomes a block of its own. Quoted
@@ -561,9 +562,12 @@ class Post_Creator {
 	/**
 	 * Converts HTML content into Gutenberg block markup.
 	 *
-	 * Wraps top-level HTML elements in their corresponding block comments,
-	 * emitting the same markup the block editor itself saves, so the post
-	 * opens without "unexpected or invalid content" warnings.
+	 * Each top-level element becomes the block the editor itself would save
+	 * for it, when it maps onto one 1:1: paragraphs, headings, flat lists,
+	 * quotes made of paragraphs, code, tables, separators, images. Anything
+	 * else — a nested list, block markup inside a list item, a list with
+	 * per-item numbering — is kept as an HTML block exactly as written, so
+	 * conversion never reorders or drops content.
 	 *
 	 * @param string $html Raw HTML content from the AI provider.
 	 * @return string Block-formatted content.
@@ -594,22 +598,6 @@ class Post_Creator {
 			$html
 		) ?? $html;
 
-		$blocks = self::html_to_blocks( $html, $figure_placeholders );
-
-		// A figure nested inside another element (a list item, say) stays in
-		// place as plain markup rather than vanishing as a placeholder comment.
-		return strtr( implode( "\n\n", $blocks ), $figure_placeholders );
-	}
-
-	/**
-	 * Converts an HTML fragment into a list of serialized blocks.
-	 *
-	 * @param string                $html                HTML fragment.
-	 * @param array<string, string> $figure_placeholders Placeholder comment => original <figure> HTML.
-	 * @param int                   $depth               Nesting depth (quotes within quotes).
-	 * @return string[]
-	 */
-	private static function html_to_blocks( string $html, array $figure_placeholders, int $depth = 0 ): array {
 		$blocks = [];
 
 		foreach ( self::split_top_level( $html ) as $part ) {
@@ -619,21 +607,7 @@ class Post_Creator {
 			}
 
 			if ( preg_match( '/^<(p|ul|ol|h[1-6]|blockquote|img|hr|pre|table)(?=[\s\/>])/i', $part, $tag_match ) ) {
-				$tag = strtolower( $tag_match[1] );
-
-				// A paragraph the model wrapped around block-level markup
-				// (<p><ul>…</ul></p>) is not a paragraph: convert what it holds.
-				if ( 'p' === $tag ) {
-					$inner = self::element_inner( $part, 'p' );
-					if ( preg_match( '/<(?:p|ul|ol|h[1-6]|blockquote|pre|table)(?=[\s\/>])|<!--GHRP_FIGURE_/i', $inner ) ) {
-						array_push( $blocks, ...self::html_to_blocks( $inner, $figure_placeholders, $depth ) );
-						continue;
-					}
-				}
-
-				$blocks[] = 'blockquote' === $tag
-					? self::build_quote_block( $part, $figure_placeholders, $depth )
-					: self::wrap_in_block( $tag, $part );
+				$blocks[] = self::wrap_in_block( strtolower( $tag_match[1] ), $part );
 				continue;
 			}
 
@@ -666,7 +640,9 @@ class Post_Creator {
 			$blocks[] = "<!-- wp:paragraph -->\n<p>" . $part . "</p>\n<!-- /wp:paragraph -->";
 		}
 
-		return $blocks;
+		// A figure inside an element kept as HTML (a list item, say) is
+		// restored there, rather than vanishing as a placeholder comment.
+		return strtr( implode( "\n\n", $blocks ), $figure_placeholders );
 	}
 
 	/**
@@ -809,10 +785,14 @@ class Post_Creator {
 	 */
 	private static function wrap_in_block( string $tag, string $html ): string {
 		return match ( $tag ) {
-			'p'                                => "<!-- wp:paragraph -->\n{$html}\n<!-- /wp:paragraph -->",
+			// A paragraph the model wrapped around block markup (<p><ul>…) is
+			// not a paragraph block; it is kept as written.
+			'p'                                => preg_match( self::BLOCK_LEVEL, self::element_inner( $html, 'p' ) )
+				? self::html_block( $html )
+				: "<!-- wp:paragraph -->\n{$html}\n<!-- /wp:paragraph -->",
 			'ul', 'ol'                         => self::build_list_block( $html ) ?? self::html_block( $html ),
 			'h1', 'h2', 'h3', 'h4', 'h5', 'h6' => self::build_heading_block( $tag, $html ),
-			'blockquote'                       => self::build_quote_block( $html, [] ),
+			'blockquote'                       => self::build_quote_block( $html ) ?? self::html_block( $html ),
 			'figure'                           => self::wrap_figure_block( $html ),
 			'img'                              => self::wrap_img_block( $html ),
 			// A complete separator block: the bare opener that used to be
@@ -855,25 +835,36 @@ class Post_Creator {
 	}
 
 	/**
-	 * Builds a core/list block: each <li> becomes a core/list-item block, and
-	 * a list nested inside an item becomes a list block inside that item —
-	 * the shape the editor itself saves.
+	 * Builds a core/list block from a flat list: each <li> becomes a
+	 * core/list-item block, the shape the editor itself saves.
 	 *
-	 * Returns null when the list cannot be represented that way without
-	 * changing what it says — numbering set per item (<li value>), a list
-	 * style (type), text after a nested list, block markup inside an item —
-	 * so the caller keeps it as HTML instead of reordering or dropping it.
+	 * Returns null for any list that does not map onto that 1:1 — a nested
+	 * list or other block markup inside an item, an unclosed item or stray
+	 * text, numbering set per item (<li value>), a list style (type) — so the
+	 * caller keeps it as HTML instead of reshaping it.
 	 *
-	 * @param string $html  The full <ul> or <ol> element.
-	 * @param int    $depth Nesting depth.
+	 * @param string $html The full <ul> or <ol> element.
 	 * @return string|null
 	 */
-	private static function build_list_block( string $html, int $depth = 0 ): ?string {
-		$tag  = 0 === stripos( $html, '<ol' ) ? 'ol' : 'ul';
-		$open = self::opening_tag( $html, $tag );
+	private static function build_list_block( string $html ): ?string {
+		$tag   = 0 === stripos( $html, '<ol' ) ? 'ol' : 'ul';
+		$open  = self::opening_tag( $html, $tag );
+		$inner = self::element_inner( $html, $tag );
 
-		if ( $depth >= self::MAX_NESTING || preg_match( '/\stype\s*=/i', $open ) ) {
+		$item_pattern = '%<li(?=[\s>])((?:[^>"\']|"[^"]*"|\'[^\']*\')*)>(.*?)</li>%is';
+		if ( preg_match( '/\stype\s*=/i', $open ) || ! preg_match_all( $item_pattern, $inner, $items, PREG_SET_ORDER ) ) {
 			return null;
+		}
+		if ( '' !== trim( (string) preg_replace( $item_pattern, '', $inner ) ) ) {
+			return null;
+		}
+
+		$blocks = [];
+		foreach ( $items as $item ) {
+			if ( preg_match( '/\svalue\s*=/i', $item[1] ) || preg_match( self::BLOCK_LEVEL, $item[2] ) ) {
+				return null;
+			}
+			$blocks[] = "<!-- wp:list-item -->\n<li>" . trim( $item[2] ) . "</li>\n<!-- /wp:list-item -->";
 		}
 
 		$attrs     = [];
@@ -893,154 +884,42 @@ class Post_Creator {
 			}
 		}
 
-		$items = [];
-		foreach ( self::split_list_items( self::element_inner( $html, $tag ) ) as [ $item_open, $content ] ) {
-			if ( preg_match( '/\svalue\s*=/i', $item_open ) ) {
-				return null;
-			}
-			$item = self::build_list_item_block( $content, $depth );
-			if ( null === $item ) {
-				return null;
-			}
-			$items[] = $item;
-		}
-
 		$comment_attrs = empty( $attrs ) ? '' : ' {' . implode( ',', $attrs ) . '}';
 
 		return "<!-- wp:list{$comment_attrs} -->\n<{$tag}{$tag_attrs} class=\"wp-block-list\">"
-			. implode( "\n\n", $items )
+			. implode( "\n\n", $blocks )
 			. "</{$tag}>\n<!-- /wp:list -->";
 	}
 
 	/**
-	 * Splits a list's inner HTML into its items. Stray non-whitespace text
-	 * between items becomes an item of its own.
+	 * Builds a core/quote block from a quote made of paragraphs (or bare
+	 * text, which becomes one). Returns null for anything else, so the caller
+	 * keeps it as HTML.
 	 *
-	 * @param string $inner Inner HTML of a <ul> or <ol>.
-	 * @return array<int, array{0: string, 1: string}> Each item's opening tag ('' for stray text) and inner HTML.
-	 */
-	private static function split_list_items( string $inner ): array {
-		$items  = [];
-		$offset = 0;
-		$length = strlen( $inner );
-
-		while ( $offset < $length && preg_match( '%<li(?=[\s/>])(?:[^>"\']|"[^"]*"|\'[^\']*\')*>%i', $inner, $open, PREG_OFFSET_CAPTURE, $offset ) ) {
-			$stray = trim( substr( $inner, $offset, (int) $open[0][1] - $offset ) );
-			if ( '' !== $stray ) {
-				$items[] = [ '', $stray ];
-			}
-
-			$body_start = (int) $open[0][1] + strlen( $open[0][0] );
-			$close      = self::find_closing_tag( $inner, 'li', $body_start );
-
-			if ( null === $close ) {
-				// </li> is optional in HTML: the item runs to the next one.
-				$end     = preg_match( '%<li(?=[\s/>])%i', $inner, $next, PREG_OFFSET_CAPTURE, $body_start ) ? (int) $next[0][1] : $length;
-				$items[] = [ $open[0][0], substr( $inner, $body_start, $end - $body_start ) ];
-				$offset  = $end;
-				continue;
-			}
-
-			$items[] = [ $open[0][0], substr( $inner, $body_start, $close[0] - $body_start ) ];
-			$offset  = $close[1];
-		}
-
-		$stray = trim( substr( $inner, $offset ) );
-		if ( '' !== $stray ) {
-			$items[] = [ '', $stray ];
-		}
-
-		return $items;
-	}
-
-	/**
-	 * Builds a core/list-item block from an item's inner HTML: its text, then
-	 * any nested lists as inner list blocks. Paragraphs and code blocks in
-	 * the text become line-separated inline content, in order.
-	 *
-	 * Returns null when the item cannot be represented that way without
-	 * changing what it says: text after a nested list (a list item saves its
-	 * text before its nested lists), or block markup a list item cannot hold.
-	 *
-	 * @param string $content Inner HTML of an <li>.
-	 * @param int    $depth   Nesting depth of the list holding the item.
+	 * @param string $html The full <blockquote> element.
 	 * @return string|null
 	 */
-	private static function build_list_item_block( string $content, int $depth ): ?string {
-		$text   = '';
-		$nested = [];
-		$offset = 0;
-		$length = strlen( $content );
+	private static function build_quote_block( string $html ): ?string {
+		$inner = trim( self::element_inner( $html, 'blockquote' ) );
 
-		while ( $offset < $length && preg_match( '%<(ul|ol)(?=[\s/>])(?:[^>"\']|"[^"]*"|\'[^\']*\')*>%i', $content, $open, PREG_OFFSET_CAPTURE, $offset ) ) {
-			$list_start = (int) $open[0][1];
-			$list_tag   = strtolower( $open[1][0] );
-			$before     = substr( $content, $offset, $list_start - $offset );
-
-			if ( ! empty( $nested ) && '' !== trim( $before ) ) {
+		if ( ! preg_match( self::BLOCK_LEVEL, $inner ) ) {
+			$paragraphs = '' === $inner ? [] : [ "<p>{$inner}</p>" ];
+		} else {
+			$paragraph_pattern = '%<p(?=[\s>])(?:[^>"\']|"[^"]*"|\'[^\']*\')*>(.*?)</p>%is';
+			if ( ! preg_match_all( $paragraph_pattern, $inner, $found, PREG_SET_ORDER ) || '' !== trim( (string) preg_replace( $paragraph_pattern, '', $inner ) ) ) {
 				return null;
 			}
-			$text .= $before;
-
-			$close    = self::find_closing_tag( $content, $list_tag, $list_start + strlen( $open[0][0] ) );
-			$list_end = null === $close ? $length : $close[1];
-			$list     = substr( $content, $list_start, $list_end - $list_start );
-			if ( null === $close ) {
-				$list .= '</' . $list_tag . '>';
+			foreach ( $found as $paragraph ) {
+				if ( preg_match( self::BLOCK_LEVEL, $paragraph[1] ) ) {
+					return null;
+				}
 			}
-
-			$block = self::build_list_block( $list, $depth + 1 );
-			if ( null === $block ) {
-				return null;
-			}
-			$nested[] = $block;
-			$offset   = $list_end;
+			$paragraphs = array_column( $found, 0 );
 		}
 
-		$after = substr( $content, $offset );
-		if ( ! empty( $nested ) && '' !== trim( $after ) ) {
-			return null;
-		}
-		$text .= $after;
+		$blocks = array_map( static fn( string $paragraph ): string => "<!-- wp:paragraph -->\n{$paragraph}\n<!-- /wp:paragraph -->", $paragraphs );
 
-		// Paragraph and code-block boundaries become line breaks, so text on
-		// either side never runs together. A placeholder marks them until
-		// the end, so line breaks the model wrote itself are left alone.
-		$break = "\x1F";
-		$text  = preg_replace_callback(
-			'%<pre(?:\s[^>]*)?>\s*(?:<code(?:\s[^>]*)?>)?(.*?)(?:</code>)?\s*</pre>%is',
-			static fn( array $code ): string => $break . '<code>' . str_replace( "\n", '<br>', trim( $code[1] ) ) . '</code>' . $break,
-			$text
-		) ?? $text;
-		$text  = preg_replace( '%</?p(?:\s[^>]*)?>%i', $break, $text ) ?? $text;
-
-		if ( preg_match( '/<(?:blockquote|table|h[1-6]|div|figure|hr|dl|details|section|article|aside|header|footer|nav|form)(?=[\s\/>])/i', $text ) ) {
-			return null;
-		}
-
-		$text = preg_replace( '/\s*' . $break . '[\s' . $break . ']*/', $break, trim( $text ) ) ?? $text;
-		$text = str_replace( $break, '<br>', trim( $text, $break ) );
-
-		return "<!-- wp:list-item -->\n<li>" . trim( $text ) . implode( "\n\n", $nested ) . "</li>\n<!-- /wp:list-item -->";
-	}
-
-	/**
-	 * Builds a core/quote block, converting its contents into inner blocks
-	 * (bare text becomes a paragraph).
-	 *
-	 * @param string                $html                The full <blockquote> element.
-	 * @param array<string, string> $figure_placeholders Placeholder comment => original <figure> HTML.
-	 * @param int                   $depth               Nesting depth.
-	 * @return string
-	 */
-	private static function build_quote_block( string $html, array $figure_placeholders, int $depth = 0 ): string {
-		if ( $depth >= self::MAX_NESTING ) {
-			return self::html_block( $html );
-		}
-
-		$inner_blocks = self::html_to_blocks( self::element_inner( $html, 'blockquote' ), $figure_placeholders, $depth + 1 );
-
-		return "<!-- wp:quote -->\n<blockquote class=\"wp-block-quote\">" . implode( "\n\n", $inner_blocks ) . "</blockquote>\n<!-- /wp:quote -->";
+		return "<!-- wp:quote -->\n<blockquote class=\"wp-block-quote\">" . implode( "\n\n", $blocks ) . "</blockquote>\n<!-- /wp:quote -->";
 	}
 
 	/**

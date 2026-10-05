@@ -1052,17 +1052,13 @@ class Post_CreatorTest extends TestCase {
 	}
 
 	/**
-	 * A nested list is matched to its own closing tag (it used to end at the
-	 * inner </ul>, leaving "</li></ul>" behind as a broken paragraph), and
-	 * comes out as list-item blocks with the nested list inside its item —
-	 * byte-for-byte what the editor serializes.
+	 * A flat list comes out as list-item blocks, byte-for-byte what the
+	 * editor serializes; inline markup and line breaks the model wrote stay.
 	 */
-	public function test_convert_html_to_blocks_builds_nested_lists(): void {
-		$result = Post_Creator::convert_html_to_blocks( "<ul>\n<li>Parent<ul><li>Child</li></ul></li>\n<li>Next</li>\n</ul>" );
-
+	public function test_convert_html_to_blocks_builds_flat_lists(): void {
 		$this->assertSame(
-			"<!-- wp:list -->\n<ul class=\"wp-block-list\"><!-- wp:list-item -->\n<li>Parent<!-- wp:list -->\n<ul class=\"wp-block-list\"><!-- wp:list-item -->\n<li>Child</li>\n<!-- /wp:list-item --></ul>\n<!-- /wp:list --></li>\n<!-- /wp:list-item -->\n\n<!-- wp:list-item -->\n<li>Next</li>\n<!-- /wp:list-item --></ul>\n<!-- /wp:list -->",
-			$result
+			"<!-- wp:list -->\n<ul class=\"wp-block-list\"><!-- wp:list-item -->\n<li>One <code>a</code></li>\n<!-- /wp:list-item -->\n\n<!-- wp:list-item -->\n<li>A<br><br>B</li>\n<!-- /wp:list-item --></ul>\n<!-- /wp:list -->",
+			Post_Creator::convert_html_to_blocks( "<ul>\n<li>One <code>a</code></li>\n<li>A<br><br>B</li>\n</ul>" )
 		);
 	}
 
@@ -1070,20 +1066,6 @@ class Post_CreatorTest extends TestCase {
 		$result = Post_Creator::convert_html_to_blocks( '<ol reversed start="3"><li>C</li></ol>' );
 
 		$this->assertStringStartsWith( "<!-- wp:list {\"ordered\":true,\"start\":3,\"reversed\":true} -->\n<ol reversed start=\"3\" class=\"wp-block-list\">", $result );
-	}
-
-	/**
-	 * A list item can hold only text and nested lists: paragraphs inside it
-	 * become line breaks, and a code block (common in "migration steps")
-	 * becomes inline code instead of cutting the list in half.
-	 */
-	public function test_convert_html_to_blocks_flattens_block_markup_inside_list_items(): void {
-		$result = Post_Creator::convert_html_to_blocks( "<ol><li><p>One.</p><p>Two.</p></li><li>Run:\n<pre><code>wp cache flush</code></pre></li><li>Done.</li></ol>" );
-
-		$this->assertStringContainsString( '<li>One.<br>Two.</li>', $result );
-		$this->assertStringContainsString( '<li>Run:<br><code>wp cache flush</code></li>', $result );
-		$this->assertStringContainsString( '<li>Done.</li>', $result );
-		$this->assertSame( 1, substr_count( $result, '<!-- wp:list ' ) );
 	}
 
 	/**
@@ -1117,13 +1099,6 @@ class Post_CreatorTest extends TestCase {
 		);
 	}
 
-	public function test_convert_html_to_blocks_unwraps_paragraph_around_a_list(): void {
-		$result = Post_Creator::convert_html_to_blocks( '<p><ul><li>Item</li></ul></p>' );
-
-		$this->assertStringStartsWith( '<!-- wp:list -->', $result );
-		$this->assertStringNotContainsString( 'wp:paragraph', $result );
-	}
-
 	/**
 	 * An element the model never closed ends where the next block starts,
 	 * and is closed there.
@@ -1152,43 +1127,39 @@ class Post_CreatorTest extends TestCase {
 	}
 
 	/**
-	 * A list the list-item block cannot represent without changing what it
-	 * says stays HTML, exactly as written: text after a nested list (a list
-	 * item saves its text before its nested lists, so "Third" moved ahead of
-	 * "Second"), numbering set per item, a list style, or block markup inside
-	 * an item.
+	 * Markup with no native block equivalent as written stays one HTML
+	 * block, exactly as written, rather than being reshaped: each element is
+	 * still matched to its own closing tag (a nested list used to end at the
+	 * inner </ul>, leaving "</li></ul>" behind as a broken paragraph), and a
+	 * figure inside it is restored in place.
 	 *
-	 * @dataProvider unrepresentable_list_provider
+	 * @dataProvider unrepresentable_markup_provider
 	 */
-	public function test_convert_html_to_blocks_keeps_unrepresentable_lists_as_html( string $html ): void {
+	public function test_convert_html_to_blocks_keeps_unrepresentable_markup_as_html( string $html ): void {
+		\WP_Mock::userFunction( 'esc_url' )->andReturnUsing( fn( $v ) => $v )->byDefault();
+		\WP_Mock::userFunction( 'esc_attr' )->andReturnUsing( fn( $v ) => $v )->byDefault();
+
 		$this->assertSame( "<!-- wp:html -->\n{$html}\n<!-- /wp:html -->", Post_Creator::convert_html_to_blocks( $html ) );
 	}
 
-	public static function unrepresentable_list_provider(): array {
+	public static function unrepresentable_markup_provider(): array {
 		return [
-			'text after a nested list'     => [ '<ul><li>First<ul><li>Second</li></ul>Third</li></ul>' ],
-			'text between nested lists'    => [ '<ol><li>Before<ul><li>One</li></ul>Between<ol><li>Two</li></ol></li></ol>' ],
-			'numbering set per item'       => [ '<ol><li value="3">Three</li><li value="7">Seven</li></ol>' ],
-			'list style'                   => [ '<ol type="a"><li>A</li><li>B</li></ol>' ],
-			'quote inside an item'         => [ '<ul><li>Note:<blockquote><p>Quoted.</p></blockquote></li></ul>' ],
-			'unrepresentable nested list'  => [ '<ul><li>Parent<ol><li value="2">Two</li></ol></li></ul>' ],
+			'nested list'                => [ "<ul>\n<li>Parent<ul><li>Child</li></ul></li>\n<li>Next</li>\n</ul>" ],
+			'text after a nested list'   => [ '<ul><li>First<ul><li>Second</li></ul>Third</li></ul>' ],
+			'paragraphs inside an item'  => [ '<ol><li><p>One.</p><p>Two.</p></li><li>Done.</li></ol>' ],
+			'paragraph between text'     => [ '<ul><li>Before<p>Inside</p>After</li></ul>' ],
+			'code block inside an item'  => [ "<ol><li>Run:\n<pre><code>wp cache flush</code></pre></li><li>Done.</li></ol>" ],
+			'quote inside an item'       => [ '<ul><li>Note:<blockquote><p>Quoted.</p></blockquote></li></ul>' ],
+			'figure inside an item'      => [ '<ul><li>Screenshot: <figure><img src="https://example.com/a.png" alt=""></figure></li></ul>' ],
+			'unclosed items'             => [ '<ul><li>One<li>Two</ul>' ],
+			'numbering set per item'     => [ '<ol><li value="3">Three</li><li value="7">Seven</li></ol>' ],
+			'list style'                 => [ '<ol type="a"><li>A</li><li>B</li></ol>' ],
+			'quote holding a list'       => [ '<blockquote><p>Note:</p><ul><li>One</li></ul></blockquote>' ],
+			'nested quote'               => [ '<blockquote><blockquote><p>Inner.</p></blockquote></blockquote>' ],
+			'quote with a citation'      => [ '<blockquote><p>Quoted.</p><cite>Someone</cite></blockquote>' ],
+			'paragraph around a list'    => [ '<p><ul><li>Item</li></ul></p>' ],
+			'paragraph around a figure'  => [ '<p>See <figure><img src="https://example.com/b.png" alt=""></figure></p>' ],
 		];
-	}
-
-	/**
-	 * Paragraph boundaries inside a list item become line breaks, so the
-	 * text on either side never runs together ("BeforeInsideAfter"); line
-	 * breaks the model wrote itself are left alone.
-	 */
-	public function test_convert_html_to_blocks_keeps_text_boundaries_in_list_items(): void {
-		$this->assertStringContainsString(
-			'<li>Before<br>Inside<br>After</li>',
-			Post_Creator::convert_html_to_blocks( '<ul><li>Before<p>Inside</p>After</li></ul>' )
-		);
-		$this->assertStringContainsString(
-			'<li>A<br><br>B</li>',
-			Post_Creator::convert_html_to_blocks( '<ul><li>A<br><br>B</li></ul>' )
-		);
 	}
 
 	/**
@@ -1206,17 +1177,15 @@ class Post_CreatorTest extends TestCase {
 	}
 
 	/**
-	 * Lists and quotes nested deeper than any real post are kept as HTML
-	 * rather than recursed into without bound.
+	 * Deeply nested quotes and lists are a single HTML block: nothing is
+	 * recursed into, so depth costs no more than length.
 	 */
-	public function test_convert_html_to_blocks_bounds_nesting(): void {
-		$quotes = str_repeat( '<blockquote>', 40 ) . 'Deep' . str_repeat( '</blockquote>', 40 );
-		$result = Post_Creator::convert_html_to_blocks( $quotes );
-		$this->assertStringContainsString( '<!-- wp:html -->', $result );
-		$this->assertStringContainsString( 'Deep', $result );
+	public function test_convert_html_to_blocks_keeps_deep_nesting_as_one_html_block(): void {
+		$quotes = str_repeat( '<blockquote>', 2000 ) . 'Deep' . str_repeat( '</blockquote>', 2000 );
+		$this->assertSame( "<!-- wp:html -->\n{$quotes}\n<!-- /wp:html -->", Post_Creator::convert_html_to_blocks( $quotes ) );
 
-		$lists = str_repeat( '<ul><li>Level', 40 ) . str_repeat( '</li></ul>', 40 );
-		$this->assertStringStartsWith( '<!-- wp:html -->', Post_Creator::convert_html_to_blocks( $lists ) );
+		$lists = str_repeat( '<ul><li>Level', 2000 ) . str_repeat( '</li></ul>', 2000 );
+		$this->assertSame( "<!-- wp:html -->\n{$lists}\n<!-- /wp:html -->", Post_Creator::convert_html_to_blocks( $lists ) );
 	}
 
 	/**
